@@ -232,136 +232,117 @@ export function Inventory() {
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
-      // --- Responsive coordinates ---
-      const pad = cw * 0.04; // 4% padding
-      const cardH = ch * 0.22; // 22% card height
-      const cardW = cw - pad * 2;
+      // --- Prepare Specs Lines (Only specs, no decorative text) ---
+      const specLines: { icon: string; label: string }[] = [];
+      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") {
+        specLines.push({ icon: "⚡", label: currentSpecs.processor });
+      }
+      if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") {
+        specLines.push({ icon: "🎮", label: currentSpecs.vga });
+      }
+      if (currentSpecs.ram && currentSpecs.ram !== "RAM") {
+        specLines.push({ icon: "▦", label: `RAM ${currentSpecs.ram}` });
+      }
+      if (currentSpecs.storage && currentSpecs.storage !== "Storage") {
+        specLines.push({ icon: "◉", label: `SSD ${currentSpecs.storage}` });
+      }
+      if (currentSpecs.screen && currentSpecs.screen !== "Layar / Screen") {
+        specLines.push({ icon: "▢", label: currentSpecs.screen });
+      }
+
+      // --- Dimension and Font Calculations ---
+      const pad = cw * 0.04; // 4% outer padding
+      const cardPadding = cw * 0.024;
+      const modelFontSize = Math.round(cw * 0.026);
+      const specFontSize = Math.round(cw * 0.018);
+      const lineHeight = Math.round(specFontSize * 1.5);
+
+      // Calculate maximum content width for perfect fit
+      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      let maxContentWidth = ctx.measureText(currentSpecs.model).width;
+      
+      ctx.font = `500 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      specLines.forEach(line => {
+        const textWidth = ctx.measureText(`${line.icon}   ${line.label}`).width;
+        if (textWidth > maxContentWidth) {
+          maxContentWidth = textWidth;
+        }
+      });
+
+      // Define Card Dimensions
+      const cardW = maxContentWidth + cardPadding * 2 + 16;
+      const headerH = modelFontSize + 10;
+      const dividerH = 12;
+      const linesH = specLines.length * lineHeight;
+      const cardH = cardPadding * 2 + headerH + dividerH + linesH;
+
       const cardX = pad;
       const cardY = ch - cardH - pad;
-      const cPad = cardW * 0.03; // inside padding of card
 
       // 3. Draw Floating Glassmorphism Spec Card
-      // Shadow / Outer Glow
       ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
       ctx.shadowBlur = 24;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 8;
 
-      // Main Card Background (Slate dark glass)
       ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
       ctx.beginPath();
       ctx.roundRect(cardX, cardY, cardW, cardH, 16);
       ctx.fill();
 
-      // Reset shadow for drawing content
+      // Reset shadow
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // Card Border Accent (Thin elegant white/translucent)
+      // Card Border Accent (Thin translucent)
       ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.roundRect(cardX, cardY, cardW, cardH, 16);
       ctx.stroke();
 
-      // Left Accent Border (Premium solid cyan/blue accent bar)
-      ctx.fillStyle = "#3b82f6"; // Blue-500 accent
+      // Left Accent Border (Cyan-Blue Accent Bar)
+      ctx.fillStyle = "#3b82f6";
       ctx.beginPath();
       ctx.roundRect(cardX + 1.5, cardY + 1.5, 6, cardH - 3, [14, 0, 0, 14]);
       ctx.fill();
 
-      // --- Text coordinates ---
-      const textX = cardX + cPad + 12;
-      const baseFontSize = Math.round(cw * 0.024); // responsive base font size
+      // --- Draw Content ---
+      const contentX = cardX + cardPadding + 12;
       
-      // 4. Laptop Model Title (Large, bold)
-      const modelFontSize = Math.round(cw * 0.03);
+      // Laptop Model Title
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      const modelY = cardY + cardH * 0.16;
-      ctx.fillText(currentSpecs.model, textX, modelY);
+      ctx.fillText(currentSpecs.model, contentX, cardY + cardPadding);
 
-      // 5. Condition Badge ("SIAP PAKAI" / "READY STOCK")
-      const badgeFontSize = Math.round(cw * 0.016);
-      const badgeText = "READY STOCK • SIAP PAKAI";
-      ctx.font = `700 ${badgeFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      const badgeW = ctx.measureText(badgeText).width;
-      const badgeX = cardX + cardW - cPad - badgeW - 12;
-      const badgeY = modelY + 2;
-
-      // Draw green indicator dot
-      ctx.fillStyle = "#10b981"; // Emerald-500
-      ctx.beginPath();
-      ctx.arc(badgeX - 10, badgeY + badgeFontSize / 2 + 1, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-      ctx.fillText(badgeText, badgeX, badgeY);
-
-      // --- Horizontal Divider line ---
-      const sepY = modelY + modelFontSize + cardH * 0.1;
+      // Divider line
+      const sepY = cardY + cardPadding + modelFontSize + 8;
       ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(textX, sepY);
-      ctx.lineTo(cardX + cardW - cPad - 12, sepY);
+      ctx.moveTo(contentX, sepY);
+      ctx.lineTo(cardX + cardW - cardPadding, sepY);
       ctx.stroke();
 
-      // --- 3-Column Specifications Layout ---
-      const specY = sepY + cardH * 0.08;
-      const specFontSize = Math.round(baseFontSize * 0.78);
-      const subSpecFontSize = Math.round(baseFontSize * 0.68);
+      // Specifications Rows
+      let currentY = sepY + 12;
+      ctx.textBaseline = "top";
       
-      const col1X = textX;
-      const col2X = cardX + cardW * 0.4;
-      const col3X = cardX + cardW * 0.72;
-
-      // Column 1: Processor & VGA
-      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      specLines.forEach(line => {
+        // Draw icon in cyan
+        ctx.fillStyle = "#60a5fa";
         ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(currentSpecs.processor, col1X, specY);
-        
-        if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-          ctx.font = `500 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
-          ctx.fillText(currentSpecs.vga, col1X, specY + specFontSize + 6);
-        }
-      }
+        ctx.fillText(line.icon, contentX, currentY);
 
-      // Column 2: RAM & Storage (SSD)
-      const ramLabel = currentSpecs.ram && currentSpecs.ram !== "RAM" ? `RAM ${currentSpecs.ram}` : "";
-      const storageLabel = currentSpecs.storage && currentSpecs.storage !== "Storage" ? `SSD ${currentSpecs.storage}` : "";
-      if (ramLabel || storageLabel) {
-        const combinedSpecs = [ramLabel, storageLabel].filter(Boolean).join(" / ");
+        // Draw spec value
         ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(combinedSpecs, col2X, specY);
-        
-        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-        ctx.font = `500 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText("High Speed Memory & Storage", col2X, specY + specFontSize + 6);
-      }
+        ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(line.label, contentX + specFontSize + 10, currentY);
 
-      // Column 3: Screen & Branding
-      const screenLabel = currentSpecs.screen && currentSpecs.screen !== "Layar / Screen" ? currentSpecs.screen : "";
-      if (screenLabel) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(screenLabel, col3X, specY);
-      }
-      
-      // Store Branding with gold star emblem
-      const brandY = specY + specFontSize + 6;
-      ctx.fillStyle = "#fbbf24"; // Gold Star
-      ctx.font = `700 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("★", col3X, brandY);
-      
-      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-      ctx.font = `800 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("HAN LAPTOP", col3X + 14, brandY);
+        currentY += lineHeight;
+      });
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
 
