@@ -183,7 +183,8 @@ export function Inventory() {
       vga: "VGA / Graphics",
       ram: "RAM",
       storage: "Storage",
-      screen: "Layar / Screen"
+      screen: "Layar / Screen",
+      condition: "Sangat Baik"
     }
     if (value) {
       const parts = value.split(" | ");
@@ -199,6 +200,8 @@ export function Inventory() {
           result.storage = part.substring(part.indexOf(":") + 1).trim();
         } else if (lowerPart.startsWith("layar:") || lowerPart.startsWith("screen:") || lowerPart.startsWith("display:")) {
           result.screen = part.substring(part.indexOf(":") + 1).trim();
+        } else if (lowerPart.startsWith("kondisi:")) {
+          result.condition = part.substring(part.indexOf(":") + 1).trim();
         }
       });
     }
