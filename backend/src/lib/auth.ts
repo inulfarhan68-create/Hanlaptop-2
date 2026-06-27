@@ -3,6 +3,17 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { db } from "../db";
 import * as schema from "../db/schema";
 
+let serverBaseURL = process.env.BETTER_AUTH_URL || "";
+if (!serverBaseURL) {
+    serverBaseURL = process.env.NODE_ENV === 'development' 
+        ? "http://localhost:3000/api/auth" 
+        : "https://hanlaptop.vercel.app/_/backend/api/auth";
+} else {
+    if (process.env.NODE_ENV === 'production' && !serverBaseURL.includes("/_/backend")) {
+        serverBaseURL = serverBaseURL.replace("/api/auth", "/_/backend/api/auth");
+    }
+}
+
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "sqlite",
@@ -14,7 +25,7 @@ export const auth = betterAuth({
         }
     }),
     secret: process.env.BETTER_AUTH_SECRET || "SUPER_SECRET_KEY_HANLAPTOP_2026",
-    baseURL: process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? "http://localhost:3000/api/auth" : "https://hanlaptop.vercel.app/_/backend/api/auth"),
+    baseURL: serverBaseURL,
     emailAndPassword: {
         enabled: true,
     },
