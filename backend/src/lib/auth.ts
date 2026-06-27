@@ -16,10 +16,10 @@ if (serverBaseURL) {
 if (!serverBaseURL) {
     serverBaseURL = process.env.NODE_ENV === 'development' 
         ? "http://localhost:3000/api/auth" 
-        : "https://hanlaptop.vercel.app/_/backend/api/auth";
+        : "https://hanlaptop.vercel.app/api/auth";
 } else {
-    if (process.env.NODE_ENV === 'production' && !serverBaseURL.includes("/_/backend")) {
-        serverBaseURL = serverBaseURL.replace("/api/auth", "/_/backend/api/auth");
+    if (serverBaseURL.includes("/_/backend")) {
+        serverBaseURL = serverBaseURL.replace("/_/backend", "");
     }
 }
 
