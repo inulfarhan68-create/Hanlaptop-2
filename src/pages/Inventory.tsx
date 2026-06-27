@@ -295,33 +295,36 @@ export function Inventory() {
       } catch (e) {}
 
       // Gold line separator with subTitle text in the middle
-      const lineY = startHeaderY + modelFontSize + 16;
+      const lineY = startHeaderY + modelFontSize + 24; // Extra spacing
       ctx.strokeStyle = "#c5a85c"; // Muted Gold
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2.0;
 
-      ctx.font = `600 ${Math.round(modelFontSize * 0.55)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.font = `600 ${Math.round(modelFontSize * 0.65)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
       const labelW = ctx.measureText(subTitle).width;
 
-      // Left horizontal gold line
+      // Left horizontal gold line (extended to match reference)
       ctx.beginPath();
-      ctx.moveTo(cw / 2 - labelW / 2 - 80, lineY);
-      ctx.lineTo(cw / 2 - labelW / 2 - 15, lineY);
+      ctx.moveTo(cw / 2 - labelW / 2 - 240, lineY);
+      ctx.lineTo(cw / 2 - labelW / 2 - 20, lineY);
       ctx.stroke();
 
-      // Subtitle text (Gold)
+      // Subtitle text (Gold, vertically centered)
       ctx.fillStyle = "#c5a85c";
-      ctx.fillText(subTitle, cw / 2, lineY - Math.round(modelFontSize * 0.28));
+      ctx.fillText(subTitle, cw / 2, lineY);
 
-      // Right horizontal gold line
+      // Right horizontal gold line (extended to match reference)
       ctx.beginPath();
-      ctx.moveTo(cw / 2 + labelW / 2 + 15, lineY);
-      ctx.lineTo(cw / 2 + labelW / 2 + 80, lineY);
+      ctx.moveTo(cw / 2 + labelW / 2 + 20, lineY);
+      ctx.lineTo(cw / 2 + labelW / 2 + 240, lineY);
       ctx.stroke();
 
       // Subtagline
       ctx.fillStyle = "#475569"; // Dark grey/slate
+      ctx.textBaseline = "top";
       ctx.font = `500 ${Math.round(modelFontSize * 0.35)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 14);
+      ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 22);
 
       // Helper to clean and format specs to fit neatly without clipping
       const cleanSpec = (text: string, type: "cpu" | "vga" | "ram" | "storage" | "screen" | "condition") => {
@@ -487,46 +490,114 @@ export function Inventory() {
         }
       };
 
-      // 5. Draw 3-Column, 2-Row Specifications Grid (Adjusted startX slightly to the right to center visually)
-      const gridW = cw * 0.80; // Compact 80% width container
+      // 5. Draw 3-Column, 2-Row Specifications Grid (Adjusted visual weight to center grid perfectly between margins)
+      const gridW = cw * 0.82; // Compact 82% width container
       const margin = (cw - gridW) / 2;
       const colWidth = gridW / 3;
       const gridStartY = ch * 0.745; // Pushed down
       const rowGap = ch * 0.072;
-      const startX = margin + cw * 0.015; // Shunted slightly rightwards to offset textual blankness on the far right
+      const startX = margin + cw * 0.02; // Shunted slightly rightwards to offset visual weight from text on right
       const badgeRadius = Math.round(cw * 0.021);
 
-      const gridItems = [
-        {
-          col: 0, row: 0, icon: "cpu",
-          title: currentSpecs.processor === "Processor Detail" ? "Intel / AMD" : cleanSpec(currentSpecs.processor, "cpu"),
-          subtitle: "Processor"
-        },
-        {
-          col: 0, row: 1, icon: "ram",
-          title: currentSpecs.ram === "RAM" ? "RAM 8GB" : cleanSpec(currentSpecs.ram, "ram"),
-          subtitle: "DDR4 Memory"
-        },
-        {
-          col: 1, row: 0, icon: "vga",
-          title: currentSpecs.vga === "VGA / Graphics" ? "Graphics GPU" : cleanSpec(currentSpecs.vga, "vga"),
-          subtitle: "VGA / GPU"
-        },
-        {
-          col: 1, row: 1, icon: "ssd",
-          title: currentSpecs.storage === "Storage" ? "SSD 256GB" : cleanSpec(currentSpecs.storage, "storage"),
-          subtitle: "Storage Drive"
-        },
-        {
-          col: 2, row: 0, icon: "screen",
-          title: currentSpecs.screen === "Layar / Screen" ? "14\" Display" : cleanSpec(currentSpecs.screen, "screen"),
-          subtitle: "Layar / Screen"
-        },
-        {
-          col: 2, row: 1, icon: "shield",
-          title: currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? cleanSpec(currentSpecs.condition, "condition") : "Grade A",
-          subtitle: "Business Grade"
+      // Helper to dynamically split single spec string into Line 1 (title) and Line 2 (subtitle)
+      const splitSpec = (text: string, type: "cpu" | "vga" | "ram" | "storage" | "screen" | "condition"): { title: string, subtitle: string } => {
+        if (!text) return { title: "-", subtitle: "" };
+        let s = text.trim();
+
+        if (type === "cpu") {
+          s = s.replace(/Processor/gi, "").replace(/Prosesor/gi, "").trim();
+          if (s.includes("|")) {
+            const parts = s.split("|");
+            return { title: parts[0].trim(), subtitle: parts[1].trim() };
+          }
+          if (s.includes("/")) {
+            const parts = s.split("/");
+            return { title: parts[0].trim(), subtitle: parts[1].trim() };
+          }
+          if (s.toLowerCase().startsWith("intel core")) {
+            return { title: s.substring(0, 13).trim(), subtitle: s.substring(13).trim() || "Processor" };
+          }
+          if (s.toLowerCase().startsWith("amd ryzen")) {
+            const spaceIdx = s.indexOf(" ", 10);
+            if (spaceIdx > 0) {
+              return { title: s.substring(0, spaceIdx).trim(), subtitle: s.substring(spaceIdx).trim() };
+            }
+          }
+          return { title: s, subtitle: "Processor" };
         }
+
+        if (type === "ram") {
+          const gbMatch = s.match(/(\d+)\s*GB/i);
+          const gb = gbMatch ? `${gbMatch[1]}GB` : "8GB";
+          let rem = s.replace(/(\d+)\s*GB/i, "").replace(/ram/gi, "").trim();
+          if (!rem) rem = "Memory DDR4";
+          return { title: `Ram ${gb}`, subtitle: rem };
+        }
+
+        if (type === "vga") {
+          s = s.replace(/Graphics/gi, "").replace(/Grafik/gi, "").replace(/Laptop GPU/gi, "").replace(/GeForce/gi, "").trim();
+          return { title: s, subtitle: "Graphics" };
+        }
+
+        if (type === "storage") {
+          const sizeMatch = s.match(/(\d+)\s*(GB|TB)/i);
+          const size = sizeMatch ? `${sizeMatch[1]}${sizeMatch[2]}` : "256GB";
+          let rem = s.replace(/(\d+)\s*(GB|TB)/i, "").trim();
+          rem = rem.replace(/ssd/gi, "").replace(/hdd/gi, "").trim();
+          if (!rem) rem = "Storage Drive";
+          return { title: `SSD ${size}`, subtitle: rem };
+        }
+
+        if (type === "screen") {
+          const sizeMatch = s.match(/(\d+(\.\d+)?)\s*("|-inch|inch)/i);
+          const size = sizeMatch ? `${sizeMatch[1]}` : "14";
+          let rem = s.replace(/(\d+(\.\d+)?)\s*("|-inch|inch)/i, "").trim();
+          if (rem.startsWith("-")) rem = rem.substring(1).trim();
+          rem = rem.replace(/slim bezel/gi, "").trim();
+          
+          if (rem.includes("(")) {
+            const openP = rem.indexOf("(");
+            const titlePart = rem.substring(0, openP).trim();
+            const subPart = rem.substring(openP).trim();
+            return { title: `${size}" ${titlePart}`, subtitle: subPart };
+          }
+          return { title: `${size}" Display`, subtitle: rem };
+        }
+
+        if (type === "condition") {
+          const lower = s.toLowerCase();
+          let grade = "Grade A";
+          if (lower.includes("sangat baik") || lower.includes("mulus") || lower.includes("like new") || lower.includes("istimewa")) {
+            grade = "Grade A";
+          } else if (lower.includes("baik") || lower.includes("normal")) {
+            grade = "Grade A";
+          } else if (lower.includes("sedang") || lower.includes("lecet") || lower.includes("minus") || lower.includes("kurang")) {
+            grade = "Grade B";
+          }
+          return { title: grade, subtitle: "Business Grade" };
+        }
+
+        return { title: s, subtitle: "" };
+      };
+
+      const getGridItem = (col: number, row: number, icon: string, rawVal: string, fallbackTitle: string, type: "cpu" | "vga" | "ram" | "storage" | "screen" | "condition") => {
+        const info = splitSpec(rawVal, type);
+        return {
+          col,
+          row,
+          icon,
+          title: info.title || fallbackTitle,
+          subtitle: info.subtitle || "Spec Detail"
+        };
+      };
+
+      const gridItems = [
+        getGridItem(0, 0, "cpu", currentSpecs.processor === "Processor Detail" ? "" : currentSpecs.processor, "Intel / AMD", "cpu"),
+        getGridItem(0, 1, "ram", currentSpecs.ram === "RAM" ? "" : currentSpecs.ram, "Ram 8GB", "ram"),
+        getGridItem(1, 0, "vga", currentSpecs.vga === "VGA / Graphics" ? "" : currentSpecs.vga, "Graphics GPU", "vga"),
+        getGridItem(1, 1, "ssd", currentSpecs.storage === "Storage" ? "" : currentSpecs.storage, "SSD 256GB", "storage"),
+        getGridItem(2, 0, "screen", currentSpecs.screen === "Layar / Screen" ? "" : currentSpecs.screen, "14\" Display", "screen"),
+        getGridItem(2, 1, "shield", currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? currentSpecs.condition : "Grade A", "Grade A", "condition")
       ];
 
       // Draw Grid Items (Pure Black texts with no shadows)
