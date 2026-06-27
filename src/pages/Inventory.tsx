@@ -754,17 +754,16 @@ export function Inventory() {
       ctx.stroke();
       ctx.restore();
 
-      // ── Phone handset: single thick arc with round ends ──
-      // This is the definitive method: one C-shaped arc rotated 45° looks exactly like a phone receiver
+      // ── Phone handset: single thick arc with round end-caps ──
+      // earpiece at 330° (upper-right), mouthpiece at 120° (lower-left)
+      // arc sweeps CCW 210° through upper-left — matches the WA logo exactly
       ctx.save();
       ctx.translate(waCx, waCy);
-      ctx.rotate(Math.PI / 4); // 45° tilt so earpiece is top-right, mouthpiece is bottom-left
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = waR * 0.38;  // Very thick – creates the fat earpiece/mouthpiece from round caps
+      ctx.lineWidth = waR * 0.40;  // Very thick → fat rounded earpiece/mouthpiece from round caps
       ctx.lineCap = "round";
       ctx.beginPath();
-      // Draw a C-shaped arc (roughly 200° sweep, from top to bottom)
-      ctx.arc(0, 0, waR * 0.42, -2.6, 0.6, false); // about -149° to 34°, counterclockwise = false
+      ctx.arc(0, 0, waR * 0.40, 330 * Math.PI / 180, 120 * Math.PI / 180, true); // CCW 210°
       ctx.stroke();
       ctx.restore();
 
