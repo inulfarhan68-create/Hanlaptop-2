@@ -229,7 +229,6 @@ export function Inventory() {
 
     let productLoaded = false;
     let logoLoaded = false;
-
     const drawWatermark = () => {
       if (!productLoaded) return;
       if (storeLogoUrl && !logoLoaded) return; // Wait for store logo to load if present
@@ -364,6 +363,17 @@ export function Inventory() {
                .replace(/Slim Bezel/gi, "")
                .replace(/\(1920x1080\)/gi, "")
                .replace(/IPS\s+Panel/gi, "IPS");
+        } else if (type === "condition") {
+          const lower = s.toLowerCase();
+          if (lower.includes("sangat baik") || lower.includes("mulus") || lower.includes("like new") || lower.includes("istimewa")) {
+            s = "Grade A";
+          } else if (lower.includes("baik") || lower.includes("normal")) {
+            s = "Grade A";
+          } else if (lower.includes("sedang") || lower.includes("lecet") || lower.includes("minus") || lower.includes("kurang")) {
+            s = "Grade B";
+          } else {
+            s = "Grade A";
+          }
         }
         
         s = s.trim().replace(/\s+/g, " ");
@@ -423,13 +433,33 @@ export function Inventory() {
             ctx.fillRect(cx + xOff - 1, cy + h/2 - 2, 2, 2);
           }
         } else if (iconType === "ssd") {
-          const w = r * 0.8;
-          ctx.strokeRect(cx - w/2, cy - w/2, w, w);
-          ctx.fillStyle = "#c5a85c";
-          ctx.font = `bold ${Math.round(r * 0.5)}px 'Segoe UI', sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("SSD", cx, cy);
+          // Premium database cylinder storage platter stack (NO awkward SSD text)
+          const w = r * 0.9;
+          const h = r * 0.28;
+          // Platter 1 (Top)
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - h, w/2, h/2, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          // Platter 2 (Middle)
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, w/2, h/2, 0, 0, Math.PI);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - w/2, cy - h);
+          ctx.lineTo(cx - w/2, cy);
+          ctx.moveTo(cx + w/2, cy - h);
+          ctx.lineTo(cx + w/2, cy);
+          ctx.stroke();
+          // Platter 3 (Bottom)
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + h, w/2, h/2, 0, 0, Math.PI);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - w/2, cy);
+          ctx.lineTo(cx - w/2, cy + h);
+          ctx.moveTo(cx + w/2, cy);
+          ctx.lineTo(cx + w/2, cy + h);
+          ctx.stroke();
         } else if (iconType === "screen") {
           const w = r * 1.0;
           const h = r * 0.6;
@@ -457,13 +487,13 @@ export function Inventory() {
         }
       };
 
-      // 5. Draw 3-Column, 2-Row Specifications Grid (Pushed lower and packed tighter to the center)
+      // 5. Draw 3-Column, 2-Row Specifications Grid (Adjusted startX slightly to the right to center visually)
       const gridW = cw * 0.80; // Compact 80% width container
       const margin = (cw - gridW) / 2;
       const colWidth = gridW / 3;
       const gridStartY = ch * 0.745; // Pushed down
       const rowGap = ch * 0.072;
-      const startX = margin;
+      const startX = margin + cw * 0.015; // Shunted slightly rightwards to offset textual blankness on the far right
       const badgeRadius = Math.round(cw * 0.021);
 
       const gridItems = [
@@ -494,7 +524,7 @@ export function Inventory() {
         },
         {
           col: 2, row: 1, icon: "shield",
-          title: currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? cleanSpec(currentSpecs.condition, "condition") : "30 Hari Garansi",
+          title: currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? cleanSpec(currentSpecs.condition, "condition") : "Grade A",
           subtitle: "Business Grade"
         }
       ];
@@ -598,14 +628,14 @@ export function Inventory() {
 
       // Instagram (Left side: Black Icon + Black Text)
       const igIconX = pad + 6;
-      const igIconY = footerTextY - 9;
-      const iconW = 18;
+      const igIconY = footerTextY - 11; // Center 22px icon
+      const iconW = 22; // Enlarged from 18px for maximum clarity
 
       // Draw black IG icon outline
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = 2.2; // Thicker stroke
       ctx.beginPath();
-      ctx.roundRect(igIconX, igIconY, iconW, iconW, 5);
+      ctx.roundRect(igIconX, igIconY, iconW, iconW, 6);
       ctx.stroke();
 
       ctx.beginPath();
@@ -614,7 +644,7 @@ export function Inventory() {
 
       ctx.fillStyle = "#000000";
       ctx.beginPath();
-      ctx.arc(igIconX + iconW * 0.75, igIconY + iconW * 0.25, 1.5, 0, Math.PI * 2);
+      ctx.arc(igIconX + iconW * 0.75, igIconY + iconW * 0.25, 1.8, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw Instagram text (Black)
@@ -628,13 +658,13 @@ export function Inventory() {
       const waText = `WA: ${storePhone}`;
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       const waTextW = ctx.measureText(waText).width;
-      const waIconW = 18;
+      const waIconW = 22; // Enlarged from 18px for maximum clarity
       const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
-      const waIconY = footerTextY - 9;
+      const waIconY = footerTextY - 11;
 
       // Draw black WA icon outline
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = 2.2; // Thicker stroke
       ctx.beginPath();
       ctx.arc(waIconX + waIconW/2, waIconY + waIconW/2, waIconW/2 - 1, 0, Math.PI * 2);
       ctx.stroke();
@@ -642,13 +672,13 @@ export function Inventory() {
       // Chat tail
       ctx.beginPath();
       ctx.moveTo(waIconX + waIconW * 0.25, waIconY + waIconW * 0.75);
-      ctx.lineTo(waIconX + waIconW * 0.08, waIconY + waIconW * 0.9);
+      ctx.lineTo(waIconX + waIconW * 0.08, waIconY + waIconW * 0.92);
       ctx.lineTo(waIconX + waIconW * 0.35, waIconY + waIconW * 0.85);
       ctx.stroke();
 
       // Phone receiver arc
       ctx.beginPath();
-      ctx.arc(waIconX + waIconW/2 + 1, waIconY + waIconW/2 - 1, waIconW/5, Math.PI * 0.7, Math.PI * 1.6);
+      ctx.arc(waIconX + waIconW/2 + 1.5, waIconY + waIconW/2 - 1.5, waIconW/4.5, Math.PI * 0.7, Math.PI * 1.6);
       ctx.stroke();
 
       // Draw WhatsApp text (Black)
