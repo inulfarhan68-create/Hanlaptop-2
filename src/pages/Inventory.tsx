@@ -232,117 +232,154 @@ export function Inventory() {
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
-      // --- Prepare Specs Lines (Only specs, no decorative text) ---
-      const specLines: { icon: string; label: string }[] = [];
-      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") {
-        specLines.push({ icon: "⚡", label: currentSpecs.processor });
-      }
-      if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") {
-        specLines.push({ icon: "🎮", label: currentSpecs.vga });
-      }
-      if (currentSpecs.ram && currentSpecs.ram !== "RAM") {
-        specLines.push({ icon: "▦", label: `RAM ${currentSpecs.ram}` });
-      }
-      if (currentSpecs.storage && currentSpecs.storage !== "Storage") {
-        specLines.push({ icon: "◉", label: `SSD ${currentSpecs.storage}` });
-      }
-      if (currentSpecs.screen && currentSpecs.screen !== "Layar / Screen") {
-        specLines.push({ icon: "▢", label: currentSpecs.screen });
-      }
-
       // --- Dimension and Font Calculations ---
       const pad = cw * 0.04; // 4% outer padding
-      const cardPadding = cw * 0.024;
-      const modelFontSize = Math.round(cw * 0.026);
+      const baseFontSize = Math.round(cw * 0.024);
+      const modelFontSize = Math.round(cw * 0.034);
       const specFontSize = Math.round(cw * 0.018);
-      const lineHeight = Math.round(specFontSize * 1.5);
 
-      // Calculate maximum content width for perfect fit
-      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      let maxContentWidth = ctx.measureText(currentSpecs.model).width;
-      
-      ctx.font = `500 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      specLines.forEach(line => {
-        const textWidth = ctx.measureText(`${line.icon}   ${line.label}`).width;
-        if (textWidth > maxContentWidth) {
-          maxContentWidth = textWidth;
-        }
-      });
+      // 3. Draw Premium Header Specification Card (Top Center)
+      const headerH = ch * 0.13;
+      const headerW = cw - pad * 2;
+      const headerX = pad;
+      const headerY = pad;
 
-      // Define Card Dimensions
-      const cardW = maxContentWidth + cardPadding * 2 + 16;
-      const headerH = modelFontSize + 10;
-      const dividerH = 12;
-      const linesH = specLines.length * lineHeight;
-      const cardH = cardPadding * 2 + headerH + dividerH + linesH;
-
-      const cardX = pad;
-      const cardY = ch - cardH - pad;
-
-      // 3. Draw Floating Glassmorphism Spec Card
-      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
-      ctx.shadowBlur = 24;
+      // Draw glass card shadow
+      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+      ctx.shadowBlur = 16;
       ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 8;
+      ctx.shadowOffsetY = 4;
 
-      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      // Draw glass card background
+      ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
       ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.roundRect(headerX, headerY, headerW, headerH, 16);
       ctx.fill();
 
       // Reset shadow
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // Card Border Accent (Thin translucent)
+      // Header card border
       ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.roundRect(headerX, headerY, headerW, headerH, 16);
       ctx.stroke();
 
-      // Left Accent Border (Cyan-Blue Accent Bar)
+      // Model Name
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText(currentSpecs.model, cw / 2, headerY + headerH * 0.32);
+
+      // Specifications row
+      const specList: string[] = [];
+      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") specList.push(currentSpecs.processor);
+      if (currentSpecs.ram && currentSpecs.ram !== "RAM") specList.push(`RAM ${currentSpecs.ram}`);
+      if (currentSpecs.storage && currentSpecs.storage !== "Storage") specList.push(`SSD ${currentSpecs.storage}`);
+      if (currentSpecs.screen && currentSpecs.screen !== "Layar / Screen") specList.push(currentSpecs.screen);
+      if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") specList.push(currentSpecs.vga);
+      const specString = specList.join("   •   ");
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+      ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText(specString, cw / 2, headerY + headerH * 0.72);
+
+      // 4. Draw Floating Sidebar Warranty Badge (Left Side)
+      const badgeW = Math.round(cw * 0.12);
+      const badgeH = Math.round(ch * 0.11);
+      const badgeX = pad;
+      const badgeY = ch * 0.38;
+
+      // Shadow for badge
+      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+
+      // Top part: blue accent header
       ctx.fillStyle = "#3b82f6";
       ctx.beginPath();
-      ctx.roundRect(cardX + 1.5, cardY + 1.5, 6, cardH - 3, [14, 0, 0, 14]);
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH * 0.58, [12, 12, 0, 0]);
       ctx.fill();
 
-      // --- Draw Content ---
-      const contentX = cardX + cardPadding + 12;
-      
-      // Laptop Model Title
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
       ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText(currentSpecs.model, contentX, cardY + cardPadding);
+      ctx.textAlign = "center";
+      ctx.font = `800 ${Math.round(badgeW * 0.21)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("30 HARI", badgeX + badgeW / 2, badgeY + badgeH * 0.2);
+      ctx.font = `700 ${Math.round(badgeW * 0.15)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("GARANSI", badgeX + badgeW / 2, badgeY + badgeH * 0.44);
 
-      // Divider line
-      const sepY = cardY + cardPadding + modelFontSize + 8;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-      ctx.lineWidth = 1;
+      // Bottom part: white background
+      ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.moveTo(contentX, sepY);
-      ctx.lineTo(cardX + cardW - cardPadding, sepY);
-      ctx.stroke();
+      ctx.roundRect(badgeX, badgeY + badgeH * 0.58, badgeW, badgeH * 0.42, [0, 0, 12, 12]);
+      ctx.fill();
 
-      // Specifications Rows
-      let currentY = sepY + 12;
-      ctx.textBaseline = "top";
-      
-      specLines.forEach(line => {
-        // Draw icon in cyan
-        ctx.fillStyle = "#60a5fa";
-        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(line.icon, contentX, currentY);
+      ctx.fillStyle = "#0f172a";
+      ctx.font = `800 ${Math.round(badgeW * 0.16)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("SIAP PAKAI", badgeX + badgeW / 2, badgeY + badgeH * 0.84);
 
-        // Draw spec value
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(line.label, contentX + specFontSize + 10, currentY);
+      // 5. Draw Bottom Contact Footer Bar
+      const footerH = ch * 0.062;
+      const footerY = ch - footerH;
 
-        currentY += lineHeight;
-      });
+      ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+      ctx.fillRect(0, footerY, cw, footerH);
+
+      // Contact details
+      const contactFontSize = Math.round(cw * 0.018);
+      ctx.font = `600 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.textBaseline = "middle";
+
+      // IG Handle (Left-aligned)
+      ctx.textAlign = "left";
+      ctx.fillText("IG: @hanlaptop", pad + 8, footerY + footerH / 2);
+
+      // WhatsApp Phone (Right-aligned)
+      ctx.textAlign = "right";
+      const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
+      ctx.fillText(`WA: ${storePhone}`, cw - pad - 8, footerY + footerH / 2);
+
+      // 6. Draw Bottom Left Price tag (above footer)
+      if (erpItem.sellingPrice) {
+        const priceFontSize = Math.round(cw * 0.046);
+        const originalPrice = Math.round(erpItem.sellingPrice * 1.12);
+        
+        const formattedOriginal = "Rp " + originalPrice.toLocaleString("id-ID");
+        const formattedReal = "Rp " + erpItem.sellingPrice.toLocaleString("id-ID");
+
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "left";
+
+        // Crossed-out old price
+        const originalFontSize = Math.round(priceFontSize * 0.45);
+        ctx.font = `600 ${originalFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+        
+        const originalY = footerY - 14 - priceFontSize;
+        ctx.fillText(formattedOriginal, pad + 6, originalY);
+
+        // Draw red crossline over old price
+        const textWidth = ctx.measureText(formattedOriginal).width;
+        ctx.strokeStyle = "#ef4444"; // Red line
+        ctx.lineWidth = Math.round(originalFontSize * 0.15);
+        ctx.beginPath();
+        ctx.moveTo(pad + 4, originalY - originalFontSize * 0.35);
+        ctx.lineTo(pad + 8 + textWidth, originalY - originalFontSize * 0.35);
+        ctx.stroke();
+
+        // Active selling price
+        ctx.font = `900 ${priceFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(formattedReal, pad + 6, footerY - 14);
+      }
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
 
