@@ -237,38 +237,34 @@ export function Inventory() {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // Draw original high-res image
+      // Draw original high-res image (Flat, clean, NO gradients/shadows to match reference)
       ctx.drawImage(img, 0, 0, cw, ch);
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
       const pad = cw * 0.04; // 4% outer padding
-      const modelFontSize = Math.round(cw * 0.042);
-      const specFontSize = Math.round(cw * 0.017);
-      const priceFontSize = Math.round(cw * 0.046);
+      const modelFontSize = Math.round(cw * 0.044);
+      const specFontSize = Math.round(cw * 0.0155);
       const contactFontSize = Math.round(cw * 0.015);
 
-      // --- TEXT DROP SHADOW FOR ULTRA-LEGIBILITY ON BUSY BACKGROUNDS ---
-      ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 1.5;
-      ctx.shadowOffsetY = 1.5;
+      // --- FLAT DESIGN: REMOVE ALL TEXT SHADOWS ---
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
 
-      // 3. Header & Footer Gradients
-      const topGrad = ctx.createLinearGradient(0, 0, 0, ch * 0.28);
-      topGrad.addColorStop(0, "rgba(0, 0, 0, 0.65)");
-      topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = topGrad;
-      ctx.fillRect(0, 0, cw, ch * 0.28);
+      // 3. Dynamic Model Name Splicing (to match 'HP PROBOOK 635 / Aero G8' header layout)
+      const nameParts = currentSpecs.model.split(" ");
+      let mainTitle = currentSpecs.model.toUpperCase();
+      let subTitle = "Premium Edition";
+      if (nameParts.length > 2) {
+        const splitIdx = Math.min(3, Math.ceil(nameParts.length / 2));
+        mainTitle = nameParts.slice(0, splitIdx).join(" ").toUpperCase();
+        subTitle = nameParts.slice(splitIdx).join(" ");
+      }
 
-      const botGrad = ctx.createLinearGradient(0, ch * 0.65, 0, ch);
-      botGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-      botGrad.addColorStop(1, "rgba(0, 0, 0, 0.75)");
-      ctx.fillStyle = botGrad;
-      ctx.fillRect(0, ch * 0.65, cw, ch * 0.35);
-
-      // 4. Draw Header Specs (Large model name at the top center)
-      ctx.fillStyle = "#ffffff";
+      // 4. Draw Header Specs (Large dark slate name at top center)
+      ctx.fillStyle = "#1e293b"; // Dark Slate
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       
@@ -277,64 +273,51 @@ export function Inventory() {
       } catch (e) {}
 
       ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText(currentSpecs.model.toUpperCase(), cw / 2, pad);
+      ctx.fillText(mainTitle, cw / 2, pad);
 
       try {
         (ctx as any).letterSpacing = "normal";
       } catch (e) {}
 
-      // Gold line separator with text in the middle
+      // Gold line separator with subTitle text in the middle
       const lineY = pad + modelFontSize + 14;
-      ctx.strokeStyle = "rgba(251, 191, 36, 0.45)"; // Gold translucent
+      ctx.strokeStyle = "#c5a85c"; // Muted Gold
       ctx.lineWidth = 1.5;
 
-      const centerLabel = erpItem.category ? erpItem.category.toUpperCase() : "PREMIUM LAPTOP";
-      ctx.font = `bold ${Math.round(modelFontSize * 0.44)}px 'Segoe UI', system-ui, sans-serif`;
-      const labelW = ctx.measureText(centerLabel).width;
+      ctx.font = `600 ${Math.round(modelFontSize * 0.44)}px 'Segoe UI', system-ui, sans-serif`;
+      const labelW = ctx.measureText(subTitle).width;
 
-      // Left horizontal line
+      // Left horizontal gold line
       ctx.beginPath();
-      ctx.moveTo(cw / 2 - labelW / 2 - 40, lineY);
-      ctx.lineTo(cw / 2 - labelW / 2 - 10, lineY);
+      ctx.moveTo(cw / 2 - labelW / 2 - 80, lineY);
+      ctx.lineTo(cw / 2 - labelW / 2 - 15, lineY);
       ctx.stroke();
 
-      // Label text (Gold)
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillText(centerLabel, cw / 2, lineY - Math.round(modelFontSize * 0.22));
+      // Subtitle text (Gold)
+      ctx.fillStyle = "#c5a85c";
+      ctx.fillText(subTitle, cw / 2, lineY - Math.round(modelFontSize * 0.22));
 
-      // Right horizontal line
+      // Right horizontal gold line
       ctx.beginPath();
-      ctx.moveTo(cw / 2 + labelW / 2 + 10, lineY);
-      ctx.lineTo(cw / 2 + labelW / 2 + 40, lineY);
+      ctx.moveTo(cw / 2 + labelW / 2 + 15, lineY);
+      ctx.lineTo(cw / 2 + labelW / 2 + 80, lineY);
       ctx.stroke();
 
       // Subtagline
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillStyle = "#475569"; // Muted Slate
       ctx.font = `500 ${Math.round(modelFontSize * 0.35)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 12);
 
-      // Helper to draw clean vector specs icons inside circular badges
+      // Helper to draw gold vector specs icons inside solid dark circles
       const drawBadgeIcon = (cx: number, cy: number, r: number, iconType: string) => {
-        // Draw dark slate circular badge background
-        ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+        // Solid dark navy/black circle background (NO border, matching reference)
+        ctx.fillStyle = "#0b1329";
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
 
-        // Badge border
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Reset shadow for inner icon path
-        ctx.shadowBlur = 0;
-
-        // Draw Gold Icon Line Art
-        ctx.strokeStyle = "#fbbf24";
+        // Muted Gold Icon
+        ctx.strokeStyle = "#c5a85c";
         ctx.lineWidth = 1.5;
 
         if (iconType === "cpu") {
@@ -361,14 +344,14 @@ export function Inventory() {
           const w = r * 1.1;
           const h = r * 0.4;
           ctx.strokeRect(cx - w/2, cy - h/2, w, h);
-          ctx.fillStyle = "#fbbf24";
+          ctx.fillStyle = "#c5a85c";
           for (let xOff = -w/2.5; xOff <= w/2.5; xOff += w/5) {
             ctx.fillRect(cx + xOff - 1, cy + h/2 - 2, 2, 2);
           }
         } else if (iconType === "ssd") {
           const w = r * 0.8;
           ctx.strokeRect(cx - w/2, cy - w/2, w, w);
-          ctx.fillStyle = "#fbbf24";
+          ctx.fillStyle = "#c5a85c";
           ctx.font = `bold ${Math.round(r * 0.5)}px 'Segoe UI', sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -407,7 +390,7 @@ export function Inventory() {
       const startX = pad + 10;
       const badgeRadius = Math.round(cw * 0.021);
 
-      const items = [
+      const gridItems = [
         {
           col: 0, row: 0, icon: "cpu",
           title: currentSpecs.processor === "Processor Detail" ? "Intel / AMD Processor" : currentSpecs.processor,
@@ -440,8 +423,8 @@ export function Inventory() {
         }
       ];
 
-      // Draw Grid Items
-      items.forEach(item => {
+      // Draw Grid Items (Clean charcoal text on light wood/background)
+      gridItems.forEach(item => {
         const itemX = startX + item.col * colWidth;
         const itemY = gridStartY + item.row * rowGap;
         const cx = itemX + badgeRadius;
@@ -450,25 +433,21 @@ export function Inventory() {
         // Draw Badge
         drawBadgeIcon(cx, cy, badgeRadius, item.icon);
 
-        // Draw Texts
-        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        ctx.shadowBlur = 5;
-
         // Bold Title
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#1e293b"; // Dark slate
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
         ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.title, itemX + badgeRadius * 2.2 + 8, itemY + 2);
 
         // Muted Subtitle
-        ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-        ctx.font = `600 ${Math.round(specFontSize * 0.78)}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillStyle = "#64748b"; // Muted slate-500
+        ctx.font = `600 ${Math.round(specFontSize * 0.8)}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.subtitle, itemX + badgeRadius * 2.2 + 8, itemY + specFontSize + 6);
       });
 
-      // Draw vertical separator grid lines between columns
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      // Draw vertical separator grid lines between columns (Gold lines, matching reference)
+      ctx.strokeStyle = "rgba(197, 168, 92, 0.25)"; // Muted Gold translucent
       ctx.lineWidth = 1;
       const sepLineH = rowGap + badgeRadius * 2;
       
@@ -484,16 +463,13 @@ export function Inventory() {
       ctx.lineTo(startX + colWidth * 2 - 12, gridStartY + sepLineH);
       ctx.stroke();
 
-      // 6. Draw Bottom Branding (Centered at Y = ch - pad * 1.5)
+      // 6. Draw Bottom Branding (Centered at Y = ch - pad * 1.35)
       const brandCx = cw / 2;
       const brandCy = ch - pad * 1.35;
 
-      // Reset text shadow for fine lines
-      ctx.shadowBlur = 0;
-
       // Stylized gold laptop peak logo
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#c5a85c"; // Muted gold
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(brandCx - 14, brandCy + 4);
       ctx.quadraticCurveTo(brandCx, brandCy - 10, brandCx + 14, brandCy + 4);
@@ -502,24 +478,24 @@ export function Inventory() {
       ctx.lineTo(brandCx + 5, brandCy + 4);
       ctx.stroke();
 
-      // Store Name
-      ctx.fillStyle = "#ffffff";
+      // Store Name (Charcoal)
+      ctx.fillStyle = "#1e293b";
       ctx.font = `800 ${Math.round(cw * 0.02)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textBaseline = "top";
       ctx.textAlign = "center";
       ctx.fillText("Han Laptop", brandCx, brandCy + 10);
 
-      // Muted tagline with side dash lines
+      // Tagline with side dash lines (Gold)
       const tagText = "Reliable Performance. Trusted Quality.";
       ctx.font = `600 ${Math.round(cw * 0.0125)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.fillStyle = "#c5a85c";
       const tagW = ctx.measureText(tagText).width;
       const tagY = brandCy + 10 + Math.round(cw * 0.02) + 8;
 
       ctx.fillText(tagText, brandCx, tagY);
 
-      // Dash lines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      // Dash lines (Gold)
+      ctx.strokeStyle = "rgba(197, 168, 92, 0.4)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(brandCx - tagW / 2 - 25, tagY + 6);
@@ -528,8 +504,8 @@ export function Inventory() {
       ctx.lineTo(brandCx + tagW / 2 + 25, tagY + 6);
       ctx.stroke();
 
-      // 7. Draw Bottom Margin Contact Handles (Out of the way of the grid)
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      // 7. Draw Bottom Margin Contact Handles (Muted grey, aligned in corners)
+      ctx.fillStyle = "#64748b";
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textBaseline = "middle";
 
@@ -544,64 +520,6 @@ export function Inventory() {
       // WA Phone (Bottom Right margin)
       ctx.textAlign = "right";
       ctx.fillText(`WA: ${storePhone}`, cw - pad - 6, footerTextY);
-
-      // 8. Draw Sleek Glass Price Tag Badge (Floating on the middle-left side)
-      if (erpItem.sellingPrice) {
-        const originalPrice = Math.round(erpItem.sellingPrice * 1.12);
-        const formattedOriginal = "Rp " + originalPrice.toLocaleString("id-ID");
-        const formattedReal = "Rp " + erpItem.sellingPrice.toLocaleString("id-ID");
-
-        const priceTagW = Math.round(cw * 0.24);
-        const priceTagH = Math.round(ch * 0.075);
-        const priceTagX = pad;
-        const priceTagY = ch * 0.61;
-
-        // Container Shadow
-        ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
-
-        // Dark Translucent Glass Card
-        ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
-        ctx.beginPath();
-        ctx.roundRect(priceTagX, priceTagY, priceTagW, priceTagH, 12);
-        ctx.fill();
-
-        // Thin Border
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(priceTagX, priceTagY, priceTagW, priceTagH, 12);
-        ctx.stroke();
-
-        // Reset shadow for text
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetY = 0;
-
-        // Crossed-out original price
-        const originalSize = Math.round(priceFontSize * 0.46);
-        ctx.font = `700 ${originalSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText(formattedOriginal, priceTagX + 12, priceTagY + 8);
-
-        // Draw red strike-through
-        const oldWidth = ctx.measureText(formattedOriginal).width;
-        ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = Math.max(1.5, Math.round(originalSize * 0.12));
-        ctx.beginPath();
-        ctx.moveTo(priceTagX + 10, priceTagY + 8 + originalSize * 0.55);
-        ctx.lineTo(priceTagX + 14 + oldWidth, priceTagY + 8 + originalSize * 0.55);
-        ctx.stroke();
-
-        // Active selling price
-        ctx.font = `900 ${priceFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillStyle = "#ffffff";
-        ctx.textBaseline = "bottom";
-        ctx.fillText(formattedReal, priceTagX + 12, priceTagY + priceTagH - 6);
-      }
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
 
