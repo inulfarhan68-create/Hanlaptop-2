@@ -57,7 +57,9 @@ export async function POST(request: Request) {
             estimatedCost, 
             technicianName,
             technicianId,
-            notes
+            notes,
+            warrantyClaimed,
+            originalTransactionId,
         } = parsed.data;
 
         const id = crypto.randomUUID();
@@ -78,6 +80,8 @@ export async function POST(request: Request) {
             finalCost: 0,
             receivedDate: new Date(),
             notes: notes || "",
+            warrantyClaimed: warrantyClaimed ?? false,
+            originalTransactionId: originalTransactionId || null,
         }).returning();
 
         // Log activity

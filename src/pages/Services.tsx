@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import { Search, Plus, Wrench, MessageCircle, AlertCircle, Trash2, Printer, Edit2, MoreVertical, CheckCircle, X } from "lucide-react"
+import { Search, Plus, Wrench, MessageCircle, AlertCircle, Trash2, Printer, Edit2, MoreVertical, CheckCircle, X, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
@@ -80,12 +81,17 @@ const COMMON_SERVICE_ISSUES = [
 
 export function Services() {
   const { role, isOwner } = useUserRole()
+  const location = useLocation()
   const { data: settings } = useSWR<any>(
     (import.meta.env.VITE_API_URL || '') + '/api/settings'
   )
   const [searchQuery, setSearchQuery] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState<any>(null)
+
+  // Warranty Claim State
+  const [isWarrantyClaim, setIsWarrantyClaim] = useState(false)
+  const [originalTxId, setOriginalTxId] = useState<string | null>(null)
   
   // Form State
   const [customerName, setCustomerName] = useState("")
@@ -231,6 +237,25 @@ export function Services() {
     }
   }, [issue, settings]);
 
+  // ── Deteksi mode klaim garansi dari router state ──
+  useEffect(() => {
+    const state = location.state as any
+    if (state?.mode === 'claim' || location.search.includes('mode=claim')) {
+      setIsWarrantyClaim(true)
+      setOriginalTxId(state?.originalTxId || null)
+      setCustomerName(state?.customerName || "")
+      setCustomerPhone(state?.customerPhone || "")
+      setCustomerAddress(state?.customerAddress || "")
+      setDeviceName(state?.deviceDesc || "")
+      setIssue("Klaim Garansi")
+      setEstimatedCost("0")
+      setShowModal(true)
+      // Bersihkan state agar tidak trigger ulang jika halaman di-refresh
+      window.history.replaceState({}, '', '/services')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const { data: services, error: servicesError, mutate, isLoading } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/services', { refreshInterval: 5000 })
   const { data: storeSettings } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/settings')
   const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
@@ -283,6 +308,8 @@ export function Services() {
     setKelengkapanTas(false)
     setKelengkapanDus(false)
     setKelengkapanLainnya("")
+    setIsWarrantyClaim(service?.warrantyClaimed || false)
+    setOriginalTxId(service?.originalTransactionId || null)
     
     setEditingService(service)
     setCustomerName(service?.customerName || "")
@@ -400,7 +427,9 @@ export function Services() {
           estimatedCost: estimatedCost ? parseFloat(estimatedCost) : 0,
           finalCost: finalCost ? parseFloat(finalCost) : 0,
           status,
-          notes: finalNotes
+          notes: finalNotes,
+          warrantyClaimed: isWarrantyClaim,
+          originalTransactionId: originalTxId || null,
         })
       });
 
@@ -719,6 +748,11 @@ export function Services() {
                                 <div className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${getStatusColor(item.status)}`}>
                                   {item.status}
                                 </div>
+                                {item.warrantyClaimed && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold border bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                    🛡️ Garansi
+                                  </span>
+                                )}
                                 {sla && (
                                   <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${sla.className}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${sla.dotColor}`} />
@@ -891,11 +925,30 @@ export function Services() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card w-full max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl border border-border flex flex-col">
             <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
-              <h2 className="text-lg font-bold">{editingService ? 'Edit Data Servis' : 'Tambah Servis Baru'}</h2>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                {isWarrantyClaim && <ShieldCheck className="h-5 w-5 text-blue-600" />}
+                {editingService
+                  ? (editingService.warrantyClaimed ? 'Edit Klaim Garansi' : 'Edit Data Servis')
+                  : (isWarrantyClaim ? 'Klaim Garansi' : 'Tambah Servis Baru')
+                }
+              </h2>
               <Button variant="ghost" size="icon" onClick={() => setShowModal(false)} className="h-8 w-8 rounded-full">
                 <X className="h-4 w-4" />
               </Button>
             </div>
+
+            {/* Warranty Claim Banner */}
+            {isWarrantyClaim && (
+              <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-blue-300 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-800 p-3">
+                <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-blue-800 dark:text-blue-300">Mode Klaim Garansi</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                    Service ini tercatat sebagai <strong>klaim garansi gratis</strong>. Data pelanggan dan unit sudah otomatis terisi dari transaksi pembelian.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {editingService && (
               <div className="flex border-b border-border text-sm font-medium shrink-0 bg-muted/20">
