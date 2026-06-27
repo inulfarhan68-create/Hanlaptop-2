@@ -308,9 +308,9 @@ export function PublicCatalog() {
                   {/* Price & CTA Section */}
                   <div className="p-5 pt-0 border-t border-slate-50 dark:border-slate-800/50 mt-auto space-y-4">
                     <div className="pt-4 flex items-center justify-between">
-                      <div>
+                      <div className="shrink-0">
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Harga</div>
-                        <div className="font-black text-green-600 dark:text-green-400 text-xl tracking-tight mt-0.5">
+                        <div className="font-black text-green-600 dark:text-green-400 text-xl tracking-tight mt-0.5 whitespace-nowrap">
                           Rp {item.sellingPrice.toLocaleString("id-ID")}
                         </div>
                       </div>
@@ -505,14 +505,14 @@ export function PublicCatalog() {
 
               {/* Price & Purchase CTA */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
+                <div className="shrink-0">
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Harga Penjualan</div>
-                  <div className="text-2xl font-black text-green-600 dark:text-green-400 tracking-tight">
+                  <div className="text-2xl font-black text-green-600 dark:text-green-400 tracking-tight whitespace-nowrap">
                     Rp {lightboxItem.sellingPrice.toLocaleString("id-ID")}
                   </div>
                 </div>
                 {lightboxItem.waLink && (
-                  <a href={lightboxItem.waLink} target="_blank" rel="noopener noreferrer">
+                  <a href={lightboxItem.waLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
                     <Button size="sm" className="w-full sm:w-auto gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg h-12 px-6 font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]">
                       <MessageCircle className="h-5 w-5" />
                       Hubungi Seller via WA
