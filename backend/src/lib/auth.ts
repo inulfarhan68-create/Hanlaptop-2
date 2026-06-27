@@ -3,24 +3,23 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { db } from "../db";
 import * as schema from "../db/schema";
 
-let serverBaseURL = process.env.BETTER_AUTH_URL || "";
-if (serverBaseURL) {
-    if (!serverBaseURL.endsWith("/api/auth") && !serverBaseURL.endsWith("/api/auth/")) {
-        if (!serverBaseURL.endsWith("/")) {
-            serverBaseURL += "/";
-        }
-        serverBaseURL += "api/auth";
+// Override process.env.BETTER_AUTH_URL to inject Next.js basePath in production since Better Auth matches against request.url directly
+if (process.env.BETTER_AUTH_URL) {
+    let url = process.env.BETTER_AUTH_URL.replace(/\/$/, "");
+    if (!url.endsWith("/api/auth")) {
+        url += "/api/auth";
     }
+    if (process.env.NODE_ENV === 'production' && !url.includes("/_/backend")) {
+        url = url.replace("/api/auth", "/_/backend/api/auth");
+    }
+    process.env.BETTER_AUTH_URL = url;
 }
 
+let serverBaseURL = process.env.BETTER_AUTH_URL || "";
 if (!serverBaseURL) {
     serverBaseURL = process.env.NODE_ENV === 'development' 
         ? "http://localhost:3000/api/auth" 
-        : "https://hanlaptop.vercel.app/api/auth";
-} else {
-    if (serverBaseURL.includes("/_/backend")) {
-        serverBaseURL = serverBaseURL.replace("/_/backend", "");
-    }
+        : "https://hanlaptop.vercel.app/_/backend/api/auth";
 }
 
 export const auth = betterAuth({
