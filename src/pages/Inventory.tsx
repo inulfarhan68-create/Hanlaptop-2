@@ -729,55 +729,56 @@ export function Inventory() {
       const waText = `WA: ${storePhone}`;
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       const waTextW = ctx.measureText(waText).width;
-      const waIconW = 22; // Enlarged from 18px for maximum clarity
-      const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
-      const waIconY = footerTextY - 11;
+      const waIconW = 34; // Larger for maximum clarity
+      const waIconX = cw - pad - 6 - waTextW - waIconW - 10;
+      const waIconY = footerTextY - 17;
 
-      // Draw black WA icon outline (Centered correctly, no cutoffs, unified single path)
-      const cx = waIconX + waIconW/2;
-      const cy = waIconY + waIconW/2;
-      const radius = waIconW/2 - 1.5;
+      const waCx = waIconX + waIconW / 2;
+      const waCy = waIconY + waIconW / 2;
+      const waR = waIconW / 2 - 2;
 
+      // ── 1. Chat bubble circle outline with tail at bottom-left ──
+      ctx.save();
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.2; // Thicker stroke for maximum clarity
+      ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-
-      // Gap at bottom-left for the chat bubble tail (110 deg to 160 deg)
-      const startAng = 110 * Math.PI / 180;
-      const endAng = 160 * Math.PI / 180;
-
       ctx.beginPath();
-      // Clockwise circle arc
-      ctx.arc(cx, cy, radius, startAng, endAng, false);
-      // Extended pointer tail (pointing bottom-left)
-      ctx.lineTo(cx - radius * 1.3, cy + radius * 1.3);
+      // Draw the big arc clockwise from 155° to 115° (330° arc, leaving 50° gap at bottom-left)
+      ctx.arc(waCx, waCy, waR, 155 * Math.PI / 180, 115 * Math.PI / 180, false);
+      // Tail tip pointing to bottom-left
+      ctx.lineTo(waCx - waR * 1.15, waCy + waR * 1.15);
       ctx.closePath();
       ctx.stroke();
+      ctx.restore();
 
-      // Solid filled telephone handset receiver inside the bubble (pixel-perfect match to official logo)
+      // ── 2. Phone handset inside the bubble ──
+      // The WA handset = earpiece (top-right ellipse) + mouthpiece (bottom-left ellipse) + thin curved handle
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(-Math.PI / 12); // Tilted WhatsApp receiver angle
-      ctx.fillStyle = "#000000"; // Solid black receiver
-      
+      ctx.translate(waCx, waCy);
+      ctx.rotate(-Math.PI / 4); // 45° clockwise tilt to match WA logo
+
+      ctx.fillStyle = "#000000";
+
+      // Earpiece – fat rounded ellipse at top
       ctx.beginPath();
-      // Earpiece outer
-      ctx.moveTo(-radius * 0.15, -radius * 0.5);
-      ctx.quadraticCurveTo(radius * 0.1, -radius * 0.55, radius * 0.35, -radius * 0.3);
-      ctx.quadraticCurveTo(radius * 0.45, -radius * 0.15, radius * 0.25, -radius * 0.05);
-      ctx.quadraticCurveTo(radius * 0.15, -radius * 0.15, radius * 0.05, -radius * 0.25);
-      // Handle inner
-      ctx.quadraticCurveTo(-radius * 0.2, -radius * 0.1, -radius * 0.25, radius * 0.05);
-      ctx.quadraticCurveTo(-radius * 0.15, radius * 0.15, -radius * 0.05, radius * 0.25);
-      // Mouthpiece
-      ctx.quadraticCurveTo(radius * 0.15, radius * 0.45, -radius * 0.1, radius * 0.55);
-      ctx.quadraticCurveTo(-radius * 0.3, radius * 0.6, -radius * 0.45, radius * 0.35);
-      ctx.quadraticCurveTo(-radius * 0.5, radius * 0.15, -radius * 0.35, radius * 0.05);
-      // Handle outer
-      ctx.quadraticCurveTo(-radius * 0.35, -radius * 0.15, -radius * 0.15, -radius * 0.5);
-      ctx.closePath();
+      ctx.ellipse(0, -waR * 0.42, waR * 0.24, waR * 0.16, 0, 0, Math.PI * 2);
       ctx.fill();
+
+      // Mouthpiece – fat rounded ellipse at bottom
+      ctx.beginPath();
+      ctx.ellipse(0, waR * 0.42, waR * 0.24, waR * 0.16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Handle – thin curved arc connecting earpiece to mouthpiece
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = waR * 0.18;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(0, -waR * 0.34);
+      ctx.bezierCurveTo(waR * 0.28, -waR * 0.12, waR * 0.28, waR * 0.12, 0, waR * 0.34);
+      ctx.stroke();
+
       ctx.restore();
 
       // Draw WhatsApp text (Black)
