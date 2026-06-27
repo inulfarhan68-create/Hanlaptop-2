@@ -209,8 +209,8 @@ export function Inventory() {
     img.crossOrigin = "anonymous";
     img.src = imagePreviewUrl;
     img.onload = () => {
-      // Responsive: use actual image dimensions (capped at 1200 for performance)
-      const maxDim = 1200;
+      // 1. High Resolution for Instagram (cap at 2048px for ultra-crisp quality)
+      const maxDim = 2048;
       let cw = img.width;
       let ch = img.height;
       if (cw > maxDim || ch > maxDim) {
@@ -218,131 +218,150 @@ export function Inventory() {
         cw = Math.round(cw * ratio);
         ch = Math.round(ch * ratio);
       }
-      // Ensure minimum size
-      if (cw < 600) { const r = 600 / cw; cw = 600; ch = Math.round(ch * r); }
+      if (cw < 800) { const r = 800 / cw; cw = 800; ch = Math.round(ch * r); }
 
       canvas.width = cw;
       canvas.height = ch;
 
-      // Draw image covering the canvas
+      // 2. Enable High Quality Image Smoothing
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // Draw original high-res image
       ctx.drawImage(img, 0, 0, cw, ch);
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
-      // --- Modern overlay panel at bottom ---
-      const panelH = ch * 0.28; // 28% of image height
-      const panelY = ch - panelH;
+      // --- Responsive coordinates ---
+      const pad = cw * 0.04; // 4% padding
+      const cardH = ch * 0.22; // 22% card height
+      const cardW = cw - pad * 2;
+      const cardX = pad;
+      const cardY = ch - cardH - pad;
+      const cPad = cardW * 0.03; // inside padding of card
 
-      // Gradient overlay: transparent → dark
-      const grad = ctx.createLinearGradient(0, panelY - panelH * 0.3, 0, ch);
-      grad.addColorStop(0, "rgba(0,0,0,0)");
-      grad.addColorStop(0.3, "rgba(0,0,0,0.45)");
-      grad.addColorStop(1, "rgba(0,0,0,0.85)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, panelY - panelH * 0.3, cw, panelH + panelH * 0.3);
+      // 3. Draw Floating Glassmorphism Spec Card
+      // Shadow / Outer Glow
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+      ctx.shadowBlur = 24;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 8;
 
-      const pad = cw * 0.045; // responsive padding
-      const baseFontSize = Math.round(cw * 0.028); // ~22px on 800w
+      // Main Card Background (Slate dark glass)
+      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.fill();
 
-      // --- Model name (large, bold) ---
-      const modelFontSize = Math.round(cw * 0.038);
+      // Reset shadow for drawing content
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Card Border Accent (Thin elegant white/translucent)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.stroke();
+
+      // Left Accent Border (Premium solid cyan/blue accent bar)
+      ctx.fillStyle = "#3b82f6"; // Blue-500 accent
+      ctx.beginPath();
+      ctx.roundRect(cardX + 1.5, cardY + 1.5, 6, cardH - 3, [14, 0, 0, 14]);
+      ctx.fill();
+
+      // --- Text coordinates ---
+      const textX = cardX + cPad + 12;
+      const baseFontSize = Math.round(cw * 0.024); // responsive base font size
+      
+      // 4. Laptop Model Title (Large, bold)
+      const modelFontSize = Math.round(cw * 0.03);
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      const modelY = panelY + panelH * 0.12;
-      ctx.fillText(currentSpecs.model, pad, modelY);
+      const modelY = cardY + cardH * 0.16;
+      ctx.fillText(currentSpecs.model, textX, modelY);
 
-      // --- Thin separator line ---
-      const sepY = modelY + modelFontSize + panelH * 0.06;
-      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      // 5. Condition Badge ("SIAP PAKAI" / "READY STOCK")
+      const badgeFontSize = Math.round(cw * 0.016);
+      const badgeText = "READY STOCK • SIAP PAKAI";
+      ctx.font = `700 ${badgeFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      const badgeW = ctx.measureText(badgeText).width;
+      const badgeX = cardX + cardW - cPad - badgeW - 12;
+      const badgeY = modelY + 2;
+
+      // Draw green indicator dot
+      ctx.fillStyle = "#10b981"; // Emerald-500
+      ctx.beginPath();
+      ctx.arc(badgeX - 10, badgeY + badgeFontSize / 2 + 1, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.fillText(badgeText, badgeX, badgeY);
+
+      // --- Horizontal Divider line ---
+      const sepY = modelY + modelFontSize + cardH * 0.1;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(pad, sepY);
+      ctx.moveTo(textX, sepY);
+      ctx.lineTo(cardX + cardW - cPad - 12, sepY);
       ctx.stroke();
 
-      // --- Spec items in a multi-line layout to prevent truncation ---
-      const specY1 = sepY + panelH * 0.08;
-      const iconSize = Math.round(baseFontSize * 0.7);
-      const specFontSize = Math.round(baseFontSize * 0.82);
+      // --- 3-Column Specifications Layout ---
+      const specY = sepY + cardH * 0.08;
+      const specFontSize = Math.round(baseFontSize * 0.78);
+      const subSpecFontSize = Math.round(baseFontSize * 0.68);
+      
+      const col1X = textX;
+      const col2X = cardX + cardW * 0.4;
+      const col3X = cardX + cardW * 0.72;
 
-      // Draw CPU on line 1
+      // Column 1: Processor & VGA
       if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") {
-        ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
-        ctx.beginPath();
-        ctx.arc(pad + iconSize / 2, specY1 + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `700 ${Math.round(iconSize * 0.7)}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText("⚡", pad + iconSize / 2, specY1 + specFontSize / 2);
-
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(currentSpecs.processor, pad + iconSize + 6, specY1);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(currentSpecs.processor, col1X, specY);
+        
+        if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+          ctx.font = `500 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
+          ctx.fillText(currentSpecs.vga, col1X, specY + specFontSize + 6);
+        }
       }
 
-      // Draw RAM, Storage, Screen on line 2
-      const specY2 = specY1 + specFontSize + panelH * 0.07;
-      let specX = pad;
-      const specGap = cw * 0.035;
+      // Column 2: RAM & Storage (SSD)
+      const ramLabel = currentSpecs.ram && currentSpecs.ram !== "RAM" ? `RAM ${currentSpecs.ram}` : "";
+      const storageLabel = currentSpecs.storage && currentSpecs.storage !== "Storage" ? `SSD ${currentSpecs.storage}` : "";
+      if (ramLabel || storageLabel) {
+        const combinedSpecs = [ramLabel, storageLabel].filter(Boolean).join(" / ");
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(combinedSpecs, col2X, specY);
+        
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.font = `500 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText("High Speed Memory & Storage", col2X, specY + specFontSize + 6);
+      }
 
-      const line2Items = [
-        { icon: "▦", label: currentSpecs.ram && currentSpecs.ram !== "RAM" ? `RAM ${currentSpecs.ram}` : "" },
-        { icon: "◉", label: currentSpecs.storage && currentSpecs.storage !== "Storage" ? `SSD ${currentSpecs.storage}` : "" },
-        { icon: "▢", label: currentSpecs.screen && currentSpecs.screen !== "Layar / Screen" ? currentSpecs.screen : "" },
-      ].filter(s => s.label);
-
-      line2Items.forEach((spec, idx) => {
-        ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
-        ctx.beginPath();
-        ctx.arc(specX + iconSize / 2, specY2 + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `700 ${Math.round(iconSize * 0.7)}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(spec.icon, specX + iconSize / 2, specY2 + specFontSize / 2);
-
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.font = `500 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillText(spec.label, specX + iconSize + 6, specY2);
-
-        const textW = ctx.measureText(spec.label).width;
-        specX += iconSize + 6 + textW + specGap;
-
-        if (idx < line2Items.length - 1) {
-          ctx.fillStyle = "rgba(255,255,255,0.3)";
-          ctx.beginPath();
-          ctx.arc(specX - specGap / 2, specY2 + specFontSize / 2, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-
-      // --- Store branding (bottom-right) ---
-      const brandFontSize = Math.round(cw * 0.022);
-      const brandY = ch - panelH * 0.15;
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.textAlign = "right";
-      ctx.textBaseline = "bottom";
-      ctx.font = `700 ${brandFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("HAN LAPTOP", cw - pad, brandY);
-
-      // Small underline accent
-      const brandW = ctx.measureText("HAN LAPTOP").width;
-      ctx.strokeStyle = "rgba(96, 165, 250, 0.5)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cw - pad - brandW, brandY + 3);
-      ctx.lineTo(cw - pad, brandY + 3);
-      ctx.stroke();
+      // Column 3: Screen & Branding
+      const screenLabel = currentSpecs.screen && currentSpecs.screen !== "Layar / Screen" ? currentSpecs.screen : "";
+      if (screenLabel) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(screenLabel, col3X, specY);
+      }
+      
+      // Store Branding with gold star emblem
+      const brandY = specY + specFontSize + 6;
+      ctx.fillStyle = "#fbbf24"; // Gold Star
+      ctx.font = `700 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("★", col3X, brandY);
+      
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.font = `800 ${subSpecFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("HAN LAPTOP", col3X + 14, brandY);
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
 
