@@ -299,7 +299,7 @@ export function Inventory() {
       ctx.strokeStyle = "#c5a85c"; // Muted Gold
       ctx.lineWidth = 1.5;
 
-      ctx.font = `600 ${Math.round(modelFontSize * 0.44)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.font = `600 ${Math.round(modelFontSize * 0.55)}px 'Segoe UI', system-ui, sans-serif`;
       const labelW = ctx.measureText(subTitle).width;
 
       // Left horizontal gold line
@@ -310,7 +310,7 @@ export function Inventory() {
 
       // Subtitle text (Gold)
       ctx.fillStyle = "#c5a85c";
-      ctx.fillText(subTitle, cw / 2, lineY - Math.round(modelFontSize * 0.22));
+      ctx.fillText(subTitle, cw / 2, lineY - Math.round(modelFontSize * 0.28));
 
       // Right horizontal gold line
       ctx.beginPath();
@@ -378,9 +378,9 @@ export function Inventory() {
         
         s = s.trim().replace(/\s+/g, " ");
         
-        // Max characters to prevent any cutoff
-        if (s.length > 20) {
-          s = s.substring(0, 18) + "...";
+        // Max characters to prevent any cutoff (toggled up to 32 to prevent unnecessary abbreviation)
+        if (s.length > 32) {
+          s = s.substring(0, 30) + "...";
         }
         return s;
       };
@@ -569,9 +569,9 @@ export function Inventory() {
       ctx.lineTo(startX + colWidth * 2 - 12, gridStartY + sepLineH);
       ctx.stroke();
 
-      // 6. Draw Bottom Branding (Centered at absolute lower-middle zone)
+      // 6. Draw Bottom Branding (Centered at absolute lower-middle zone, shifted down to prevent specifications crowding)
       const brandCx = cw / 2;
-      const brandCy = ch * 0.89;
+      const brandCy = ch * 0.905;
 
       // Draw dynamic uploaded store logo if loaded, otherwise fallback to vector logo
       let brandOffset = 0;
@@ -680,10 +680,30 @@ export function Inventory() {
       ctx.lineTo(cx - radius * 0.86, cy + radius * 0.5);
       ctx.stroke();
 
-      // Phone receiver arc
+      // Realistic phone receiver handset silhouette (Gold or Black as requested, black here)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-Math.PI / 12); // Slightly tilted receiver
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      
+      // Handset arc handle
       ctx.beginPath();
-      ctx.arc(cx + 1.5, cy - 1.5, radius * 0.45, Math.PI * 0.7, Math.PI * 1.6);
+      ctx.moveTo(-radius * 0.4, radius * 0.4);
+      ctx.quadraticCurveTo(-radius * 0.5, -radius * 0.1, -radius * 0.1, -radius * 0.4);
       ctx.stroke();
+      
+      // Handset speaker and microphone caps
+      ctx.lineWidth = 4.0;
+      ctx.beginPath();
+      ctx.moveTo(-radius * 0.45, radius * 0.35);
+      ctx.lineTo(-radius * 0.25, radius * 0.45);
+      ctx.moveTo(-radius * 0.15, -radius * 0.45);
+      ctx.lineTo(-radius * 0.05, -radius * 0.25);
+      ctx.stroke();
+      ctx.restore();
 
       // Draw WhatsApp text (Black)
       ctx.fillStyle = "#000000";
