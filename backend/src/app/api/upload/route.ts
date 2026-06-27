@@ -27,14 +27,22 @@ export async function POST(request: Request) {
         const randomName = `${crypto.randomUUID()}${ext}`;
 
         // 1. Production Mode: Upload to Vercel Blob if token is set
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        if (token) {
             console.log("[Upload API] Uploading to Vercel Blob:", randomName);
             const blob = await put(randomName, buffer, {
                 access: "public",
-                token: process.env.BLOB_READ_WRITE_TOKEN,
+                token: token,
             });
             console.log("[Upload API] Vercel Blob upload success:", blob.url);
             return NextResponse.json({ url: blob.url });
+        }
+
+        // Prevent write crash in read-only Vercel environment
+        if (process.env.VERCEL === "1") {
+            return NextResponse.json({ 
+                error: "Vercel Blob belum terdeteksi. Pastikan Anda sudah menghubungkan Vercel Blob ke proyek 'backend' di dashboard Vercel, kemudian lakukan Deploy ulang agar variabel token aktif." 
+            }, { status: 500 });
         }
 
         // 2. Development Mode: Fallback to local file storage
