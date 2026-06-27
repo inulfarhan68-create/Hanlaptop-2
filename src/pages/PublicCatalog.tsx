@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { Store, MapPin, Phone, Package, Search, MessageCircle, X, Cpu, HardDrive, Monitor, MemoryStick } from "lucide-react"
+import { Store, MapPin, Phone, Package, Search, MessageCircle, X, Cpu, HardDrive, Monitor, MemoryStick, Keyboard, Gamepad2, FileText, ShieldAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -9,7 +9,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 function parseItemSpecs(specs: string) {
-  const result: { processor?: string; vga?: string; ram?: string; storage?: string; screen?: string } = {}
+  const result: { 
+    processor?: string; 
+    vga?: string; 
+    ram?: string; 
+    storage?: string; 
+    screen?: string; 
+    keyboard?: string; 
+    os?: string; 
+    condition?: string; 
+    defect?: string; 
+  } = {}
+  
   if (!specs) return result
   const parts = specs.split(" | ")
   parts.forEach(part => {
@@ -18,6 +29,17 @@ function parseItemSpecs(specs: string) {
     else if (part.startsWith("RAM: ")) result.ram = part.replace("RAM: ", "")
     else if (part.startsWith("Storage: ")) result.storage = part.replace("Storage: ", "")
     else if (part.startsWith("Layar: ")) result.screen = part.replace("Layar: ", "")
+    else if (part.startsWith("Keyboard: ")) result.keyboard = part.replace("Keyboard: ", "")
+    else if (part.startsWith("OS: ")) result.os = part.replace("OS: ", "")
+    else if (part.startsWith("Kondisi: ")) {
+      const condStr = part.replace("Kondisi: ", "")
+      if (condStr.startsWith("Minus (") && condStr.endsWith(")")) {
+        result.condition = "Minus"
+        result.defect = condStr.substring(7, condStr.length - 1)
+      } else {
+        result.condition = condStr
+      }
+    }
   })
   return result
 }
@@ -220,15 +242,21 @@ export function PublicCatalog() {
 
                       {/* Structural Specs Display (No Truncation) */}
                       {item.specs && (() => {
-                        const hasParsedSpecs = !!(specs.processor || specs.ram || specs.storage || specs.screen || specs.vga);
+                        const hasParsedSpecs = !!(specs.processor || specs.ram || specs.storage || specs.screen || specs.vga || specs.keyboard || specs.os || specs.condition);
                         return (
-                          <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 space-y-2.5 text-xs">
+                          <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
                             {hasParsedSpecs ? (
                               <>
                                 {specs.processor && (
                                   <div className="flex items-start gap-2">
                                     <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                                     <span className="font-medium text-slate-700 dark:text-slate-300 break-words leading-relaxed">{specs.processor}</span>
+                                  </div>
+                                )}
+                                {specs.vga && (
+                                  <div className="flex items-start gap-2">
+                                    <Gamepad2 className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">VGA: <span className="font-semibold text-slate-800 dark:text-slate-200">{specs.vga}</span></span>
                                   </div>
                                 )}
                                 {specs.ram && (
@@ -247,6 +275,24 @@ export function PublicCatalog() {
                                   <div className="flex items-start gap-2">
                                     <Monitor className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                                     <span className="text-slate-600 dark:text-slate-400">Layar: <span className="font-bold text-slate-800 dark:text-slate-200 break-words">{specs.screen}</span></span>
+                                  </div>
+                                )}
+                                {specs.keyboard && (
+                                  <div className="flex items-start gap-2">
+                                    <Keyboard className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">Keyboard: <span className="font-semibold text-slate-800 dark:text-slate-200">{specs.keyboard}</span></span>
+                                  </div>
+                                )}
+                                {specs.os && (
+                                  <div className="flex items-start gap-2">
+                                    <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">OS: <span className="font-semibold text-slate-800 dark:text-slate-200">{specs.os}</span></span>
+                                  </div>
+                                )}
+                                {specs.condition && (
+                                  <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">Fisik: <span className="font-bold text-slate-800 dark:text-slate-200">{specs.condition}</span>{specs.defect ? ` (${specs.defect})` : ""}</span>
                                   </div>
                                 )}
                               </>
@@ -361,56 +407,97 @@ export function PublicCatalog() {
                 {/* Detailed Specifications Section */}
                 {lightboxItem.specs && (() => {
                   const sp = parseItemSpecs(lightboxItem.specs)
+                  const hasParsedSpecs = !!(sp.processor || sp.ram || sp.storage || sp.screen || sp.vga || sp.keyboard || sp.os || sp.condition);
                   return (
                     <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Spesifikasi Unit:</h4>
                       <div className="space-y-3 bg-slate-50 dark:bg-slate-950/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                        {sp.processor && (
-                          <div className="flex items-start gap-3 text-sm">
-                            <Cpu className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase">Processor</div>
-                              <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.processor}</div>
-                            </div>
-                          </div>
-                        )}
-                        {sp.vga && (
-                          <div className="flex items-start gap-3 text-sm">
-                            <Monitor className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase">VGA / Graphics</div>
-                              <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.vga}</div>
-                            </div>
-                          </div>
-                        )}
-                        <div className="grid grid-cols-2 gap-4">
-                          {sp.ram && (
-                            <div className="flex items-start gap-3 text-sm">
-                              <MemoryStick className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                              <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase">RAM</div>
-                                <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.ram}</div>
+                        {hasParsedSpecs ? (
+                          <>
+                            {sp.processor && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <Cpu className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Processor</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.processor}</div>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          {sp.storage && (
-                            <div className="flex items-start gap-3 text-sm">
-                              <HardDrive className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                              <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase">Penyimpanan (SSD)</div>
-                                <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.storage}</div>
+                            )}
+                            {sp.vga && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <Gamepad2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">VGA / Graphics</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.vga}</div>
+                                </div>
                               </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                              {sp.ram && (
+                                <div className="flex items-start gap-3 text-sm">
+                                  <MemoryStick className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                  <div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase">RAM</div>
+                                    <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.ram}</div>
+                                  </div>
+                                </div>
+                              )}
+                              {sp.storage && (
+                                <div className="flex items-start gap-3 text-sm">
+                                  <HardDrive className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                  <div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Penyimpanan (SSD)</div>
+                                    <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.storage}</div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        {sp.screen && (
-                          <div className="flex items-start gap-3 text-sm">
-                            <Monitor className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase">Layar / Display</div>
-                              <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.screen}</div>
-                            </div>
-                          </div>
+                            {sp.screen && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <Monitor className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Layar / Display</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.screen}</div>
+                                </div>
+                              </div>
+                            )}
+                            {sp.keyboard && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <Keyboard className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Keyboard</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.keyboard}</div>
+                                </div>
+                              </div>
+                            )}
+                            {sp.os && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <FileText className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Sistem Operasi</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.os}</div>
+                                </div>
+                              </div>
+                            )}
+                            {sp.condition && (
+                              <div className="flex items-start gap-3 text-sm pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Kondisi Fisik</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">
+                                    {sp.condition}
+                                    {sp.defect && (
+                                      <span className="block mt-1 text-xs text-red-500 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded border border-red-100 dark:border-red-900/30">
+                                        Minus: {sp.defect}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-slate-700 dark:text-slate-350 leading-relaxed break-words">{lightboxItem.specs}</p>
                         )}
                       </div>
                     </div>
