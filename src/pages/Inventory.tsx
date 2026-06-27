@@ -188,11 +188,18 @@ export function Inventory() {
     if (value) {
       const parts = value.split(" | ");
       parts.forEach(part => {
-        if (part.startsWith("Processor: ")) result.processor = part.replace("Processor: ", "");
-        else if (part.startsWith("VGA: ")) result.vga = part.replace("VGA: ", "");
-        else if (part.startsWith("RAM: ")) result.ram = part.replace("RAM: ", "");
-        else if (part.startsWith("Storage: ")) result.storage = part.replace("Storage: ", "");
-        else if (part.startsWith("Layar: ")) result.screen = part.replace("Layar: ", "");
+        const lowerPart = part.toLowerCase();
+        if (lowerPart.startsWith("processor:") || lowerPart.startsWith("prosesor:")) {
+          result.processor = part.substring(part.indexOf(":") + 1).trim();
+        } else if (lowerPart.startsWith("vga:")) {
+          result.vga = part.substring(part.indexOf(":") + 1).trim();
+        } else if (lowerPart.startsWith("ram:")) {
+          result.ram = part.substring(part.indexOf(":") + 1).trim();
+        } else if (lowerPart.startsWith("storage:") || lowerPart.startsWith("penyimpanan:")) {
+          result.storage = part.substring(part.indexOf(":") + 1).trim();
+        } else if (lowerPart.startsWith("layar:") || lowerPart.startsWith("screen:") || lowerPart.startsWith("display:")) {
+          result.screen = part.substring(part.indexOf(":") + 1).trim();
+        }
       });
     }
     return result;
@@ -394,6 +401,12 @@ export function Inventory() {
       ctx.fillText("GARANSI", badgeX + badgeW / 2, badgeY + badgeH * 0.77);
 
       // 6. Draw Bottom Contact Details (Footer margins)
+      const footerH = Math.round(ch * 0.058);
+      const footerY = ch - footerH;
+
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; // Sleek translucent footer bar
+      ctx.fillRect(0, footerY, cw, footerH);
+
       // Enable text shadow again
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 6;
@@ -403,32 +416,32 @@ export function Inventory() {
 
       const storeInstagram = localStorage.getItem("storeInstagram") || "hanlaptop";
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
-      const footerTextY = ch - pad * 0.45;
+      const footerTextY = footerY + footerH / 2;
       const iconSize = Math.round(contactFontSize * 1.15);
 
       // IG Handle (Left aligned)
       ctx.textAlign = "left";
-      drawInstagramIcon(pad + 4, footerTextY - iconSize / 2, iconSize);
-      ctx.fillText(`@${storeInstagram}`, pad + 8 + iconSize, footerTextY);
+      drawInstagramIcon(pad + 6, footerTextY - iconSize / 2, iconSize);
+      ctx.fillText(`@${storeInstagram}`, pad + 12 + iconSize, footerTextY);
 
       // WA Phone (Right aligned)
       ctx.textAlign = "right";
       const waText = `WA: ${storePhone}`;
       const waTextWidth = ctx.measureText(waText).width;
       drawWhatsAppIcon(cw - pad - 12 - waTextWidth - iconSize, footerTextY - iconSize / 2, iconSize);
-      ctx.fillText(waText, cw - pad - 4, footerTextY);
+      ctx.fillText(waText, cw - pad - 6, footerTextY);
 
-      // 7. Draw Bottom Left Price overlay
+      // 7. Draw Bottom Left Price overlay (completely above the footer bar to avoid overlaps)
       if (erpItem.sellingPrice) {
         const originalPrice = Math.round(erpItem.sellingPrice * 1.12);
         const formattedOriginal = "Rp " + originalPrice.toLocaleString("id-ID");
         const formattedReal = "Rp " + erpItem.sellingPrice.toLocaleString("id-ID");
 
-        const originalY = ch - pad * 1.6 - priceFontSize;
-        const realY = ch - pad * 1.35;
+        const priceBaseY = footerY - 12;
+        const originalFontSize = Math.round(priceFontSize * 0.46);
+        const originalY = priceBaseY - priceFontSize - 4;
 
         // Crossed-out old price
-        const originalFontSize = Math.round(priceFontSize * 0.46);
         ctx.font = `700 ${originalFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
         ctx.textAlign = "left";
@@ -438,7 +451,7 @@ export function Inventory() {
         // Draw red cross line
         const textWidth = ctx.measureText(formattedOriginal).width;
         ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = Math.round(originalFontSize * 0.15);
+        ctx.lineWidth = Math.max(2, Math.round(originalFontSize * 0.15));
         ctx.beginPath();
         ctx.moveTo(pad + 4, originalY - originalFontSize * 0.35);
         ctx.lineTo(pad + 8 + textWidth, originalY - originalFontSize * 0.35);
@@ -447,7 +460,7 @@ export function Inventory() {
         // Active selling price
         ctx.font = `900 ${priceFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(formattedReal, pad + 6, realY);
+        ctx.fillText(formattedReal, pad + 6, priceBaseY);
       }
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
