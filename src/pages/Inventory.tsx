@@ -259,54 +259,69 @@ export function Inventory() {
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(pad, sepY);
-      ctx.lineTo(cw - pad, sepY);
       ctx.stroke();
 
-      // --- Spec items in a single row with mini icons ---
-      const specY = sepY + panelH * 0.08;
+      // --- Spec items in a multi-line layout to prevent truncation ---
+      const specY1 = sepY + panelH * 0.08;
       const iconSize = Math.round(baseFontSize * 0.7);
       const specFontSize = Math.round(baseFontSize * 0.82);
 
-      const specItems = [
-        { icon: "cpu", label: currentSpecs.processor },
-        { icon: "ram", label: currentSpecs.ram },
-        { icon: "ssd", label: currentSpecs.storage },
-        { icon: "screen", label: currentSpecs.screen },
-      ].filter(s => s.label && s.label !== "Processor Detail" && s.label !== "RAM" && s.label !== "Storage" && s.label !== "Layar / Screen");
-
-      let specX = pad;
-      const specGap = cw * 0.025;
-
-      specItems.forEach((spec, idx) => {
-        // Draw small dot icon
+      // Draw CPU on line 1
+      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") {
         ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
         ctx.beginPath();
-        ctx.arc(specX + iconSize / 2, specY + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
+        ctx.arc(pad + iconSize / 2, specY1 + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw mini icon symbol inside dot
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = `700 ${Math.round(iconSize * 0.7)}px 'Segoe UI', system-ui, sans-serif`;
-        const iconLabels: Record<string, string> = { cpu: "⚡", ram: "▦", ssd: "◉", screen: "▢" };
-        ctx.fillText(iconLabels[spec.icon] || "•", specX + iconSize / 2, specY + specFontSize / 2);
+        ctx.fillText("⚡", pad + iconSize / 2, specY1 + specFontSize / 2);
 
-        // Spec text
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(currentSpecs.processor, pad + iconSize + 6, specY1);
+      }
+
+      // Draw RAM, Storage, Screen on line 2
+      const specY2 = specY1 + specFontSize + panelH * 0.07;
+      let specX = pad;
+      const specGap = cw * 0.035;
+
+      const line2Items = [
+        { icon: "▦", label: currentSpecs.ram && currentSpecs.ram !== "RAM" ? `RAM ${currentSpecs.ram}` : "" },
+        { icon: "◉", label: currentSpecs.storage && currentSpecs.storage !== "Storage" ? `SSD ${currentSpecs.storage}` : "" },
+        { icon: "▢", label: currentSpecs.screen && currentSpecs.screen !== "Layar / Screen" ? currentSpecs.screen : "" },
+      ].filter(s => s.label);
+
+      line2Items.forEach((spec, idx) => {
+        ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
+        ctx.beginPath();
+        ctx.arc(specX + iconSize / 2, specY2 + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `700 ${Math.round(iconSize * 0.7)}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillText(spec.icon, specX + iconSize / 2, specY2 + specFontSize / 2);
+
         ctx.fillStyle = "rgba(255,255,255,0.92)";
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
         ctx.font = `500 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        const labelText = spec.label;
-        ctx.fillText(labelText, specX + iconSize + 6, specY);
-        const textW = ctx.measureText(labelText).width;
+        ctx.fillText(spec.label, specX + iconSize + 6, specY2);
+
+        const textW = ctx.measureText(spec.label).width;
         specX += iconSize + 6 + textW + specGap;
 
-        // Dot separator between items
-        if (idx < specItems.length - 1) {
+        if (idx < line2Items.length - 1) {
           ctx.fillStyle = "rgba(255,255,255,0.3)";
           ctx.beginPath();
-          ctx.arc(specX - specGap / 2, specY + specFontSize / 2, 2.5, 0, Math.PI * 2);
+          ctx.arc(specX - specGap / 2, specY2 + specFontSize / 2, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
       });

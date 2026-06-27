@@ -99,11 +99,13 @@ export function PublicCatalog() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-start md:items-center gap-5">
               {data.store.logo ? (
-                <img 
-                  src={data.store.logo} 
-                  alt={data.store.name} 
-                  className="h-20 w-20 md:h-24 md:w-24 rounded-2xl object-cover shadow-lg border-2 border-white/20 ring-4 ring-white/10 shrink-0" 
-                />
+                <div className="h-20 w-20 md:h-24 md:w-24 bg-white rounded-2xl flex items-center justify-center p-2 shadow-lg border border-white/20 ring-4 ring-white/10 shrink-0 overflow-hidden">
+                  <img 
+                    src={data.store.logo} 
+                    alt={data.store.name} 
+                    className="max-h-full max-w-full object-contain" 
+                  />
+                </div>
               ) : (
                 <div className="h-20 w-20 md:h-24 md:w-24 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/20 shadow-lg ring-4 ring-white/10 shrink-0">
                   <Store className="h-10 w-10 text-white/80" />
@@ -217,38 +219,43 @@ export function PublicCatalog() {
                       </div>
 
                       {/* Structural Specs Display (No Truncation) */}
-                      {item.specs && (
-                        <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 space-y-2.5 text-xs">
-                          {specs.processor && (
-                            <div className="flex items-start gap-2">
-                              <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                              <span className="font-medium text-slate-700 dark:text-slate-300 break-words leading-relaxed">{specs.processor}</span>
-                            </div>
-                          )}
-                          
-                          <div className="grid grid-cols-2 gap-3 pt-1">
-                            {specs.ram && (
-                              <div className="flex items-center gap-2">
-                                <MemoryStick className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                <span className="text-slate-600 dark:text-slate-400">RAM: <span className="font-bold text-slate-800 dark:text-slate-200">{specs.ram}</span></span>
-                              </div>
-                            )}
-                            {specs.storage && (
-                              <div className="flex items-center gap-2">
-                                <HardDrive className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                <span className="text-slate-600 dark:text-slate-400">SSD: <span className="font-bold text-slate-800 dark:text-slate-200">{specs.storage}</span></span>
-                              </div>
+                      {item.specs && (() => {
+                        const hasParsedSpecs = !!(specs.processor || specs.ram || specs.storage || specs.screen || specs.vga);
+                        return (
+                          <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 space-y-2.5 text-xs">
+                            {hasParsedSpecs ? (
+                              <>
+                                {specs.processor && (
+                                  <div className="flex items-start gap-2">
+                                    <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="font-medium text-slate-700 dark:text-slate-300 break-words leading-relaxed">{specs.processor}</span>
+                                  </div>
+                                )}
+                                {specs.ram && (
+                                  <div className="flex items-start gap-2">
+                                    <MemoryStick className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">RAM: <span className="font-bold text-slate-800 dark:text-slate-200">{specs.ram}</span></span>
+                                  </div>
+                                )}
+                                {specs.storage && (
+                                  <div className="flex items-start gap-2">
+                                    <HardDrive className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">SSD: <span className="font-bold text-slate-800 dark:text-slate-200">{specs.storage}</span></span>
+                                  </div>
+                                )}
+                                {specs.screen && (
+                                  <div className="flex items-start gap-2">
+                                    <Monitor className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="text-slate-600 dark:text-slate-400">Layar: <span className="font-bold text-slate-800 dark:text-slate-200 break-words">{specs.screen}</span></span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-slate-600 dark:text-slate-400 leading-relaxed break-words">{item.specs}</p>
                             )}
                           </div>
-
-                          {specs.screen && (
-                            <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                              <Monitor className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                              <span className="text-slate-600 dark:text-slate-400">Layar: <span className="font-bold text-slate-800 dark:text-slate-200 break-words">{specs.screen}</span></span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        );
+                      })()}
                     </CardContent>
                   </div>
 
@@ -284,7 +291,9 @@ export function PublicCatalog() {
         <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500">
           <div className="flex items-center gap-3">
             {data.store.logo ? (
-              <img src={data.store.logo} alt="" className="h-8 w-8 rounded-lg object-cover opacity-60" />
+              <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center p-0.5 border border-slate-100 opacity-80 overflow-hidden shrink-0">
+                <img src={data.store.logo} alt="" className="max-h-full max-w-full object-contain" />
+              </div>
             ) : (
               <Store className="h-5 w-5 text-slate-400" />
             )}
