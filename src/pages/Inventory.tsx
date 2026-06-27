@@ -262,9 +262,9 @@ export function Inventory() {
       const specFontSize = Math.round(cw * 0.0165);
       const contactFontSize = Math.round(cw * 0.015);
 
-      // --- BRIGHT WHITE GLOW SHADOW TO ENSURE 100% VISIBILITY OF BLACK TEXT ON ANY FOTO ---
-      ctx.shadowColor = "rgba(255, 255, 255, 0.95)";
-      ctx.shadowBlur = 6;
+      // --- FLAT DESIGN: NO SHADOWS AT ALL FOR ULTRACLEAN AND CRISP TEXT ---
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
 
@@ -279,7 +279,7 @@ export function Inventory() {
       }
 
       // 4. Draw Header Specs (Large name pushed down for balanced layout)
-      ctx.fillStyle = "#000000"; // Black for contrast
+      ctx.fillStyle = "#000000"; // Pure Black
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       const startHeaderY = ch * 0.075; // Pushed down from top border
@@ -441,7 +441,7 @@ export function Inventory() {
         }
       ];
 
-      // Draw Grid Items (Black/Charcoal texts with white shadow glow)
+      // Draw Grid Items (Pure Black texts with no shadows)
       gridItems.forEach(item => {
         const itemX = startX + item.col * colWidth;
         const itemY = gridStartY + item.row * rowGap;
@@ -451,7 +451,7 @@ export function Inventory() {
         // Draw Badge
         drawBadgeIcon(cx, cy, badgeRadius, item.icon);
 
-        // Bold Title (Black)
+        // Bold Title (Pure Black)
         ctx.fillStyle = "#000000";
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
@@ -507,7 +507,7 @@ export function Inventory() {
         brandOffset = 20;
       }
 
-      // Store Name (Black for legibility)
+      // Store Name (Pure Black for legibility)
       ctx.fillStyle = "#000000";
       ctx.font = `800 ${Math.round(cw * 0.02)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textBaseline = "top";
@@ -533,18 +533,18 @@ export function Inventory() {
       ctx.lineTo(brandCx + tagW / 2 + 25, tagY + 6);
       ctx.stroke();
 
-      // 7. Draw Bottom Margin Contact Handles (Black text with Gold icons, positioned safely high to prevent cuts)
+      // 7. Draw Bottom Margin Contact Handles (Pure Black text with Pure Black icons)
       const footerTextY = ch * 0.97;
       const storeInstagram = localStorage.getItem("storeInstagram") || "hanlaptop";
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
 
-      // Instagram (Left side: Gold Icon + Black Text)
+      // Instagram (Left side: Black Icon + Black Text)
       const igIconX = pad + 6;
       const igIconY = footerTextY - 9;
       const iconW = 18;
 
-      // Draw gold IG icon outline
-      ctx.strokeStyle = "#c5a85c";
+      // Draw black IG icon outline
+      ctx.strokeStyle = "#000000";
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.roundRect(igIconX, igIconY, iconW, iconW, 5);
@@ -554,7 +554,7 @@ export function Inventory() {
       ctx.arc(igIconX + iconW/2, igIconY + iconW/2, iconW/4, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = "#c5a85c";
+      ctx.fillStyle = "#000000";
       ctx.beginPath();
       ctx.arc(igIconX + iconW * 0.75, igIconY + iconW * 0.25, 1.5, 0, Math.PI * 2);
       ctx.fill();
@@ -566,7 +566,7 @@ export function Inventory() {
       ctx.textBaseline = "middle";
       ctx.fillText(`@${storeInstagram}`, igIconX + iconW + 8, footerTextY);
 
-      // WhatsApp (Right side: Gold Icon + Black Text)
+      // WhatsApp (Right side: Black Icon + Black Text)
       const waText = `WA: ${storePhone}`;
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       const waTextW = ctx.measureText(waText).width;
@@ -574,8 +574,8 @@ export function Inventory() {
       const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
       const waIconY = footerTextY - 9;
 
-      // Draw gold WA icon outline
-      ctx.strokeStyle = "#c5a85c";
+      // Draw black WA icon outline
+      ctx.strokeStyle = "#000000";
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.arc(waIconX + waIconW/2, waIconY + waIconW/2, waIconW/2 - 1, 0, Math.PI * 2);
