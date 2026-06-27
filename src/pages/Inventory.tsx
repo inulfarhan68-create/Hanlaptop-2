@@ -755,25 +755,27 @@ export function Inventory() {
       ctx.closePath();
       ctx.stroke();
 
-      // Solid filled telephone handset receiver inside the bubble (matches official logo)
+      // Solid filled telephone handset receiver inside the bubble (pixel-perfect match to official logo)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(-Math.PI / 12); // Tilted WhatsApp receiver angle
       ctx.fillStyle = "#000000"; // Solid black receiver
       
       ctx.beginPath();
-      // Start at top-right (earpiece outer corner)
-      ctx.moveTo(radius * 0.1, -radius * 0.45);
-      // Curve to bottom-left (handle outer edge)
-      ctx.quadraticCurveTo(-radius * 0.5, -radius * 0.2, -radius * 0.45, radius * 0.35);
-      // Mouthpiece outer corner
-      ctx.lineTo(-radius * 0.25, radius * 0.45);
-      // Mouthpiece inner corner
-      ctx.lineTo(-radius * 0.15, radius * 0.25);
-      // Handle inner curve
-      ctx.quadraticCurveTo(-radius * 0.25, -radius * 0.05, -radius * 0.05, -radius * 0.25);
-      // Earpiece inner corner
-      ctx.lineTo(radius * 0.2, -radius * 0.35);
+      // Earpiece outer
+      ctx.moveTo(-radius * 0.15, -radius * 0.5);
+      ctx.quadraticCurveTo(radius * 0.1, -radius * 0.55, radius * 0.35, -radius * 0.3);
+      ctx.quadraticCurveTo(radius * 0.45, -radius * 0.15, radius * 0.25, -radius * 0.05);
+      ctx.quadraticCurveTo(radius * 0.15, -radius * 0.15, radius * 0.05, -radius * 0.25);
+      // Handle inner
+      ctx.quadraticCurveTo(-radius * 0.2, -radius * 0.1, -radius * 0.25, radius * 0.05);
+      ctx.quadraticCurveTo(-radius * 0.15, radius * 0.15, -radius * 0.05, radius * 0.25);
+      // Mouthpiece
+      ctx.quadraticCurveTo(radius * 0.15, radius * 0.45, -radius * 0.1, radius * 0.55);
+      ctx.quadraticCurveTo(-radius * 0.3, radius * 0.6, -radius * 0.45, radius * 0.35);
+      ctx.quadraticCurveTo(-radius * 0.5, radius * 0.15, -radius * 0.35, radius * 0.05);
+      // Handle outer
+      ctx.quadraticCurveTo(-radius * 0.35, -radius * 0.15, -radius * 0.15, -radius * 0.5);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
