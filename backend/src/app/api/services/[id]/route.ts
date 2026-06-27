@@ -185,30 +185,63 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const randomCode = Math.floor(100 + Math.random() * 900);
             const serviceAmount = finalCost || existing.estimatedCost || 0;
-            
-            await db.insert(transactions).values({
-                id: txId,
-                storeId: existing.storeId,
-                transactionType: "Jasa Servis",
-                amount: serviceAmount,
-                description: `Servis: ${existing.deviceName} - ${existing.issue} [ID: ${params.id}]`,
-                transactionDate: now,
-                invoiceNumber: `SRV/${year}/${month}/${randomCode}`,
-                customerName: existing.customerName,
-                customerId: existing.customerId,
-                paymentMethod: "Cash",
-                paymentStatus: "Lunas",
-                userId: authResult.user.id,
-                shiftId: activeShift?.id || null,
-                createdAt: now
-            });
+            const isWarranty = existing.warrantyClaimed === true;
 
-            // Insert Journal Entries to balance ledger and make shift accounting work perfectly!
-            if (serviceAmount > 0) {
-                await db.insert(journalEntries).values([
-                    { storeId: existing.storeId, transactionId: txId, accountName: "Pendapatan Servis", debit: 0, credit: serviceAmount },
-                    { storeId: existing.storeId, transactionId: txId, accountName: "Kas", debit: serviceAmount, credit: 0 }
-                ]);
+            if (isWarranty) {
+                // ── Klaim Garansi: catat sebagai BEBAN (pengeluaran toko) ──
+                // Customer tidak membayar. Toko yang menanggung biaya perbaikan/sparepart.
+                // Hanya buat transaksi jika ada biaya nyata yang dikeluarkan (sparepart/jasa).
+                if (serviceAmount > 0) {
+                    await db.insert(transactions).values({
+                        id: txId,
+                        storeId: existing.storeId,
+                        transactionType: "Beban Garansi",
+                        amount: serviceAmount,
+                        description: `Klaim Garansi: ${existing.deviceName} - ${existing.issue} [ID: ${params.id}]`,
+                        transactionDate: now,
+                        invoiceNumber: `GRN/${year}/${month}/${randomCode}`,
+                        customerName: existing.customerName,
+                        customerId: existing.customerId,
+                        paymentMethod: "Cash",
+                        paymentStatus: "Lunas",
+                        userId: authResult.user.id,
+                        shiftId: activeShift?.id || null,
+                        createdAt: now
+                    });
+
+                    // Journal: Beban Garansi (Debit) + Kas (Credit) — pengeluaran toko
+                    await db.insert(journalEntries).values([
+                        { storeId: existing.storeId, transactionId: txId, accountName: "Beban Garansi", debit: serviceAmount, credit: 0 },
+                        { storeId: existing.storeId, transactionId: txId, accountName: "Kas", debit: 0, credit: serviceAmount }
+                    ]);
+                }
+                // Jika biaya = 0 (garansi penuh tanpa sparepart), tidak perlu entri transaksi
+            } else {
+                // ── Service Biasa: catat sebagai PENDAPATAN ──
+                await db.insert(transactions).values({
+                    id: txId,
+                    storeId: existing.storeId,
+                    transactionType: "Jasa Servis",
+                    amount: serviceAmount,
+                    description: `Servis: ${existing.deviceName} - ${existing.issue} [ID: ${params.id}]`,
+                    transactionDate: now,
+                    invoiceNumber: `SRV/${year}/${month}/${randomCode}`,
+                    customerName: existing.customerName,
+                    customerId: existing.customerId,
+                    paymentMethod: "Cash",
+                    paymentStatus: "Lunas",
+                    userId: authResult.user.id,
+                    shiftId: activeShift?.id || null,
+                    createdAt: now
+                });
+
+                // Journal: Pendapatan Servis (Credit) + Kas (Debit) — pendapatan toko
+                if (serviceAmount > 0) {
+                    await db.insert(journalEntries).values([
+                        { storeId: existing.storeId, transactionId: txId, accountName: "Pendapatan Servis", debit: 0, credit: serviceAmount },
+                        { storeId: existing.storeId, transactionId: txId, accountName: "Kas", debit: serviceAmount, credit: 0 }
+                    ]);
+                }
             }
         }
 
