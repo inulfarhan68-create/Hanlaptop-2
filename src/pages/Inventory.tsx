@@ -698,24 +698,28 @@ export function Inventory() {
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
 
       // Instagram (Left side: Black Icon + Black Text)
+      const igSize = 30; // Larger icon
       const igIconX = pad + 6;
-      const igIconY = footerTextY - 11; // Center 22px icon
-      const iconW = 22; // Enlarged from 18px for maximum clarity
+      const igIconY = footerTextY - igSize / 2;
 
-      // Draw black IG icon outline
+      // IG rounded square outline
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.2; // Thicker stroke
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.roundRect(igIconX, igIconY, iconW, iconW, 6);
+      ctx.roundRect(igIconX, igIconY, igSize, igSize, 7);
       ctx.stroke();
 
+      // IG inner circle
       ctx.beginPath();
-      ctx.arc(igIconX + iconW/2, igIconY + iconW/2, iconW/4, 0, Math.PI * 2);
+      ctx.arc(igIconX + igSize / 2, igIconY + igSize / 2, igSize * 0.27, 0, Math.PI * 2);
       ctx.stroke();
 
+      // IG dot (top-right)
       ctx.fillStyle = "#000000";
       ctx.beginPath();
-      ctx.arc(igIconX + iconW * 0.75, igIconY + iconW * 0.25, 1.8, 0, Math.PI * 2);
+      ctx.arc(igIconX + igSize * 0.74, igIconY + igSize * 0.26, 2.5, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw Instagram text (Black)
@@ -723,62 +727,45 @@ export function Inventory() {
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(`@${storeInstagram}`, igIconX + iconW + 8, footerTextY);
+      ctx.fillText(`@${storeInstagram}`, igIconX + igSize + 8, footerTextY);
 
       // WhatsApp (Right side: Black Icon + Black Text)
       const waText = `WA: ${storePhone}`;
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       const waTextW = ctx.measureText(waText).width;
-      const waIconW = 34; // Larger for maximum clarity
-      const waIconX = cw - pad - 6 - waTextW - waIconW - 10;
-      const waIconY = footerTextY - 17;
+      const waSize = 30; // Match Instagram icon size
+      const waIconX = cw - pad - 6 - waTextW - waSize - 10;
+      const waIconY = footerTextY - waSize / 2;
+      const waCx = waIconX + waSize / 2;
+      const waCy = waIconY + waSize / 2;
+      const waR = waSize / 2 - 1.5;
 
-      const waCx = waIconX + waIconW / 2;
-      const waCy = waIconY + waIconW / 2;
-      const waR = waIconW / 2 - 2;
-
-      // ── 1. Chat bubble circle outline with tail at bottom-left ──
+      // ── Chat bubble circle outline with pointy tail at bottom-left ──
       ctx.save();
       ctx.strokeStyle = "#000000";
       ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.beginPath();
-      // Draw the big arc clockwise from 155° to 115° (330° arc, leaving 50° gap at bottom-left)
+      // Large arc clockwise from 155° to 115° (gap = 50° at bottom-left for the tail)
       ctx.arc(waCx, waCy, waR, 155 * Math.PI / 180, 115 * Math.PI / 180, false);
-      // Tail tip pointing to bottom-left
-      ctx.lineTo(waCx - waR * 1.15, waCy + waR * 1.15);
+      ctx.lineTo(waCx - waR * 1.2, waCy + waR * 1.2);
       ctx.closePath();
       ctx.stroke();
       ctx.restore();
 
-      // ── 2. Phone handset inside the bubble ──
-      // The WA handset = earpiece (top-right ellipse) + mouthpiece (bottom-left ellipse) + thin curved handle
+      // ── Phone handset: single thick arc with round ends ──
+      // This is the definitive method: one C-shaped arc rotated 45° looks exactly like a phone receiver
       ctx.save();
       ctx.translate(waCx, waCy);
-      ctx.rotate(-Math.PI / 4); // 45° clockwise tilt to match WA logo
-
-      ctx.fillStyle = "#000000";
-
-      // Earpiece – fat rounded ellipse at top
-      ctx.beginPath();
-      ctx.ellipse(0, -waR * 0.42, waR * 0.24, waR * 0.16, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Mouthpiece – fat rounded ellipse at bottom
-      ctx.beginPath();
-      ctx.ellipse(0, waR * 0.42, waR * 0.24, waR * 0.16, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Handle – thin curved arc connecting earpiece to mouthpiece
+      ctx.rotate(Math.PI / 4); // 45° tilt so earpiece is top-right, mouthpiece is bottom-left
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = waR * 0.18;
+      ctx.lineWidth = waR * 0.38;  // Very thick – creates the fat earpiece/mouthpiece from round caps
       ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.moveTo(0, -waR * 0.34);
-      ctx.bezierCurveTo(waR * 0.28, -waR * 0.12, waR * 0.28, waR * 0.12, 0, waR * 0.34);
+      // Draw a C-shaped arc (roughly 200° sweep, from top to bottom)
+      ctx.arc(0, 0, waR * 0.42, -2.6, 0.6, false); // about -149° to 34°, counterclockwise = false
       ctx.stroke();
-
       ctx.restore();
 
       // Draw WhatsApp text (Black)
