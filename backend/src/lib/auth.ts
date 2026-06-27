@@ -4,6 +4,15 @@ import { db } from "../db";
 import * as schema from "../db/schema";
 
 let serverBaseURL = process.env.BETTER_AUTH_URL || "";
+if (serverBaseURL) {
+    if (!serverBaseURL.endsWith("/api/auth") && !serverBaseURL.endsWith("/api/auth/")) {
+        if (!serverBaseURL.endsWith("/")) {
+            serverBaseURL += "/";
+        }
+        serverBaseURL += "api/auth";
+    }
+}
+
 if (!serverBaseURL) {
     serverBaseURL = process.env.NODE_ENV === 'development' 
         ? "http://localhost:3000/api/auth" 
