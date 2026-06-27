@@ -257,9 +257,9 @@ export function Inventory() {
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
       const pad = cw * 0.04; // 4% outer padding
-      const modelFontSize = Math.round(cw * 0.044);
-      const specFontSize = Math.round(cw * 0.0165);
-      const contactFontSize = Math.round(cw * 0.015);
+      const modelFontSize = Math.round(cw * 0.048);
+      const specFontSize = Math.round(cw * 0.0185);
+      const contactFontSize = Math.round(cw * 0.0165);
 
       // --- FLAT DESIGN: NO SHADOWS AT ALL FOR ULTRACLEAN AND CRISP TEXT ---
       ctx.shadowColor = "transparent";
@@ -576,7 +576,7 @@ export function Inventory() {
       // Draw dynamic uploaded store logo if loaded, otherwise fallback to vector logo
       let brandOffset = 0;
       if (logoLoaded && logoImg.width > 0) {
-        const logoW = Math.round(cw * 0.075); // Larger store logo (7.5% width)
+        const logoW = Math.round(cw * 0.095); // Enlarged store logo (9.5% width)
         const logoH = Math.round(logoImg.height * (logoW / logoImg.width));
         
         ctx.drawImage(logoImg, brandCx - logoW / 2, brandCy - logoH / 2, logoW, logoH);
@@ -597,22 +597,22 @@ export function Inventory() {
 
       // Store Name (Pure Black for legibility)
       ctx.fillStyle = "#000000";
-      ctx.font = `800 ${Math.round(cw * 0.02)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.font = `800 ${Math.round(cw * 0.024)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textBaseline = "top";
       ctx.textAlign = "center";
       ctx.fillText(localStorage.getItem("storeName") || "Han Laptop", brandCx, brandCy + brandOffset);
 
-      // Tagline with side dash lines (Gold)
+      // Tagline with side dash lines (Pure Black as requested)
       const tagText = "Reliable Performance. Trusted Quality.";
-      ctx.font = `600 ${Math.round(cw * 0.0125)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillStyle = "#c5a85c";
+      ctx.font = `600 ${Math.round(cw * 0.0145)}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillStyle = "#000000";
       const tagW = ctx.measureText(tagText).width;
-      const tagY = brandCy + brandOffset + Math.round(cw * 0.02) + 8;
+      const tagY = brandCy + brandOffset + Math.round(cw * 0.024) + 8;
 
       ctx.fillText(tagText, brandCx, tagY);
 
-      // Dash lines (Gold)
-      ctx.strokeStyle = "rgba(197, 168, 92, 0.4)";
+      // Dash lines (Black)
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(brandCx - tagW / 2 - 25, tagY + 6);
@@ -662,23 +662,27 @@ export function Inventory() {
       const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
       const waIconY = footerTextY - 11;
 
-      // Draw black WA icon outline
+      // Draw black WA icon outline (Centered correctly, no cutoffs)
+      const cx = waIconX + waIconW/2;
+      const cy = waIconY + waIconW/2;
+      const radius = waIconW/2 - 1.5;
+
       ctx.strokeStyle = "#000000";
       ctx.lineWidth = 2.2; // Thicker stroke
       ctx.beginPath();
-      ctx.arc(waIconX + waIconW/2, waIconY + waIconW/2, waIconW/2 - 1, 0, Math.PI * 2);
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Chat tail
+      // Chat tail (connected smoothly inside limits)
       ctx.beginPath();
-      ctx.moveTo(waIconX + waIconW * 0.25, waIconY + waIconW * 0.75);
-      ctx.lineTo(waIconX + waIconW * 0.08, waIconY + waIconW * 0.92);
-      ctx.lineTo(waIconX + waIconW * 0.35, waIconY + waIconW * 0.85);
+      ctx.moveTo(cx - radius * 0.5, cy + radius * 0.86);
+      ctx.lineTo(cx - radius * 1.1, cy + radius * 1.1);
+      ctx.lineTo(cx - radius * 0.86, cy + radius * 0.5);
       ctx.stroke();
 
       // Phone receiver arc
       ctx.beginPath();
-      ctx.arc(waIconX + waIconW/2 + 1.5, waIconY + waIconW/2 - 1.5, waIconW/4.5, Math.PI * 0.7, Math.PI * 1.6);
+      ctx.arc(cx + 1.5, cy - 1.5, radius * 0.45, Math.PI * 0.7, Math.PI * 1.6);
       ctx.stroke();
 
       // Draw WhatsApp text (Black)
