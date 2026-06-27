@@ -262,11 +262,11 @@ export function Inventory() {
       const specFontSize = Math.round(cw * 0.0165);
       const contactFontSize = Math.round(cw * 0.015);
 
-      // --- HIGH CONTRAST DROP SHADOW TO ENSURE 100% LEGIBILITY ON ANY FOTO ---
-      ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+      // --- BRIGHT WHITE GLOW SHADOW TO ENSURE 100% VISIBILITY OF BLACK TEXT ON ANY FOTO ---
+      ctx.shadowColor = "rgba(255, 255, 255, 0.95)";
       ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
 
       // 3. Dynamic Model Name Splicing (to match 'HP PROBOOK 635 / Aero G8' header layout)
       const nameParts = currentSpecs.model.split(" ");
@@ -278,8 +278,8 @@ export function Inventory() {
         subTitle = nameParts.slice(splitIdx).join(" ");
       }
 
-      // 4. Draw Header Specs (Large white name pushed down for balanced layout)
-      ctx.fillStyle = "#ffffff"; // White for contrast
+      // 4. Draw Header Specs (Large name pushed down for balanced layout)
+      ctx.fillStyle = "#000000"; // Black for contrast
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       const startHeaderY = ch * 0.075; // Pushed down from top border
@@ -320,7 +320,7 @@ export function Inventory() {
       ctx.stroke();
 
       // Subtagline
-      ctx.fillStyle = "#e2e8f0"; // Bright grey/white
+      ctx.fillStyle = "#475569"; // Dark grey/slate
       ctx.font = `500 ${Math.round(modelFontSize * 0.35)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 14);
 
@@ -399,11 +399,13 @@ export function Inventory() {
         }
       };
 
-      // 5. Draw 3-Column, 2-Row Specifications Grid (Bottom area)
-      const gridStartY = ch * 0.72;
-      const rowGap = ch * 0.075;
-      const colWidth = cw * 0.31;
-      const startX = pad + 10;
+      // 5. Draw 3-Column, 2-Row Specifications Grid (Pushed lower and packed tighter to the center)
+      const gridW = cw * 0.80; // Compact 80% width container
+      const margin = (cw - gridW) / 2;
+      const colWidth = gridW / 3;
+      const gridStartY = ch * 0.745; // Pushed down
+      const rowGap = ch * 0.072;
+      const startX = margin;
       const badgeRadius = Math.round(cw * 0.021);
 
       const gridItems = [
@@ -439,7 +441,7 @@ export function Inventory() {
         }
       ];
 
-      // Draw Grid Items (White/Light texts with shadows for extreme legibility)
+      // Draw Grid Items (Black/Charcoal texts with white shadow glow)
       gridItems.forEach(item => {
         const itemX = startX + item.col * colWidth;
         const itemY = gridStartY + item.row * rowGap;
@@ -449,15 +451,15 @@ export function Inventory() {
         // Draw Badge
         drawBadgeIcon(cx, cy, badgeRadius, item.icon);
 
-        // Bold Title
-        ctx.fillStyle = "#ffffff"; // White for contrast
+        // Bold Title (Black)
+        ctx.fillStyle = "#000000";
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
         ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.title, itemX + badgeRadius * 2.2 + 8, itemY + 2);
 
-        // Muted Subtitle
-        ctx.fillStyle = "#cbd5e1"; // slate-300
+        // Muted Subtitle (Dark slate grey)
+        ctx.fillStyle = "#475569";
         ctx.font = `600 ${Math.round(specFontSize * 0.8)}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.subtitle, itemX + badgeRadius * 2.2 + 8, itemY + specFontSize + 6);
       });
@@ -479,34 +481,34 @@ export function Inventory() {
       ctx.lineTo(startX + colWidth * 2 - 12, gridStartY + sepLineH);
       ctx.stroke();
 
-      // 6. Draw Bottom Branding (Centered at Y = ch - pad * 1.45)
+      // 6. Draw Bottom Branding (Centered at absolute lower-middle zone)
       const brandCx = cw / 2;
-      const brandCy = ch - pad * 1.5;
+      const brandCy = ch * 0.89;
 
       // Draw dynamic uploaded store logo if loaded, otherwise fallback to vector logo
       let brandOffset = 0;
       if (logoLoaded && logoImg.width > 0) {
-        const logoW = Math.round(cw * 0.05);
+        const logoW = Math.round(cw * 0.075); // Larger store logo (7.5% width)
         const logoH = Math.round(logoImg.height * (logoW / logoImg.width));
         
         ctx.drawImage(logoImg, brandCx - logoW / 2, brandCy - logoH / 2, logoW, logoH);
         brandOffset = logoH / 2 + 10;
       } else {
-        // Fallback stylized gold laptop peak logo
+        // Fallback stylized gold laptop peak logo (Larger size)
         ctx.strokeStyle = "#c5a85c"; // Muted gold
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2.0;
         ctx.beginPath();
-        ctx.moveTo(brandCx - 14, brandCy + 4);
-        ctx.quadraticCurveTo(brandCx, brandCy - 10, brandCx + 14, brandCy + 4);
-        ctx.moveTo(brandCx - 5, brandCy + 4);
-        ctx.lineTo(brandCx, brandCy - 3);
-        ctx.lineTo(brandCx + 5, brandCy + 4);
+        ctx.moveTo(brandCx - 24, brandCy + 6);
+        ctx.quadraticCurveTo(brandCx, brandCy - 15, brandCx + 24, brandCy + 6);
+        ctx.moveTo(brandCx - 8, brandCy + 6);
+        ctx.lineTo(brandCx, brandCy - 5);
+        ctx.lineTo(brandCx + 8, brandCy + 6);
         ctx.stroke();
-        brandOffset = 14;
+        brandOffset = 20;
       }
 
-      // Store Name (White for legibility)
-      ctx.fillStyle = "#ffffff";
+      // Store Name (Black for legibility)
+      ctx.fillStyle = "#000000";
       ctx.font = `800 ${Math.round(cw * 0.02)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textBaseline = "top";
       ctx.textAlign = "center";
@@ -531,22 +533,71 @@ export function Inventory() {
       ctx.lineTo(brandCx + tagW / 2 + 25, tagY + 6);
       ctx.stroke();
 
-      // 7. Draw Bottom Margin Contact Handles (Muted slate-300, aligned in corners)
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.textBaseline = "middle";
-
+      // 7. Draw Bottom Margin Contact Handles (Black text with Gold icons, positioned safely high to prevent cuts)
+      const footerTextY = ch * 0.97;
       const storeInstagram = localStorage.getItem("storeInstagram") || "hanlaptop";
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
-      const footerTextY = ch - pad * 0.45;
 
-      // IG Handle (Bottom Left margin)
+      // Instagram (Left side: Gold Icon + Black Text)
+      const igIconX = pad + 6;
+      const igIconY = footerTextY - 9;
+      const iconW = 18;
+
+      // Draw gold IG icon outline
+      ctx.strokeStyle = "#c5a85c";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.roundRect(igIconX, igIconY, iconW, iconW, 5);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(igIconX + iconW/2, igIconY + iconW/2, iconW/4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "#c5a85c";
+      ctx.beginPath();
+      ctx.arc(igIconX + iconW * 0.75, igIconY + iconW * 0.25, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw Instagram text (Black)
+      ctx.fillStyle = "#000000";
+      ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = "left";
-      ctx.fillText(`@${storeInstagram}`, pad + 6, footerTextY);
+      ctx.textBaseline = "middle";
+      ctx.fillText(`@${storeInstagram}`, igIconX + iconW + 8, footerTextY);
 
-      // WA Phone (Bottom Right margin)
+      // WhatsApp (Right side: Gold Icon + Black Text)
+      const waText = `WA: ${storePhone}`;
+      ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      const waTextW = ctx.measureText(waText).width;
+      const waIconW = 18;
+      const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
+      const waIconY = footerTextY - 9;
+
+      // Draw gold WA icon outline
+      ctx.strokeStyle = "#c5a85c";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(waIconX + waIconW/2, waIconY + waIconW/2, waIconW/2 - 1, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Chat tail
+      ctx.beginPath();
+      ctx.moveTo(waIconX + waIconW * 0.25, waIconY + waIconW * 0.75);
+      ctx.lineTo(waIconX + waIconW * 0.08, waIconY + waIconW * 0.9);
+      ctx.lineTo(waIconX + waIconW * 0.35, waIconY + waIconW * 0.85);
+      ctx.stroke();
+
+      // Phone receiver arc
+      ctx.beginPath();
+      ctx.arc(waIconX + waIconW/2 + 1, waIconY + waIconW/2 - 1, waIconW/5, Math.PI * 0.7, Math.PI * 1.6);
+      ctx.stroke();
+
+      // Draw WhatsApp text (Black)
+      ctx.fillStyle = "#000000";
       ctx.textAlign = "right";
-      ctx.fillText(`WA: ${storePhone}`, cw - pad - 6, footerTextY);
+      ctx.textBaseline = "middle";
+      ctx.fillText(waText, cw - pad - 6, footerTextY);
     };
 
     img.onload = () => {
