@@ -53,9 +53,10 @@ export function Reports() {
       { Kategori: "Beban Operasional", Item: "Gaji Karyawan", Nilai: Math.round(res.opex?.gaji || 0) },
       { Kategori: "Beban Operasional", Item: "Listrik & Internet", Nilai: Math.round(res.opex?.listrik || 0) },
       { Kategori: "Beban Operasional", Item: "Sewa Tempat", Nilai: Math.round(res.opex?.sewa || 0) },
+      { Kategori: "Beban Operasional", Item: "Klaim Garansi", Nilai: Math.round(res.opex?.garansi || 0) },
       { Kategori: "Beban Operasional", Item: "Lainnya", Nilai: Math.round(res.opex?.lainnya || 0) },
-      { Kategori: "Beban Operasional", Item: "Total Beban", Nilai: Math.round((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.lainnya || 0)) },
-      { Kategori: "Laba Bersih", Item: "Laba Bersih", Nilai: Math.round((res.revenue?.laptop || 0) + (res.revenue?.servis || 0) - (res.cogs || 0) - ((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.lainnya || 0))) }
+      { Kategori: "Beban Operasional", Item: "Total Beban", Nilai: Math.round((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.garansi || 0) + (res.opex?.lainnya || 0)) },
+      { Kategori: "Laba Bersih", Item: "Laba Bersih", Nilai: Math.round((res.revenue?.laptop || 0) + (res.revenue?.servis || 0) - (res.cogs || 0) - ((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.garansi || 0) + (res.opex?.lainnya || 0))) }
     ]
 
     const totalAssets = Math.round((res.assets?.kas || 0) + (res.assets?.inventory || 0) + (res.assets?.piutang || 0))

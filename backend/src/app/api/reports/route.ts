@@ -39,6 +39,7 @@ export async function GET(request: Request) {
         let opexGaji = 0;
         let opexListrik = 0;
         let opexSewa = 0;
+        let opexGaransi = 0;
         let opexLainnya = 0;
         let kas = 0;
         let persediaan = 0;
@@ -62,6 +63,8 @@ export async function GET(request: Request) {
                 opexListrik += entry.debit - entry.credit;
             } else if (entry.accountName === "Beban Sewa Tempat") {
                 opexSewa += entry.debit - entry.credit;
+            } else if (entry.accountName === "Beban Garansi") {
+                opexGaransi += entry.debit - entry.credit;
             } else if (entry.accountName.includes("Beban")) {
                 opexLainnya += entry.debit - entry.credit;
             }
@@ -100,7 +103,7 @@ export async function GET(request: Request) {
         });
 
         const totalRevenue = revenueLaptop + revenueServis;
-        const totalOpex = opexGaji + opexListrik + opexSewa + opexLainnya;
+        const totalOpex = opexGaji + opexListrik + opexSewa + opexGaransi + opexLainnya;
         const netProfit = totalRevenue - cogs - totalOpex;
         const totalEquity = equity - prive;
         const cumulativeNetProfit = cumulativeRevenue - cumulativeCogs - cumulativeOpex;
@@ -118,6 +121,7 @@ export async function GET(request: Request) {
                 gaji: opexGaji,
                 listrik: opexListrik,
                 sewa: opexSewa,
+                garansi: opexGaransi,
                 lainnya: opexLainnya
             },
             assets: {

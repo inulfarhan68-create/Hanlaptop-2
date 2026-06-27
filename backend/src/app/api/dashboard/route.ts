@@ -197,6 +197,7 @@ export async function GET(request: Request) {
             "Pemasaran / Iklan",
             "Transportasi",
             "Perbaikan & Perawatan",
+            "Klaim Garansi",
             "Lain-lain"
         ];
 
@@ -214,8 +215,15 @@ export async function GET(request: Request) {
                      }
                  }
                  opexDetailsMap[matchedCategory] += tx.amount;
+            } else if (tx.transactionType === "Beban Garansi") {
+                // Klaim garansi: beban ditanggung toko, masuk kategori "Klaim Garansi"
+                opexDetailsMap["Klaim Garansi"] = (opexDetailsMap["Klaim Garansi"] || 0) + tx.amount;
+            } else if (tx.transactionType?.startsWith("Beban")) {
+                // Jenis beban lain di masa depan → masuk Lain-lain
+                opexDetailsMap["Lain-lain"] = (opexDetailsMap["Lain-lain"] || 0) + tx.amount;
             }
         });
+
 
         periodJournals.forEach(entry => {
             if (entry.accountName.includes("Pendapatan")) {
