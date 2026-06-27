@@ -209,112 +209,124 @@ export function Inventory() {
     img.crossOrigin = "anonymous";
     img.src = imagePreviewUrl;
     img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-      const x = (canvas.width - img.width * scale) / 2;
-      const y = (canvas.height - img.height * scale) / 2;
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      // Responsive: use actual image dimensions (capped at 1200 for performance)
+      const maxDim = 1200;
+      let cw = img.width;
+      let ch = img.height;
+      if (cw > maxDim || ch > maxDim) {
+        const ratio = Math.min(maxDim / cw, maxDim / ch);
+        cw = Math.round(cw * ratio);
+        ch = Math.round(ch * ratio);
+      }
+      // Ensure minimum size
+      if (cw < 600) { const r = 600 / cw; cw = 600; ch = Math.round(ch * r); }
+
+      canvas.width = cw;
+      canvas.height = ch;
+
+      // Draw image covering the canvas
+      ctx.drawImage(img, 0, 0, cw, ch);
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
-      const drawCapsule = (x: number, y: number, w: number, h: number, iconType: string, line1: string, line2: string) => {
-        ctx.fillStyle = "rgba(16, 44, 115, 0.88)";
+      // --- Modern overlay panel at bottom ---
+      const panelH = ch * 0.28; // 28% of image height
+      const panelY = ch - panelH;
+
+      // Gradient overlay: transparent → dark
+      const grad = ctx.createLinearGradient(0, panelY - panelH * 0.3, 0, ch);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(0.3, "rgba(0,0,0,0.45)");
+      grad.addColorStop(1, "rgba(0,0,0,0.85)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, panelY - panelH * 0.3, cw, panelH + panelH * 0.3);
+
+      const pad = cw * 0.045; // responsive padding
+      const baseFontSize = Math.round(cw * 0.028); // ~22px on 800w
+
+      // --- Model name (large, bold) ---
+      const modelFontSize = Math.round(cw * 0.038);
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      const modelY = panelY + panelH * 0.12;
+      ctx.fillText(currentSpecs.model, pad, modelY);
+
+      // --- Thin separator line ---
+      const sepY = modelY + modelFontSize + panelH * 0.06;
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, sepY);
+      ctx.lineTo(cw - pad, sepY);
+      ctx.stroke();
+
+      // --- Spec items in a single row with mini icons ---
+      const specY = sepY + panelH * 0.08;
+      const iconSize = Math.round(baseFontSize * 0.7);
+      const specFontSize = Math.round(baseFontSize * 0.82);
+
+      const specItems = [
+        { icon: "cpu", label: currentSpecs.processor },
+        { icon: "ram", label: currentSpecs.ram },
+        { icon: "ssd", label: currentSpecs.storage },
+        { icon: "screen", label: currentSpecs.screen },
+      ].filter(s => s.label && s.label !== "Processor Detail" && s.label !== "RAM" && s.label !== "Storage" && s.label !== "Layar / Screen");
+
+      let specX = pad;
+      const specGap = cw * 0.025;
+
+      specItems.forEach((spec, idx) => {
+        // Draw small dot icon
+        ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
         ctx.beginPath();
-        ctx.roundRect(x, y, w, h, h / 2);
+        ctx.arc(specX + iconSize / 2, specY + specFontSize / 2, iconSize / 2, 0, Math.PI * 2);
         ctx.fill();
 
-        const circleX = x + h / 2;
-        const circleY = y + h / 2;
-        const circleR = (h - 12) / 2;
+        // Draw mini icon symbol inside dot
         ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `700 ${Math.round(iconSize * 0.7)}px 'Segoe UI', system-ui, sans-serif`;
+        const iconLabels: Record<string, string> = { cpu: "⚡", ram: "▦", ssd: "◉", screen: "▢" };
+        ctx.fillText(iconLabels[spec.icon] || "•", specX + iconSize / 2, specY + specFontSize / 2);
 
-        ctx.strokeStyle = "#102c73";
-        ctx.fillStyle = "#102c73";
-        ctx.lineWidth = 3.5;
-        
-        if (iconType === "laptop") {
-          ctx.strokeRect(circleX - 14, circleY - 11, 28, 18);
+        // Spec text
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.font = `500 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        const labelText = spec.label;
+        ctx.fillText(labelText, specX + iconSize + 6, specY);
+        const textW = ctx.measureText(labelText).width;
+        specX += iconSize + 6 + textW + specGap;
+
+        // Dot separator between items
+        if (idx < specItems.length - 1) {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
           ctx.beginPath();
-          ctx.moveTo(circleX - 18, circleY + 7);
-          ctx.lineTo(circleX + 18, circleY + 7);
-          ctx.moveTo(circleX - 15, circleY + 10);
-          ctx.lineTo(circleX + 15, circleY + 10);
-          ctx.stroke();
-        } else if (iconType === "cpu") {
-          ctx.strokeRect(circleX - 11, circleY - 11, 22, 22);
-          ctx.lineWidth = 2.5;
-          for (let offset = -7; offset <= 7; offset += 4.5) {
-            ctx.beginPath(); ctx.moveTo(circleX + offset, circleY - 11); ctx.lineTo(circleX + offset, circleY - 14); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(circleX + offset, circleY + 11); ctx.lineTo(circleX + offset, circleY + 14); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(circleX - 11, circleY + offset); ctx.lineTo(circleX - 14, circleY + offset); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(circleX + 11, circleY + offset); ctx.lineTo(circleX + 14, circleY + offset); ctx.stroke();
-          }
-        } else if (iconType === "ram") {
-          ctx.strokeRect(circleX - 15, circleY - 8, 30, 16);
-          ctx.fillRect(circleX - 11, circleY - 4, 6, 8);
-          ctx.fillRect(circleX - 3, circleY - 4, 6, 8);
-          ctx.fillRect(circleX + 5, circleY - 4, 6, 8);
-        } else if (iconType === "screen") {
-          ctx.strokeRect(circleX - 14, circleY - 12, 28, 19);
-          ctx.beginPath();
-          ctx.moveTo(circleX - 4, circleY + 7);
-          ctx.lineTo(circleX - 6, circleY + 12);
-          ctx.lineTo(circleX + 6, circleY + 12);
-          ctx.lineTo(circleX + 4, circleY + 7);
-          ctx.closePath();
+          ctx.arc(specX - specGap / 2, specY + specFontSize / 2, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
+      });
 
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        
-        const textX = x + h + 12;
-        if (line2) {
-          ctx.font = "bold 15px sans-serif";
-          ctx.fillText(line1, textX, y + h / 2 - 10);
-          ctx.font = "500 13px sans-serif";
-          ctx.fillText(line2, textX, y + h / 2 + 10);
-        } else {
-          ctx.font = "bold 16px sans-serif";
-          ctx.fillText(line1, textX, y + h / 2);
-        }
-      };
+      // --- Store branding (bottom-right) ---
+      const brandFontSize = Math.round(cw * 0.022);
+      const brandY = ch - panelH * 0.15;
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      ctx.font = `700 ${brandFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText("HAN LAPTOP", cw - pad, brandY);
 
-      const capW = 340;
-      const capH = 68;
-      
-      const leftColX = 40;
-      const rightColX = 420;
-      const row1Y = 600;
-      const row2Y = 685;
-
-      drawCapsule(leftColX, row1Y, capW, capH, "laptop", currentSpecs.model, "");
-      drawCapsule(rightColX, row1Y, capW, capH, "cpu", currentSpecs.processor, currentSpecs.vga || "Integrated Graphics");
-
-      const ramText = `RAM ${currentSpecs.ram}`;
-      const storageText = currentSpecs.storage ? `SSD ${currentSpecs.storage}` : "";
-      const combinedRamStorage = storageText ? `${ramText} / ${storageText}` : ramText;
-      drawCapsule(leftColX, row2Y, capW, capH, "ram", combinedRamStorage, "");
-      drawCapsule(rightColX, row2Y, capW, capH, "screen", currentSpecs.screen, "");
-
-      const logoX = canvas.width / 2;
-      const logoY = 765;
-
-      ctx.fillStyle = "#000000";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "900 18px sans-serif";
-      ctx.fillText("Han Laptop", logoX, logoY);
-
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.5;
+      // Small underline accent
+      const brandW = ctx.measureText("HAN LAPTOP").width;
+      ctx.strokeStyle = "rgba(96, 165, 250, 0.5)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(logoX - 35, logoY + 12);
-      ctx.quadraticCurveTo(logoX, logoY + 22, logoX + 35, logoY + 12);
+      ctx.moveTo(cw - pad - brandW, brandY + 3);
+      ctx.lineTo(cw - pad, brandY + 3);
       ctx.stroke();
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
@@ -1943,11 +1955,11 @@ export function Inventory() {
                 </h4>
                 <div className="p-3 border rounded-xl bg-card space-y-3 flex flex-col items-center">
                   {imagePreviewUrl ? (
-                    <div className="relative w-full aspect-square max-w-[240px] border rounded-xl overflow-hidden shadow bg-slate-50 flex items-center justify-center">
+                    <div className="relative w-full max-w-[280px] border rounded-xl overflow-hidden shadow bg-slate-50 flex items-center justify-center">
                       {isWatermarkEnabled ? (
-                        <canvas ref={canvasRef} width={800} height={800} className="w-full h-full object-cover" />
+                        <canvas ref={canvasRef} className="w-full h-auto block" />
                       ) : (
-                        <img src={imagePreviewUrl} alt="Pratinjau" className="w-full h-full object-cover" />
+                        <img src={imagePreviewUrl} alt="Pratinjau" className="w-full h-auto block" />
                       )}
                       <button
                         type="button"
