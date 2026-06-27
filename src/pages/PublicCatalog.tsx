@@ -432,26 +432,24 @@ export function PublicCatalog() {
                                 </div>
                               </div>
                             )}
-                            <div className="grid grid-cols-2 gap-4">
-                              {sp.ram && (
-                                <div className="flex items-start gap-3 text-sm">
-                                  <MemoryStick className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                                  <div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase">RAM</div>
-                                    <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.ram}</div>
-                                  </div>
+                            {sp.ram && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <MemoryStick className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">RAM</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.ram}</div>
                                 </div>
-                              )}
-                              {sp.storage && (
-                                <div className="flex items-start gap-3 text-sm">
-                                  <HardDrive className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                                  <div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Penyimpanan (SSD)</div>
-                                    <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.storage}</div>
-                                  </div>
+                              </div>
+                            )}
+                            {sp.storage && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <HardDrive className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase">Penyimpanan (SSD)</div>
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{sp.storage}</div>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            )}
                             {sp.screen && (
                               <div className="flex items-start gap-3 text-sm">
                                 <Monitor className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
