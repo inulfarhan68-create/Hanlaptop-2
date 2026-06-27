@@ -295,7 +295,7 @@ export function Inventory() {
       } catch (e) {}
 
       // Gold line separator with subTitle text in the middle
-      const lineY = startHeaderY + modelFontSize + 24; // Extra spacing
+      const lineY = startHeaderY + modelFontSize + 34; // Wider paragraph space
       ctx.strokeStyle = "#c5a85c"; // Muted Gold
       ctx.lineWidth = 2.0;
 
@@ -324,7 +324,7 @@ export function Inventory() {
       ctx.fillStyle = "#475569"; // Dark grey/slate
       ctx.textBaseline = "top";
       ctx.font = `500 ${Math.round(modelFontSize * 0.35)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 22);
+      ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 28);
 
       // Helper to clean and format specs to fit neatly without clipping
       const cleanSpec = (text: string, type: "cpu" | "vga" | "ram" | "storage" | "screen" | "condition") => {
@@ -496,7 +496,7 @@ export function Inventory() {
       const colWidth = gridW / 3;
       const gridStartY = ch * 0.745; // Pushed down
       const rowGap = ch * 0.072;
-      const startX = margin + cw * 0.02; // Shunted slightly rightwards to offset visual weight from text on right
+      const startX = margin + cw * 0.045; // Shunted rightwards to visually center the layout perfectly
       const badgeRadius = Math.round(cw * 0.021);
 
       // Helper to dynamically split single spec string into Line 1 (title) and Line 2 (subtitle)
@@ -733,41 +733,44 @@ export function Inventory() {
       const waIconX = cw - pad - 6 - waTextW - waIconW - 8;
       const waIconY = footerTextY - 11;
 
-      // Draw black WA icon outline (Centered correctly, no cutoffs)
+      // Draw black WA icon outline (Centered correctly, no cutoffs, unified single path)
       const cx = waIconX + waIconW/2;
       const cy = waIconY + waIconW/2;
       const radius = waIconW/2 - 1.5;
 
       ctx.strokeStyle = "#000000";
       ctx.lineWidth = 2.2; // Thicker stroke
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      const startAng = 115 * Math.PI / 180;
+      const endAng = 155 * Math.PI / 180;
+
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      // Clockwise arc leaving a gap at bottom-left
+      ctx.arc(cx, cy, radius, startAng, endAng, false);
+      // Line down-left to chat bubble tail tip
+      ctx.lineTo(cx - radius * 1.15, cy + radius * 1.15);
+      ctx.closePath();
       ctx.stroke();
 
-      // Chat tail (connected smoothly inside limits)
-      ctx.beginPath();
-      ctx.moveTo(cx - radius * 0.5, cy + radius * 0.86);
-      ctx.lineTo(cx - radius * 1.1, cy + radius * 1.1);
-      ctx.lineTo(cx - radius * 0.86, cy + radius * 0.5);
-      ctx.stroke();
-
-      // Realistic phone receiver handset silhouette (Gold or Black as requested, black here)
+      // Stylized telephone handset receiver inside the bubble
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(-Math.PI / 12); // Slightly tilted receiver
+      ctx.rotate(-Math.PI / 12); // Tilted WhatsApp receiver angle
       ctx.strokeStyle = "#000000";
       ctx.lineWidth = 2.2;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       
-      // Handset arc handle
+      // Handset arc
       ctx.beginPath();
       ctx.moveTo(-radius * 0.4, radius * 0.4);
-      ctx.quadraticCurveTo(-radius * 0.5, -radius * 0.1, -radius * 0.1, -radius * 0.4);
+      ctx.quadraticCurveTo(-radius * 0.55, -radius * 0.1, -radius * 0.1, -radius * 0.45);
       ctx.stroke();
       
-      // Handset speaker and microphone caps
-      ctx.lineWidth = 4.0;
+      // Mouthpiece & earpiece ends
+      ctx.lineWidth = 3.8;
       ctx.beginPath();
       ctx.moveTo(-radius * 0.45, radius * 0.35);
       ctx.lineTo(-radius * 0.25, radius * 0.45);
