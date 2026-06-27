@@ -232,153 +232,152 @@ export function Inventory() {
 
       const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
 
-      // --- Dimension and Font Calculations ---
       const pad = cw * 0.04; // 4% outer padding
-      const baseFontSize = Math.round(cw * 0.024);
-      const modelFontSize = Math.round(cw * 0.034);
-      const specFontSize = Math.round(cw * 0.018);
+      const modelFontSize = Math.round(cw * 0.042);
+      const specFontSize = Math.round(cw * 0.019);
+      const priceFontSize = Math.round(cw * 0.052);
+      const contactFontSize = Math.round(cw * 0.018);
 
-      // 3. Draw Premium Header Specification Card (Top Center)
-      const headerH = ch * 0.13;
-      const headerW = cw - pad * 2;
-      const headerX = pad;
-      const headerY = pad;
+      // 3. Subtle gradients at top and bottom to guarantee text readability
+      const topGrad = ctx.createLinearGradient(0, 0, 0, ch * 0.28);
+      topGrad.addColorStop(0, "rgba(0, 0, 0, 0.65)");
+      topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, cw, ch * 0.28);
 
-      // Draw glass card shadow
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = 16;
+      const botGrad = ctx.createLinearGradient(0, ch * 0.68, 0, ch);
+      botGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+      botGrad.addColorStop(1, "rgba(0, 0, 0, 0.7)");
+      ctx.fillStyle = botGrad;
+      ctx.fillRect(0, ch * 0.68, cw, ch * 0.32);
+
+      // --- TEXT DROP SHADOW FOR ULTRA-LEGIBILITY ---
+      ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 1.5;
+      ctx.shadowOffsetY = 1.5;
+
+      // 4. Draw Header Specs (Centered directly on top gradient)
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillText(currentSpecs.model.toUpperCase(), cw / 2, pad);
+
+      // Build specs lines
+      const specLines: string[] = [];
+      const cpuPart = currentSpecs.processor && currentSpecs.processor !== "Processor Detail" ? currentSpecs.processor : "";
+      const ramPart = currentSpecs.ram && currentSpecs.ram !== "RAM" ? `RAM ${currentSpecs.ram}` : "";
+      if (cpuPart || ramPart) {
+        specLines.push([cpuPart, ramPart].filter(Boolean).join("   •   "));
+      }
+
+      const ssdPart = currentSpecs.storage && currentSpecs.storage !== "Storage" ? `SSD ${currentSpecs.storage}` : "";
+      const vgaPart = currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics" ? currentSpecs.vga : "";
+      if (ssdPart || vgaPart) {
+        specLines.push([ssdPart, vgaPart].filter(Boolean).join("   •   "));
+      }
+
+      const screenPart = currentSpecs.screen && currentSpecs.screen !== "Layar / Screen" ? currentSpecs.screen : "";
+      if (screenPart) {
+        specLines.push(screenPart);
+      }
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      let specY = pad + modelFontSize + 12;
+      const specLineHeight = specFontSize * 1.5;
+      specLines.forEach(line => {
+        ctx.fillText(line, cw / 2, specY);
+        specY += specLineHeight;
+      });
+
+      // 5. Draw Floating Sidebar Warranty Badge (Left Side)
+      const badgeW = Math.round(cw * 0.082);
+      const badgeH = Math.round(ch * 0.125);
+      const badgeX = pad;
+      const badgeY = ch * 0.35;
+
+      // Shadow for badge container
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+      ctx.shadowBlur = 14;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 4;
 
-      // Draw glass card background
-      ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+      // Top part: blue background
+      ctx.fillStyle = "#3b82f6";
       ctx.beginPath();
-      ctx.roundRect(headerX, headerY, headerW, headerH, 16);
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH * 0.45, [10, 10, 0, 0]);
       ctx.fill();
 
-      // Reset shadow
+      // Reset text shadow for badge text to keep it crisp
       ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
 
-      // Header card border
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(headerX, headerY, headerW, headerH, 16);
-      ctx.stroke();
-
-      // Model Name
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `800 ${modelFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText(currentSpecs.model, cw / 2, headerY + headerH * 0.32);
-
-      // Specifications row
-      const specList: string[] = [];
-      if (currentSpecs.processor && currentSpecs.processor !== "Processor Detail") specList.push(currentSpecs.processor);
-      if (currentSpecs.ram && currentSpecs.ram !== "RAM") specList.push(`RAM ${currentSpecs.ram}`);
-      if (currentSpecs.storage && currentSpecs.storage !== "Storage") specList.push(`SSD ${currentSpecs.storage}`);
-      if (currentSpecs.screen && currentSpecs.screen !== "Layar / Screen") specList.push(currentSpecs.screen);
-      if (currentSpecs.vga && currentSpecs.vga !== "VGA / Graphics") specList.push(currentSpecs.vga);
-      const specString = specList.join("   •   ");
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
-      ctx.font = `600 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText(specString, cw / 2, headerY + headerH * 0.72);
-
-      // 4. Draw Floating Sidebar Warranty Badge (Left Side)
-      const badgeW = Math.round(cw * 0.12);
-      const badgeH = Math.round(ch * 0.11);
-      const badgeX = pad;
-      const badgeY = ch * 0.38;
-
-      // Shadow for badge
-      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-      ctx.shadowBlur = 12;
-      ctx.shadowOffsetY = 4;
-
-      // Top part: blue accent header
-      ctx.fillStyle = "#3b82f6";
-      ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY, badgeW, badgeH * 0.58, [12, 12, 0, 0]);
-      ctx.fill();
-
-      // Reset shadow
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
-
-      ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "center";
-      ctx.font = `800 ${Math.round(badgeW * 0.21)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("30 HARI", badgeX + badgeW / 2, badgeY + badgeH * 0.2);
-      ctx.font = `700 ${Math.round(badgeW * 0.15)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("GARANSI", badgeX + badgeW / 2, badgeY + badgeH * 0.44);
+      ctx.font = `800 ${Math.round(badgeW * 0.33)}px 'Segoe UI', sans-serif`;
+      ctx.fillText("30", badgeX + badgeW / 2, badgeY + badgeH * 0.22);
 
       // Bottom part: white background
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY + badgeH * 0.58, badgeW, badgeH * 0.42, [0, 0, 12, 12]);
+      ctx.roundRect(badgeX, badgeY + badgeH * 0.45, badgeW, badgeH * 0.55, [0, 0, 10, 10]);
       ctx.fill();
 
       ctx.fillStyle = "#0f172a";
-      ctx.font = `800 ${Math.round(badgeW * 0.16)}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText("SIAP PAKAI", badgeX + badgeW / 2, badgeY + badgeH * 0.84);
+      ctx.font = `800 ${Math.round(badgeW * 0.13)}px 'Segoe UI', sans-serif`;
+      ctx.fillText("HARI", badgeX + badgeW / 2, badgeY + badgeH * 0.62);
+      ctx.fillText("GARANSI", badgeX + badgeW / 2, badgeY + badgeH * 0.81);
 
-      // 5. Draw Bottom Contact Footer Bar
-      const footerH = ch * 0.062;
-      const footerY = ch - footerH;
+      // 6. Draw Bottom Contact Details (Footer margins)
+      // Enable text shadow again
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.textBaseline = "bottom";
 
-      ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-      ctx.fillRect(0, footerY, cw, footerH);
-
-      // Contact details
-      const contactFontSize = Math.round(cw * 0.018);
-      ctx.font = `600 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-      ctx.textBaseline = "middle";
-
-      // IG Handle (Left-aligned)
+      // IG Handle
       ctx.textAlign = "left";
-      ctx.fillText("IG: @hanlaptop", pad + 8, footerY + footerH / 2);
+      ctx.fillText("IG: @hanlaptop", pad + 4, ch - pad * 0.5);
 
-      // WhatsApp Phone (Right-aligned)
+      // WA Phone
       ctx.textAlign = "right";
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
-      ctx.fillText(`WA: ${storePhone}`, cw - pad - 8, footerY + footerH / 2);
+      ctx.fillText(`WA: ${storePhone}`, cw - pad - 4, ch - pad * 0.5);
 
-      // 6. Draw Bottom Left Price tag (above footer)
+      // 7. Draw Bottom Left Price overlay
       if (erpItem.sellingPrice) {
-        const priceFontSize = Math.round(cw * 0.046);
         const originalPrice = Math.round(erpItem.sellingPrice * 1.12);
-        
         const formattedOriginal = "Rp " + originalPrice.toLocaleString("id-ID");
         const formattedReal = "Rp " + erpItem.sellingPrice.toLocaleString("id-ID");
 
-        ctx.textBaseline = "bottom";
-        ctx.textAlign = "left";
+        const originalY = ch - pad * 1.6 - priceFontSize;
+        const realY = ch - pad * 1.4;
 
         // Crossed-out old price
-        const originalFontSize = Math.round(priceFontSize * 0.45);
-        ctx.font = `600 ${originalFontSize}px 'Segoe UI', system-ui, sans-serif`;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-        
-        const originalY = footerY - 14 - priceFontSize;
-        ctx.fillText(formattedOriginal, pad + 6, originalY);
+        const originalFontSize = Math.round(priceFontSize * 0.46);
+        ctx.font = `700 ${originalFontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+        ctx.textAlign = "left";
+        ctx.fillText(formattedOriginal, pad + 4, originalY);
 
-        // Draw red crossline over old price
+        // Draw red cross line
         const textWidth = ctx.measureText(formattedOriginal).width;
-        ctx.strokeStyle = "#ef4444"; // Red line
+        ctx.strokeStyle = "#ef4444";
         ctx.lineWidth = Math.round(originalFontSize * 0.15);
         ctx.beginPath();
-        ctx.moveTo(pad + 4, originalY - originalFontSize * 0.35);
-        ctx.lineTo(pad + 8 + textWidth, originalY - originalFontSize * 0.35);
+        ctx.moveTo(pad + 2, originalY - originalFontSize * 0.35);
+        ctx.lineTo(pad + 6 + textWidth, originalY - originalFontSize * 0.35);
         ctx.stroke();
 
         // Active selling price
         ctx.font = `900 ${priceFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(formattedReal, pad + 6, footerY - 14);
+        ctx.fillText(formattedReal, pad + 4, realY);
       }
     };
   }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
