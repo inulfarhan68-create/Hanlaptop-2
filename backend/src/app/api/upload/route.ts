@@ -26,14 +26,26 @@ export async function POST(request: Request) {
         const ext = path.extname(filename) || ".png";
         const randomName = `${crypto.randomUUID()}${ext}`;
 
-        // 1. Production Mode: Upload to Vercel Blob if token is set
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        if (token) {
+        // 1. Production Mode: Upload to Vercel Blob if connected (supports OIDC & token modes)
+        const hasBlob = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID || process.env.blob_READ_WRITE_TOKEN || process.env.blob_STORE_ID);
+        if (hasBlob) {
             console.log("[Upload API] Uploading to Vercel Blob:", randomName);
-            const blob = await put(randomName, buffer, {
-                access: "public",
-                token: token,
-            });
+            
+            // Map lower-case variables if present to ensure SDK compatibility
+            if (process.env.blob_STORE_ID && !process.env.BLOB_STORE_ID) {
+                process.env.BLOB_STORE_ID = process.env.blob_STORE_ID;
+            }
+            if (process.env.blob_WEBHOOK_PUBLIC_KEY && !process.env.BLOB_WEBHOOK_PUBLIC_KEY) {
+                process.env.BLOB_WEBHOOK_PUBLIC_KEY = process.env.blob_WEBHOOK_PUBLIC_KEY;
+            }
+
+            const token = process.env.BLOB_READ_WRITE_TOKEN || process.env.blob_READ_WRITE_TOKEN;
+            const putOptions: any = { access: "public" };
+            if (token) {
+                putOptions.token = token;
+            }
+
+            const blob = await put(randomName, buffer, putOptions);
             console.log("[Upload API] Vercel Blob upload success:", blob.url);
             return NextResponse.json({ url: blob.url });
         }
