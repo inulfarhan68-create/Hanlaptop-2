@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,7 @@ import { INVENTORY_ITEMS } from "@/data/inventory-items"
 import { LAPTOP_MODELS } from "@/data/laptop-models"
 import * as XLSX from "xlsx"
 import { MarkdownTab } from "@/components/inventory/MarkdownTab"
-import { TrendingDown, Info } from "lucide-react"
+import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
@@ -146,6 +146,13 @@ export function Inventory() {
   // Markdown state
   const [isMarkdownOpen, setIsMarkdownOpen] = useState(false)
 
+  // Image & Watermark state
+  const [erpImageUrl, setErpImageUrl] = useState("")
+  const [rawImageFile, setRawImageFile] = useState<File | null>(null)
+  const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(false)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("")
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
   const openERPModal = (item: any) => {
     setErpItem(item)
     setIsPublished(item.isPublished || false)
@@ -153,8 +160,164 @@ export function Inventory() {
     setQcGrade(item.qcGrade || "B")
     setQcNotes(item.qcNotes || "")
     setSelectedTechnicianId(item.qcTechnicianId || "")
+    setErpImageUrl(item.imageUrl || "")
+    setRawImageFile(null)
+    setIsWatermarkEnabled(false)
+    setImagePreviewUrl(item.imageUrl || "")
     setIsERPOpen(true)
   }
+
+  const handleImageUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setRawImageFile(file);
+      const url = URL.createObjectURL(file);
+      setImagePreviewUrl(url);
+    }
+  };
+
+  const parseSpecs = (value: string, itemName: string) => {
+    const result = {
+      model: itemName,
+      processor: "Processor Detail",
+      vga: "VGA / Graphics",
+      ram: "RAM",
+      storage: "Storage",
+      screen: "Layar / Screen"
+    }
+    if (value) {
+      const parts = value.split(" | ");
+      parts.forEach(part => {
+        if (part.startsWith("Processor: ")) result.processor = part.replace("Processor: ", "");
+        else if (part.startsWith("VGA: ")) result.vga = part.replace("VGA: ", "");
+        else if (part.startsWith("RAM: ")) result.ram = part.replace("RAM: ", "");
+        else if (part.startsWith("Storage: ")) result.storage = part.replace("Storage: ", "");
+        else if (part.startsWith("Layar: ")) result.screen = part.replace("Layar: ", "");
+      });
+    }
+    return result;
+  }
+
+  useEffect(() => {
+    if (!isWatermarkEnabled || !imagePreviewUrl || !canvasRef.current || !erpItem) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.src = imagePreviewUrl;
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+      const x = (canvas.width - img.width * scale) / 2;
+      const y = (canvas.height - img.height * scale) / 2;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      const currentSpecs = parseSpecs(erpItem.specs || "", erpItem.itemName);
+
+      const drawCapsule = (x: number, y: number, w: number, h: number, iconType: string, line1: string, line2: string) => {
+        ctx.fillStyle = "rgba(16, 44, 115, 0.88)";
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, h / 2);
+        ctx.fill();
+
+        const circleX = x + h / 2;
+        const circleY = y + h / 2;
+        const circleR = (h - 12) / 2;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#102c73";
+        ctx.fillStyle = "#102c73";
+        ctx.lineWidth = 3.5;
+        
+        if (iconType === "laptop") {
+          ctx.strokeRect(circleX - 14, circleY - 11, 28, 18);
+          ctx.beginPath();
+          ctx.moveTo(circleX - 18, circleY + 7);
+          ctx.lineTo(circleX + 18, circleY + 7);
+          ctx.moveTo(circleX - 15, circleY + 10);
+          ctx.lineTo(circleX + 15, circleY + 10);
+          ctx.stroke();
+        } else if (iconType === "cpu") {
+          ctx.strokeRect(circleX - 11, circleY - 11, 22, 22);
+          ctx.lineWidth = 2.5;
+          for (let offset = -7; offset <= 7; offset += 4.5) {
+            ctx.beginPath(); ctx.moveTo(circleX + offset, circleY - 11); ctx.lineTo(circleX + offset, circleY - 14); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(circleX + offset, circleY + 11); ctx.lineTo(circleX + offset, circleY + 14); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(circleX - 11, circleY + offset); ctx.lineTo(circleX - 14, circleY + offset); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(circleX + 11, circleY + offset); ctx.lineTo(circleX + 14, circleY + offset); ctx.stroke();
+          }
+        } else if (iconType === "ram") {
+          ctx.strokeRect(circleX - 15, circleY - 8, 30, 16);
+          ctx.fillRect(circleX - 11, circleY - 4, 6, 8);
+          ctx.fillRect(circleX - 3, circleY - 4, 6, 8);
+          ctx.fillRect(circleX + 5, circleY - 4, 6, 8);
+        } else if (iconType === "screen") {
+          ctx.strokeRect(circleX - 14, circleY - 12, 28, 19);
+          ctx.beginPath();
+          ctx.moveTo(circleX - 4, circleY + 7);
+          ctx.lineTo(circleX - 6, circleY + 12);
+          ctx.lineTo(circleX + 6, circleY + 12);
+          ctx.lineTo(circleX + 4, circleY + 7);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        
+        const textX = x + h + 12;
+        if (line2) {
+          ctx.font = "bold 15px sans-serif";
+          ctx.fillText(line1, textX, y + h / 2 - 10);
+          ctx.font = "500 13px sans-serif";
+          ctx.fillText(line2, textX, y + h / 2 + 10);
+        } else {
+          ctx.font = "bold 16px sans-serif";
+          ctx.fillText(line1, textX, y + h / 2);
+        }
+      };
+
+      const capW = 340;
+      const capH = 68;
+      
+      const leftColX = 40;
+      const rightColX = 420;
+      const row1Y = 600;
+      const row2Y = 685;
+
+      drawCapsule(leftColX, row1Y, capW, capH, "laptop", currentSpecs.model, "");
+      drawCapsule(rightColX, row1Y, capW, capH, "cpu", currentSpecs.processor, currentSpecs.vga || "Integrated Graphics");
+
+      const ramText = `RAM ${currentSpecs.ram}`;
+      const storageText = currentSpecs.storage ? `SSD ${currentSpecs.storage}` : "";
+      const combinedRamStorage = storageText ? `${ramText} / ${storageText}` : ramText;
+      drawCapsule(leftColX, row2Y, capW, capH, "ram", combinedRamStorage, "");
+      drawCapsule(rightColX, row2Y, capW, capH, "screen", currentSpecs.screen, "");
+
+      const logoX = canvas.width / 2;
+      const logoY = 765;
+
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "900 18px sans-serif";
+      ctx.fillText("Han Laptop", logoX, logoY);
+
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(logoX - 35, logoY + 12);
+      ctx.quadraticCurveTo(logoX, logoY + 22, logoX + 35, logoY + 12);
+      ctx.stroke();
+    };
+  }, [isWatermarkEnabled, imagePreviewUrl, erpItem]);
 
   const saveERPSettings = async () => {
     // Check if the user changed the QC grade, notes, or technician from what was originally saved
@@ -168,17 +331,53 @@ export function Inventory() {
       return
     }
 
+    let uploadedImageUrl = erpImageUrl;
+
     try {
       setIsSubmitting(true)
       
-      // Update isPublished & Consignment Supplier
+      // 1. Process Image Upload
+      if (rawImageFile || (isWatermarkEnabled && canvasRef.current)) {
+        let imageBlob: Blob | null = null;
+        
+        if (isWatermarkEnabled && canvasRef.current) {
+          imageBlob = await new Promise<Blob | null>((resolve) => {
+            canvasRef.current?.toBlob((blob) => resolve(blob), "image/png");
+          });
+        } else if (rawImageFile) {
+          imageBlob = rawImageFile;
+        }
+
+        if (imageBlob) {
+          const uploadFormData = new FormData();
+          uploadFormData.append("file", imageBlob, "catalog-photo.png");
+
+          const uploadRes = await fetch((import.meta.env.VITE_API_URL || '') + "/api/upload", {
+            method: "POST",
+            body: uploadFormData
+          });
+
+          if (!uploadRes.ok) {
+            const errorData = await uploadRes.json().catch(() => ({}));
+            throw new Error(errorData.error || "Gagal mengunggah foto produk.");
+          }
+
+          const uploadResult = await uploadRes.json();
+          uploadedImageUrl = uploadResult.url;
+        }
+      } else if (!imagePreviewUrl) {
+        uploadedImageUrl = "";
+      }
+
+      // Update isPublished, Consignment Supplier & Image
       const res1 = await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${erpItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           isPublished,
           isConsignment: !!consignmentSupplierId,
-          supplierId: consignmentSupplierId || null
+          supplierId: consignmentSupplierId || null,
+          imageUrl: uploadedImageUrl || null
         })
       });
 
@@ -710,12 +909,18 @@ export function Inventory() {
                 <TableCell className="font-medium text-[10px] md:text-[11px] py-1.5 px-2">{item.id.substring(0, 8).toUpperCase()}</TableCell>
                 <TableCell className="py-1.5 px-2">
                   <div 
-                    className="flex flex-wrap items-center gap-1 cursor-pointer"
+                    className="flex items-center gap-2 cursor-pointer"
                     onClick={() => setViewDetailItem(item)}
                   >
-                    <span className="font-medium text-[11px] md:text-[12px] text-primary hover:underline decoration-primary/50 underline-offset-2 transition-all leading-tight">
-                      {item.itemName}
-                    </span>
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.itemName} className="w-8 h-8 rounded object-cover shadow-sm border shrink-0 bg-slate-100" />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-muted border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 select-none">💻</div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span className="font-medium text-[11px] md:text-[12px] text-primary hover:underline decoration-primary/50 underline-offset-2 transition-all leading-tight">
+                        {item.itemName}
+                      </span>
                     {item.category === "Laptop Bekas" && item.specs && (() => {
                       const conditionMatch = item.specs.match(/Kondisi:\s*([^|]+)/);
                       const condition = conditionMatch ? conditionMatch[1].trim() : null;
@@ -757,6 +962,7 @@ export function Inventory() {
                         Hidden
                       </span>
                     )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-1.5 px-2">
@@ -1726,6 +1932,80 @@ export function Inventory() {
                     <input type="checkbox" className="sr-only peer" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
                     <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-500"></div>
                   </label>
+                </div>
+              </div>
+
+              {/* Foto Produk */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold flex items-center gap-2">
+                  <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
+                  Foto Produk
+                </h4>
+                <div className="p-3 border rounded-xl bg-card space-y-3 flex flex-col items-center">
+                  {imagePreviewUrl ? (
+                    <div className="relative w-full aspect-square max-w-[240px] border rounded-xl overflow-hidden shadow bg-slate-50 flex items-center justify-center">
+                      {isWatermarkEnabled ? (
+                        <canvas ref={canvasRef} width={800} height={800} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={imagePreviewUrl} alt="Pratinjau" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRawImageFile(null)
+                          setImagePreviewUrl("")
+                          setErpImageUrl("")
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-md transition-colors w-6 h-6 flex items-center justify-center text-xs font-bold"
+                        title="Hapus foto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-square max-w-[200px] border-2 border-dashed border-slate-300 dark:border-slate-800 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center bg-slate-50/50 dark:bg-slate-900/10">
+                      <ImageIcon className="w-8 h-8 mb-2 text-slate-300 dark:text-slate-700" />
+                      <span className="text-xs font-medium">Belum ada foto</span>
+                    </div>
+                  )}
+
+                  <div className="w-full flex items-center gap-2">
+                    <input
+                      type="file"
+                      id="raw-image-upload"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUploadChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full rounded-lg"
+                      onClick={() => document.getElementById("raw-image-upload")?.click()}
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" />
+                      Pilih Foto Mentah
+                    </Button>
+                  </div>
+
+                  {erpItem.category === "Laptop Bekas" && imagePreviewUrl && (
+                    <div className="flex items-center justify-between w-full p-2 border rounded-lg bg-muted/20">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-xs font-semibold">Watermark Spek Otomatis</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={isWatermarkEnabled}
+                          onChange={(e) => setIsWatermarkEnabled(e.target.checked)}
+                        />
+                        <div className="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-blue-500"></div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
 

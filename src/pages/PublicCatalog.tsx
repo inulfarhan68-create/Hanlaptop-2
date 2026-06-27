@@ -124,7 +124,15 @@ export function PublicCatalog() {
               <Card key={item.id} className="overflow-hidden group hover:shadow-lg transition-all duration-300 border-border/50 hover:border-primary/50">
                 <div className="aspect-[4/3] bg-slate-100 flex items-center justify-center relative overflow-hidden">
                   {/* Placeholder for Product Image */}
-                  <Package className="h-12 w-12 text-slate-300 group-hover:scale-110 transition-transform duration-500" />
+                  {item.imageUrl ? (
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.itemName} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    />
+                  ) : (
+                    <Package className="h-12 w-12 text-slate-300 group-hover:scale-110 transition-transform duration-500" />
+                  )}
                   <div className="absolute top-2 right-2">
                     <Badge variant={item.condition.startsWith('USED') ? 'secondary' : 'default'} className="backdrop-blur-md bg-white/80">
                       {item.condition === 'NEW' ? 'Baru' : 

@@ -47,6 +47,7 @@ export async function GET(request: Request) {
             isConsignment: inventory.isConsignment,
             consignmentCommissionRate: inventory.consignmentCommissionRate,
             supplierId: inventory.supplierId,
+            imageUrl: inventory.imageUrl,
             createdAt: inventory.createdAt,
             qcGrade: sql<string | null>`(SELECT grade FROM qc_inspections WHERE qc_inspections.inventory_id = ${inventory.id} ORDER BY created_at DESC LIMIT 1)`,
             qcNotes: sql<string | null>`(SELECT notes FROM qc_inspections WHERE qc_inspections.inventory_id = ${inventory.id} ORDER BY created_at DESC LIMIT 1)`,

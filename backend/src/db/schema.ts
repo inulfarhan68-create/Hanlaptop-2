@@ -98,6 +98,7 @@ export const inventory = sqliteTable("inventory", {
     isConsignment: integer('is_consignment', { mode: 'boolean' }).notNull().default(false),
     consignmentCommissionRate: real("consignment_commission_rate").default(10), // Percentage commission for consignment items (e.g., 10 = 10%)
     supplierId: text("supplier_id"),
+    imageUrl: text("image_url"),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("inventory_store_id_idx").on(table.storeId),

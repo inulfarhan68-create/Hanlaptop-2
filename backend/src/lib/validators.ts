@@ -14,6 +14,7 @@ export const inventorySchema = z.object({
     condition: z.enum(['NEW', 'USED_A', 'USED_B', 'USED_C', 'BROKEN', 'IN_INSPECTION']).optional().default('NEW'),
     isConsignment: z.boolean().optional().default(false),
     supplierId: z.string().nullable().optional(),
+    imageUrl: z.string().nullable().optional(),
 });
 
 // 2. Transaction Item Schema

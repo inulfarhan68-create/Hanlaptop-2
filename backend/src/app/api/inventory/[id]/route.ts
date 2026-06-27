@@ -34,7 +34,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             'isPublished',
             'isConsignment',
             'supplierId',
-            'condition'
+            'condition',
+            'imageUrl'
         ];
         for (const field of allowedFields) {
             if (body[field] !== undefined) {

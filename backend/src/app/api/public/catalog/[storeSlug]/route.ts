@@ -38,6 +38,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ stor
                 quantity: true,
                 sellingPrice: true,
                 condition: true,
+                imageUrl: true,
                 // Do not expose costPrice, supplierId, or isConsignment
             }
         });
