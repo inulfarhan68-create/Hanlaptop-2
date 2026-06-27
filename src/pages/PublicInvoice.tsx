@@ -241,7 +241,7 @@ export function PublicInvoice() {
                 </div>
                 {storeSettings.storeFooter && (
                   <div className="mt-2 pt-1.5 border-t border-slate-200">
-                    <span className="italic">{storeSettings.storeFooter}</span>
+                    <span className="italic">{storeSettings.storeFooter.split("|||")[0]}</span>
                   </div>
                 )}
               </div>
@@ -338,7 +338,7 @@ export function PublicInvoice() {
           {/* Invoice Size Info & Footer (print only) */}
           <div className="hidden print:block mt-6 pt-3 border-t border-slate-200">
             <p className="text-[10px] font-medium text-slate-500 text-center mb-1">
-              {storeSettings.storeFooter ? storeSettings.storeFooter.replace(/\n/g, ' ') : ""}
+              {storeSettings.storeFooter ? storeSettings.storeFooter.split("|||")[0].replace(/\n/g, ' ') : ""}
             </p>
             <p className="text-[10px] font-medium text-slate-400 text-center">Dicetak pada {new Date().toLocaleString('id-ID')}</p>
           </div>

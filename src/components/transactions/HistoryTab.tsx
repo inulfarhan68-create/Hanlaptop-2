@@ -863,7 +863,8 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
                   const storeAddress = viewDetailTrx.store?.address || storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123";
                   const storePhone = viewDetailTrx.store?.phone || storeSettings?.storePhone || localStorage.getItem("storePhone") || "0812-3456-7890";
                   const storeLogo = viewDetailTrx.store?.logo || storeSettings?.storeLogo || localStorage.getItem("storeLogo") || undefined;
-                  const storeFooter = viewDetailTrx.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || undefined;
+                  const rawFooter = viewDetailTrx.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || undefined;
+                  const storeFooter = rawFooter ? rawFooter.split("|||")[0] : undefined;
                   const storeBanks = viewDetailTrx.store?.banks || storeSettings?.storeBanks || [];
                   const enrichedTrx = {
                     ...viewDetailTrx,

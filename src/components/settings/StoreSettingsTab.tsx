@@ -28,6 +28,7 @@ export function StoreSettingsTab() {
   const [address, setAddress] = useState("Jl. Komputer Raya No.123")
   const [phone, setPhone] = useState("0812-3456-7890")
   const [storeFooter, setStoreFooter] = useState("")
+  const [storeInstagram, setStoreInstagram] = useState("hanlaptop")
   const [waTemplatePiutang, setWaTemplatePiutang] = useState("Halo Kak {nama}, sekadar mengingatkan bahwa ada tagihan dari *{toko}* untuk nota *{nota}* senilai *{sisa}* yang jatuh tempo pada *{tempo}*. Terima kasih.")
   const [waTemplateUmum, setWaTemplateUmum] = useState("Halo Kak {nama}, ini dengan *{toko}*. ")
   const [waTemplateNota, setWaTemplateNota] = useState("Halo Kak {nama}, berikut adalah detail transaksi Kakak di *{toko}* untuk nota *{nota}* senilai *{total}*.\n\nLihat Nota Online: {link}\n\nTerima kasih telah berbelanja di tempat kami!")
@@ -65,7 +66,18 @@ export function StoreSettingsTab() {
           setStoreSignature(data.storeSignature || "")
           setAddress(data.storeAddress || "")
           setPhone(data.storePhone || "")
-          setStoreFooter(data.storeFooter || "")
+          
+          // Parse footer and Instagram
+          let rawFooter = data.storeFooter || ""
+          let parsedInstagram = "hanlaptop"
+          if (rawFooter.includes("|||IG:")) {
+            const parts = rawFooter.split("|||IG:")
+            rawFooter = parts[0]
+            parsedInstagram = parts[1] || "hanlaptop"
+          }
+          setStoreFooter(rawFooter)
+          setStoreInstagram(parsedInstagram)
+          
           setEnableCashierShift(data.enableCashierShift !== false)
           
           localStorage.setItem("storeName", data.storeName || "HanLaptop")
@@ -73,7 +85,8 @@ export function StoreSettingsTab() {
           localStorage.setItem("storeSignature", data.storeSignature || "")
           localStorage.setItem("storeAddress", data.storeAddress || "Jl. Komputer Raya No.123")
           localStorage.setItem("storePhone", data.storePhone || "0812-3456-7890")
-          localStorage.setItem("storeFooter", data.storeFooter || "")
+          localStorage.setItem("storeFooter", rawFooter)
+          localStorage.setItem("storeInstagram", parsedInstagram)
           localStorage.setItem("enableCashierShift", data.enableCashierShift !== false ? "true" : "false")
           
           if (data.waTemplatePiutang) {
@@ -126,6 +139,7 @@ export function StoreSettingsTab() {
         const localAddress = localStorage.getItem("storeAddress")
         const localPhone = localStorage.getItem("storePhone")
         const localFooter = localStorage.getItem("storeFooter")
+        const localInstagram = localStorage.getItem("storeInstagram")
         const localWaTemplate = localStorage.getItem("waTemplatePiutang")
         const localWaTemplateUmum = localStorage.getItem("waTemplateUmum")
         const localWaTemplateNota = localStorage.getItem("waTemplateNota")
@@ -141,6 +155,7 @@ export function StoreSettingsTab() {
         if (localAddress) setAddress(localAddress)
         if (localPhone) setPhone(localPhone)
         if (localFooter) setStoreFooter(localFooter)
+        if (localInstagram) setStoreInstagram(localInstagram)
         if (localWaTemplate) setWaTemplatePiutang(localWaTemplate)
         if (localWaTemplateUmum) setWaTemplateUmum(localWaTemplateUmum)
         if (localWaTemplateNota) setWaTemplateNota(localWaTemplateNota)
@@ -162,6 +177,7 @@ export function StoreSettingsTab() {
 
   const handleSaveInfo = async () => {
     try {
+      const combinedFooter = storeFooter + "|||IG:" + storeInstagram;
       const res = await fetch((import.meta.env.VITE_API_URL || '') + '/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,7 +187,7 @@ export function StoreSettingsTab() {
           storePhone: phone,
           storeLogo,
           storeSignature,
-          storeFooter,
+          storeFooter: combinedFooter,
           waTemplatePiutang,
           waTemplateUmum,
           waTemplateNota,
@@ -194,6 +210,7 @@ export function StoreSettingsTab() {
         localStorage.setItem("storeAddress", address)
         localStorage.setItem("storePhone", phone)
         localStorage.setItem("storeFooter", storeFooter)
+        localStorage.setItem("storeInstagram", storeInstagram)
         localStorage.setItem("waTemplatePiutang", waTemplatePiutang)
         localStorage.setItem("waTemplateUmum", waTemplateUmum)
         localStorage.setItem("waTemplateNota", waTemplateNota)
@@ -559,14 +576,18 @@ export function StoreSettingsTab() {
             </div>
 
             {/* General Textfields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="grid gap-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Nama Toko</label>
                 <Input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Nama Toko Anda" className="rounded-xl border-border/80" />
               </div>
               <div className="grid gap-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Nomor Telepon Toko</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Nomor WA Toko</label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Nomor Telepon/WA Toko" className="rounded-xl border-border/80" />
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Instagram Toko</label>
+                <Input value={storeInstagram} onChange={e => setStoreInstagram(e.target.value)} placeholder="Username IG (tanpa @)" className="rounded-xl border-border/80" />
               </div>
             </div>
 

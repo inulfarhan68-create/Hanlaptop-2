@@ -176,7 +176,7 @@ export function PrintInvoicePortal({ printData, storeSettings, onClose }: PrintI
                 </div>
                 {(printData.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter")) && (
                   <div className="mt-2 pt-1.5 border-t border-slate-200">
-                    <span className="italic">{printData.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter")}</span>
+                    <span className="italic">{(printData.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || "").split("|||")[0]}</span>
                   </div>
                 )}
               </div>
@@ -283,7 +283,7 @@ export function PrintInvoicePortal({ printData, storeSettings, onClose }: PrintI
           {/* Invoice Size Info & Footer (print only) */}
           <div className="hidden print:block mt-6 pt-3 border-t border-slate-200 text-center">
             <p className="text-[10px] font-medium text-slate-500 text-center mb-1">
-              {printData.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || ""}
+              {(printData.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || "").split("|||")[0]}
             </p>
             <p className="text-[10px] font-medium text-slate-400 text-center">Dicetak pada {new Date().toLocaleString('id-ID')}</p>
           </div>
