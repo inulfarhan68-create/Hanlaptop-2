@@ -8,11 +8,6 @@ import path from "path";
 const url = process.env.DATABASE_URL;
 const authToken = process.env.DATABASE_AUTH_TOKEN;
 
-const dataDir = path.join(process.cwd(), "data");
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
 // Global caching for Next.js hot-reloads in development
 const globalForDb = globalThis as unknown as {
   client: ReturnType<typeof createClient> | undefined;
@@ -28,6 +23,11 @@ if (!globalForDb.client) {
     });
   } else {
     // Local SQLite fallback
+    const dataDir = path.join(process.cwd(), "data");
+    if (process.env.VERCEL !== "1" && !fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
     // libsql client supports local file paths using file: protocol
     globalForDb.client = createClient({
       url: `file:${path.join(dataDir, "han-laptop.db")}`,
