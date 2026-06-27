@@ -324,13 +324,71 @@ export function Inventory() {
       ctx.font = `500 ${Math.round(modelFontSize * 0.35)}px 'Segoe UI', system-ui, sans-serif`;
       ctx.fillText("Powerful Performance. Business. Anywhere.", cw / 2, lineY + 14);
 
-      // Helper to draw gold vector specs icons inside solid dark circles
+      // Helper to clean and format specs to fit neatly without clipping
+      const cleanSpec = (text: string, type: "cpu" | "vga" | "ram" | "storage" | "screen" | "condition") => {
+        if (!text) return "";
+        let s = text.trim();
+        
+        // Remove redundant words
+        s = s.replace(/Processor/gi, "")
+             .replace(/Prosesor/gi, "")
+             .replace(/Graphics/gi, "")
+             .replace(/Grafik/gi, "")
+             .replace(/Integrated/gi, "")
+             .replace(/Dedicated/gi, "")
+             .replace(/Generation/gi, "Gen")
+             .replace(/Generasi/gi, "Gen")
+             .replace(/with Max-Q Design/gi, "")
+             .replace(/Laptop GPU/gi, "")
+             .replace(/@\s*\d+(\.\d+)?\s*GHz/gi, "");
+        
+        if (type === "cpu") {
+          s = s.replace(/Intel\s+Core\s+/gi, "Intel ")
+               .replace(/AMD\s+Ryzen\s+/gi, "Ryzen ");
+        } else if (type === "vga") {
+          s = s.replace(/Intel\s+Iris\s+Xe/gi, "Iris Xe")
+               .replace(/Intel\s+UHD/gi, "Intel UHD")
+               .replace(/NVIDIA\s+GeForce\s+/gi, "Nvidia ")
+               .replace(/AMD\s+Radeon/gi, "Radeon");
+        } else if (type === "ram") {
+          s = s.replace(/\s*GB/gi, "GB")
+               .replace(/\s*DDR\d+\s+\d+MHz/gi, (m) => m.substring(0, m.indexOf("MHz") - 5).trim());
+        } else if (type === "storage") {
+          s = s.replace(/\s*GB/gi, "GB")
+               .replace(/\s*TB/gi, "TB")
+               .replace(/NVMe\s+/gi, "")
+               .replace(/\s+NVMe/gi, "");
+        } else if (type === "screen") {
+          s = s.replace(/-inch/gi, "\"")
+               .replace(/inch/gi, "\"")
+               .replace(/Slim Bezel/gi, "")
+               .replace(/\(1920x1080\)/gi, "")
+               .replace(/IPS\s+Panel/gi, "IPS");
+        }
+        
+        s = s.trim().replace(/\s+/g, " ");
+        
+        // Max characters to prevent any cutoff
+        if (s.length > 20) {
+          s = s.substring(0, 18) + "...";
+        }
+        return s;
+      };
+
+      // Helper to draw premium gold vector specs icons inside thin gold-bordered dark circles
       const drawBadgeIcon = (cx: number, cy: number, r: number, iconType: string) => {
         // Solid dark circle background
         ctx.fillStyle = "#0b1329";
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
+
+        // Thin premium gold circle border
+        ctx.strokeStyle = "rgba(197, 168, 92, 0.4)";
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
 
         // Muted Gold Icon (Thicker line width for clarity)
         ctx.strokeStyle = "#c5a85c";
@@ -411,32 +469,32 @@ export function Inventory() {
       const gridItems = [
         {
           col: 0, row: 0, icon: "cpu",
-          title: currentSpecs.processor === "Processor Detail" ? "Intel / AMD Processor" : currentSpecs.processor,
+          title: currentSpecs.processor === "Processor Detail" ? "Intel / AMD" : cleanSpec(currentSpecs.processor, "cpu"),
           subtitle: "Processor"
         },
         {
           col: 0, row: 1, icon: "ram",
-          title: currentSpecs.ram === "RAM" ? "RAM 8GB" : `RAM ${currentSpecs.ram}`,
+          title: currentSpecs.ram === "RAM" ? "RAM 8GB" : cleanSpec(currentSpecs.ram, "ram"),
           subtitle: "DDR4 Memory"
         },
         {
           col: 1, row: 0, icon: "vga",
-          title: currentSpecs.vga === "VGA / Graphics" ? "Graphics GPU" : currentSpecs.vga,
+          title: currentSpecs.vga === "VGA / Graphics" ? "Graphics GPU" : cleanSpec(currentSpecs.vga, "vga"),
           subtitle: "VGA / GPU"
         },
         {
           col: 1, row: 1, icon: "ssd",
-          title: currentSpecs.storage === "Storage" ? "SSD 256GB" : `SSD ${currentSpecs.storage}`,
+          title: currentSpecs.storage === "Storage" ? "SSD 256GB" : cleanSpec(currentSpecs.storage, "storage"),
           subtitle: "Storage Drive"
         },
         {
           col: 2, row: 0, icon: "screen",
-          title: currentSpecs.screen === "Layar / Screen" ? "14\" Display" : currentSpecs.screen,
+          title: currentSpecs.screen === "Layar / Screen" ? "14\" Display" : cleanSpec(currentSpecs.screen, "screen"),
           subtitle: "Layar / Screen"
         },
         {
           col: 2, row: 1, icon: "shield",
-          title: currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? currentSpecs.condition : "30 Hari Garansi",
+          title: currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? cleanSpec(currentSpecs.condition, "condition") : "30 Hari Garansi",
           subtitle: "Business Grade"
         }
       ];
