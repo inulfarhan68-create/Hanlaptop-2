@@ -739,44 +739,43 @@ export function Inventory() {
       const radius = waIconW/2 - 1.5;
 
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.2; // Thicker stroke
+      ctx.lineWidth = 2.2; // Thicker stroke for maximum clarity
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      const startAng = 115 * Math.PI / 180;
-      const endAng = 155 * Math.PI / 180;
+      // Gap at bottom-left for the chat bubble tail (110 deg to 160 deg)
+      const startAng = 110 * Math.PI / 180;
+      const endAng = 160 * Math.PI / 180;
 
       ctx.beginPath();
-      // Clockwise arc leaving a gap at bottom-left
+      // Clockwise circle arc
       ctx.arc(cx, cy, radius, startAng, endAng, false);
-      // Line down-left to chat bubble tail tip
-      ctx.lineTo(cx - radius * 1.15, cy + radius * 1.15);
+      // Extended pointer tail (pointing bottom-left)
+      ctx.lineTo(cx - radius * 1.3, cy + radius * 1.3);
       ctx.closePath();
       ctx.stroke();
 
-      // Stylized telephone handset receiver inside the bubble
+      // Solid filled telephone handset receiver inside the bubble (matches official logo)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(-Math.PI / 12); // Tilted WhatsApp receiver angle
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      ctx.fillStyle = "#000000"; // Solid black receiver
       
-      // Handset arc
       ctx.beginPath();
-      ctx.moveTo(-radius * 0.4, radius * 0.4);
-      ctx.quadraticCurveTo(-radius * 0.55, -radius * 0.1, -radius * 0.1, -radius * 0.45);
-      ctx.stroke();
-      
-      // Mouthpiece & earpiece ends
-      ctx.lineWidth = 3.8;
-      ctx.beginPath();
-      ctx.moveTo(-radius * 0.45, radius * 0.35);
+      // Start at top-right (earpiece outer corner)
+      ctx.moveTo(radius * 0.1, -radius * 0.45);
+      // Curve to bottom-left (handle outer edge)
+      ctx.quadraticCurveTo(-radius * 0.5, -radius * 0.2, -radius * 0.45, radius * 0.35);
+      // Mouthpiece outer corner
       ctx.lineTo(-radius * 0.25, radius * 0.45);
-      ctx.moveTo(-radius * 0.15, -radius * 0.45);
-      ctx.lineTo(-radius * 0.05, -radius * 0.25);
-      ctx.stroke();
+      // Mouthpiece inner corner
+      ctx.lineTo(-radius * 0.15, radius * 0.25);
+      // Handle inner curve
+      ctx.quadraticCurveTo(-radius * 0.25, -radius * 0.05, -radius * 0.05, -radius * 0.25);
+      // Earpiece inner corner
+      ctx.lineTo(radius * 0.2, -radius * 0.35);
+      ctx.closePath();
+      ctx.fill();
       ctx.restore();
 
       // Draw WhatsApp text (Black)
