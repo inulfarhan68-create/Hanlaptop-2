@@ -258,12 +258,32 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
   const [showPrice, setShowPrice] = useState(true)
   const [customInstagram, setCustomInstagram] = useState("")
 
+  const [logoImgElement, setLogoImgElement] = useState<HTMLImageElement | null>(null)
+
   // Sync selected brands when open
   useEffect(() => {
     if (isOpen && allBrands.length > 0) {
       setSelectedBrands(allBrands)
     }
   }, [isOpen, items])
+
+  // Load Store Logo Image safely
+  useEffect(() => {
+    if (storeSettings?.storeLogo) {
+      const img = new Image()
+      img.src = storeSettings.storeLogo
+      img.crossOrigin = "anonymous" // Avoid tainted canvas problems
+      img.onload = () => {
+        setLogoImgElement(img)
+      }
+      img.onerror = () => {
+        console.error("Failed to load store logo image from settings")
+        setLogoImgElement(null)
+      }
+    } else {
+      setLogoImgElement(null)
+    }
+  }, [storeSettings])
 
   // Parse Instagram from storeSettings footer
   useEffect(() => {
@@ -391,24 +411,40 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     // 2. HEADER TITLE SECTION
     const storeName = storeSettings?.storeName || "HAN LAPTOP"
     
-    // Draw Logo Curve (styled 'H' or minimalist curve like user reference logo)
-    ctx.save()
-    ctx.strokeStyle = "#0f172a"
-    ctx.lineWidth = 6
-    ctx.lineCap = "round"
-    ctx.beginPath()
-    ctx.moveTo(width / 2 - 25, 80)
-    ctx.quadraticCurveTo(width / 2, 45, width / 2 + 15, 90)
-    ctx.moveTo(width / 2 - 8, 55)
-    ctx.quadraticCurveTo(width / 2 - 18, 90, width / 2 - 12, 100)
-    ctx.stroke()
-    ctx.restore()
-
-    // Store Name Title
-    ctx.fillStyle = "#0f172a"
-    ctx.font = "bold 26px 'Inter', sans-serif"
-    ctx.textAlign = "center"
-    ctx.fillText(storeName.toUpperCase(), width / 2, 140)
+    // Draw Logo from Settings or Fallback
+    if (logoImgElement) {
+      ctx.save()
+      const maxW = 160
+      const maxH = 80
+      let drawW = logoImgElement.width
+      let drawH = logoImgElement.height
+      const ratio = Math.min(maxW / drawW, maxH / drawH)
+      drawW = drawW * ratio
+      drawH = drawH * ratio
+      
+      // Center logo vertically and horizontally
+      ctx.drawImage(logoImgElement, width / 2 - drawW / 2, 85 - drawH / 2, drawW, drawH)
+      ctx.restore()
+    } else {
+      // Draw Logo Curve (styled 'H' or minimalist curve like user reference logo)
+      ctx.save()
+      ctx.strokeStyle = "#0f172a"
+      ctx.lineWidth = 6
+      ctx.lineCap = "round"
+      ctx.beginPath()
+      ctx.moveTo(width / 2 - 25, 80)
+      ctx.quadraticCurveTo(width / 2, 45, width / 2 + 15, 90)
+      ctx.moveTo(width / 2 - 8, 55)
+      ctx.quadraticCurveTo(width / 2 - 18, 90, width / 2 - 12, 100)
+      ctx.stroke()
+      ctx.restore()
+      
+      // Store Name Title (only show if using default logo curve fallback)
+      ctx.fillStyle = "#0f172a"
+      ctx.font = "bold 26px 'Inter', sans-serif"
+      ctx.textAlign = "center"
+      ctx.fillText(storeName.toUpperCase(), width / 2, 140)
+    }
 
     // "UPDATE"
     ctx.fillStyle = "#0f172a"
@@ -426,14 +462,14 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     ctx.font = "bold 22px 'Inter', sans-serif"
     ctx.fillText(`Update per ${flyerDate}`, width / 2, 355)
 
-    // Thin accent lines next to date
+    // Thin accent lines next to date (aligned center at y = 355)
     ctx.strokeStyle = "#fbbf24"
     ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.moveTo(width / 2 - 320, 347)
-    ctx.lineTo(width / 2 - 180, 347)
-    ctx.moveTo(width / 2 + 180, 347)
-    ctx.lineTo(width / 2 + 320, 347)
+    ctx.moveTo(width / 2 - 320, 355)
+    ctx.lineTo(width / 2 - 180, 355)
+    ctx.moveTo(width / 2 + 180, 355)
+    ctx.lineTo(width / 2 + 320, 355)
     ctx.stroke()
 
     // 3. BRAND LISTINGS (Tables)
@@ -452,6 +488,17 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       const logoY = currentY + 25 // Center with header bar
       drawBrandLogo(ctx, brand, 160, logoY)
 
+      // A1. Draw a clean card container with subtle shadow for the table
+      ctx.save()
+      ctx.shadowColor = "rgba(15, 23, 42, 0.05)"
+      ctx.shadowBlur = 10
+      ctx.shadowOffsetY = 4
+      ctx.fillStyle = "#ffffff"
+      ctx.beginPath()
+      ctx.roundRect(tableX, currentY, tableW, 48 + (brandItems.length * rowH), 8)
+      ctx.fill()
+      ctx.restore()
+
       // B. Draw Table Header Bar
       // Use RED header for Lenovo, Navy blue header for others to match example photo!
       let headerColor = "#0f172a"
@@ -465,29 +512,45 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       ctx.roundRect(tableX, currentY, tableW, 48, [8, 8, 0, 0])
       ctx.fill()
 
-      // Header column labels
+      // Header column labels (aligned exactly with row columns for supreme neatness!)
       ctx.fillStyle = "#ffffff"
       ctx.font = "bold 15px 'Inter', sans-serif"
+      
+      ctx.textAlign = "left"
+      ctx.fillText("TYPE", tableX + 24, currentY + 30)
+      
       ctx.textAlign = "center"
-      ctx.fillText("TYPE", tableX + 170, currentY + 30)
       ctx.fillText("HARGA LAPTOP", tableX + 460, currentY + 30)
-      ctx.fillText("KETERANGAN", tableX + tableW - 180, currentY + 30)
+      
+      ctx.textAlign = "left"
+      ctx.fillText("KETERANGAN", tableX + 560, currentY + 30)
       ctx.restore()
 
       // C. Draw Table Rows
       let itemY = currentY + 48
       brandItems.forEach((item, index) => {
-        // Alternating row backgrounds
+        // Alternating row backgrounds inside the table
         ctx.fillStyle = index % 2 === 0 ? "#ffffff" : "#f8fafc"
-        ctx.fillRect(tableX, itemY, tableW, rowH)
+        // Rounded corners for the very last row
+        if (index === brandItems.length - 1) {
+          ctx.save()
+          ctx.beginPath()
+          ctx.roundRect(tableX, itemY, tableW, rowH, [0, 0, 8, 8])
+          ctx.fill()
+          ctx.restore()
+        } else {
+          ctx.fillRect(tableX, itemY, tableW, rowH)
+        }
 
-        // Horizontal bottom border line
-        ctx.strokeStyle = "#e2e8f0"
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(tableX, itemY + rowH)
-        ctx.lineTo(tableX + tableW, itemY + rowH)
-        ctx.stroke()
+        // Horizontal bottom border line (only if not the last row)
+        if (index < brandItems.length - 1) {
+          ctx.strokeStyle = "#e2e8f0"
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(tableX, itemY + rowH)
+          ctx.lineTo(tableX + tableW, itemY + rowH)
+          ctx.stroke()
+        }
 
         // B1. Draw "Garansi Resmi" badge on the LEFT column aligned with this item
         const isOfficialWarranty = item.condition === 'NEW' || (item.specs && /resmi|resmy|official/i.test(item.specs))
