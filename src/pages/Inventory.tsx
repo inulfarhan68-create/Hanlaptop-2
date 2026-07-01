@@ -20,6 +20,7 @@ import { LAPTOP_MODELS } from "@/data/laptop-models"
 import * as XLSX from "xlsx"
 import { MarkdownTab } from "@/components/inventory/MarkdownTab"
 import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
+import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
@@ -145,6 +146,7 @@ export function Inventory() {
   
   // Markdown state
   const [isMarkdownOpen, setIsMarkdownOpen] = useState(false)
+  const [isFlyerOpen, setIsFlyerOpen] = useState(false)
 
   // Image & Watermark state
   const [erpImageUrl, setErpImageUrl] = useState("")
@@ -1196,6 +1198,9 @@ export function Inventory() {
             </Button>
             <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-rose-500/10 hover:text-rose-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setIsMarkdownOpen(true)} title="Markdown Liquidator (Stok Mati)">
               <TrendingDown className="h-3.5 w-3.5 text-rose-500" /> <span className="hidden md:inline">Markdown</span>
+            </Button>
+            <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-indigo-500/10 hover:text-indigo-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setIsFlyerOpen(true)} title="Buat Poster Flyer Update Stok">
+              <ImageIcon className="h-3.5 w-3.5 text-indigo-500" /> <span className="hidden sm:inline">Buat Flyer</span>
             </Button>
             {canWrite && localStorage.getItem('selectedStoreId') !== 'all' && (
               <Button size="sm" className="flex items-center gap-1.5 h-8 px-3.5 text-[11px] font-bold shadow-md shadow-blue-500/20" onClick={() => setIsAddOpen(true)}>
@@ -2585,6 +2590,13 @@ export function Inventory() {
           </div>
         </div>
       )}
+
+      {/* STOCK FLYER GENERATOR MODAL */}
+      <StockFlyerModal 
+        isOpen={isFlyerOpen} 
+        onClose={() => setIsFlyerOpen(false)} 
+        items={items} 
+      />
 
     </div>
   )
