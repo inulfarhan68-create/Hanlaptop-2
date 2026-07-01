@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Download, X, Calendar, ShieldCheck } from "lucide-react"
+import { Download, X, Calendar } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 
@@ -542,9 +540,11 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     )
   }
 
+  if (!isOpen) return null
+
   return (
-    <Dialog open={isOpen} onOpenChange={(val) => { if (!val) onClose() }}>
-      <DialogContent className="max-w-5xl h-[92vh] flex flex-col p-0 overflow-hidden bg-card border-border">
+    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-card w-full max-w-5xl rounded-2xl shadow-2xl border flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-border flex flex-row items-center justify-between shrink-0">
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2">
@@ -586,10 +586,12 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
             <div className="space-y-3">
               <Label className="text-xs font-bold text-slate-500">PENGATURAN HARGA</Label>
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <input 
+                  type="checkbox"
                   id="showPrice" 
                   checked={showPrice} 
-                  onCheckedChange={(val) => setShowPrice(!!val)}
+                  onChange={(e) => setShowPrice(e.target.checked)}
+                  className="rounded border-slate-300 h-4 w-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                 />
                 <Label htmlFor="showPrice" className="text-xs font-medium cursor-pointer">Tampilkan Harga Laptop</Label>
               </div>
@@ -603,10 +605,12 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
                 <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
                   {allBrands.map(brand => (
                     <div key={brand} className="flex items-center space-x-2">
-                      <Checkbox 
+                      <input 
+                        type="checkbox"
                         id={`brand-${brand}`} 
                         checked={selectedBrands.includes(brand)} 
-                        onCheckedChange={() => toggleBrand(brand)}
+                        onChange={() => toggleBrand(brand)}
+                        className="rounded border-slate-300 h-4 w-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                       <Label htmlFor={`brand-${brand}`} className="text-xs font-medium cursor-pointer">
                         {brand} ({readyLaptops.filter(i => getBrand(i.itemName) === brand).length} unit)
@@ -635,7 +639,7 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }
