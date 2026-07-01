@@ -13,7 +13,7 @@ interface StockFlyerModalProps {
 }
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
+  return "Rp. " + new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0 }).format(value)
 }
 
 // Brand helper to group items
@@ -27,7 +27,7 @@ function getBrand(itemName: string): string {
     { key: "acer", display: "ACER" },
     { key: "macbook", display: "APPLE" },
     { key: "msi", display: "MSI" },
-    { key: "thinkpad", display: "LENOVO" }, // Thinkpads are Lenovo
+    { key: "thinkpad", display: "LENOVO" },
     { key: "rog", display: "ASUS" },
     { key: "tuf", display: "ASUS" },
     { key: "axioo", display: "AXIOO" },
@@ -43,199 +43,6 @@ function getBrand(itemName: string): string {
   return "LAIN-LAIN"
 }
 
-// Custom brand logo drawing helper
-function drawBrandLogo(ctx: CanvasRenderingContext2D, brand: string, x: number, y: number) {
-  ctx.save()
-  
-  if (brand === "ASUS") {
-    // Asus custom wide styled logo
-    ctx.strokeStyle = "#0f172a"
-    ctx.lineWidth = 5
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    
-    // Draw 'A'
-    ctx.beginPath()
-    ctx.moveTo(x - 55, y + 10)
-    ctx.lineTo(x - 43, y - 12)
-    ctx.lineTo(x - 31, y + 10)
-    ctx.moveTo(x - 49, y + 2)
-    ctx.lineTo(x - 37, y + 2)
-    ctx.stroke()
-    
-    // Draw 'S'
-    ctx.beginPath()
-    ctx.moveTo(x - 21, y - 8)
-    ctx.quadraticCurveTo(x - 10, y - 14, x - 5, y - 6)
-    ctx.quadraticCurveTo(x - 3, y, x - 13, y + 2)
-    ctx.quadraticCurveTo(x - 22, y + 4, x - 15, y + 10)
-    ctx.stroke()
-    
-    // Draw 'U'
-    ctx.beginPath()
-    ctx.moveTo(x - 1, y - 10)
-    ctx.lineTo(x - 1, y + 6)
-    ctx.quadraticCurveTo(x - 1, y + 11, x + 7, y + 11)
-    ctx.quadraticCurveTo(x + 15, y + 11, x + 15, y + 6)
-    ctx.lineTo(x + 15, y - 10)
-    ctx.stroke()
-    
-    // Draw 'S'
-    ctx.beginPath()
-    ctx.moveTo(x + 23, y - 8)
-    ctx.quadraticCurveTo(x + 34, y - 14, x + 39, y - 6)
-    ctx.quadraticCurveTo(x + 41, y, x + 31, y + 2)
-    ctx.quadraticCurveTo(x + 22, y + 4, x + 29, y + 10)
-    ctx.stroke()
-    
-  } else if (brand === "HP") {
-    // HP circle logo
-    ctx.fillStyle = "#0284c7"
-    ctx.beginPath()
-    ctx.arc(x, y, 25, 0, Math.PI * 2)
-    ctx.fill()
-    
-    ctx.fillStyle = "#ffffff"
-    ctx.font = "italic bold 32px 'Inter', sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText("hp", x, y - 2)
-    
-  } else if (brand === "LENOVO") {
-    // Lenovo solid red box
-    ctx.fillStyle = "#e11d48"
-    ctx.beginPath()
-    ctx.roundRect(x - 60, y - 18, 120, 36, 4)
-    ctx.fill()
-    
-    ctx.fillStyle = "#ffffff"
-    ctx.font = "bold 20px 'Inter', sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText("Lenovo", x, y)
-    
-  } else if (brand === "DELL") {
-    // Dell circle outline + Dell text
-    ctx.strokeStyle = "#0076c0"
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(x, y, 25, 0, Math.PI * 2)
-    ctx.stroke()
-    
-    ctx.fillStyle = "#0076c0"
-    ctx.font = "bold 16px 'Inter', sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    
-    // Dell letters with tilted E
-    ctx.fillText("D", x - 15, y)
-    ctx.save()
-    ctx.translate(x - 5, y)
-    ctx.rotate(-0.35)
-    ctx.fillText("E", 0, 0)
-    ctx.restore()
-    ctx.fillText("L", x + 5, y)
-    ctx.fillText("L", x + 15, y)
-    
-  } else {
-    // Default brand text for others
-    ctx.fillStyle = "#0f172a"
-    ctx.font = "bold 28px 'Inter', sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText(brand, x, y)
-  }
-  
-  ctx.restore()
-}
-
-// Custom vector icon drawer for cards
-function drawInfoCardIcon(ctx: CanvasRenderingContext2D, type: string, x: number, y: number) {
-  ctx.save()
-  
-  // Circle Navy Background
-  ctx.fillStyle = "#0f172a"
-  ctx.beginPath()
-  ctx.arc(x, y, 22, 0, Math.PI * 2)
-  ctx.fill()
-  
-  // Icon drawing in Gold
-  ctx.strokeStyle = "#fbbf24"
-  ctx.fillStyle = "#fbbf24"
-  ctx.lineWidth = 2.5
-  ctx.lineCap = "round"
-  ctx.lineJoin = "round"
-  
-  if (type === "ship") {
-    // House / Store icon
-    ctx.beginPath()
-    ctx.moveTo(x - 12, y + 2)
-    ctx.lineTo(x, y - 10)
-    ctx.lineTo(x + 12, y + 2)
-    ctx.stroke()
-    
-    ctx.beginPath()
-    ctx.rect(x - 9, y + 2, 18, 9)
-    ctx.stroke()
-    
-    ctx.fillRect(x - 3, y + 5, 6, 6)
-    
-  } else if (type === "pay") {
-    // Document billing / credit list card
-    ctx.beginPath()
-    ctx.roundRect(x - 11, y - 8, 22, 16, 2)
-    ctx.stroke()
-    // Stripe line
-    ctx.beginPath()
-    ctx.moveTo(x - 11, y - 3)
-    ctx.lineTo(x + 11, y - 3)
-    ctx.stroke()
-    // Dot lines
-    ctx.fillRect(x - 6, y + 1, 4, 3)
-    ctx.fillRect(x + 1, y + 1, 5, 2)
-    
-  } else if (type === "chat") {
-    // WhatsApp bubble outline
-    ctx.beginPath()
-    ctx.arc(x, y - 1, 10, 0.15 * Math.PI, 1.8 * Math.PI)
-    ctx.stroke()
-    // Tail
-    ctx.beginPath()
-    ctx.moveTo(x - 6, y + 8)
-    ctx.lineTo(x - 10, y + 10)
-    ctx.lineTo(x - 9, y + 5)
-    ctx.stroke()
-    
-    // Tiny inside telephone receiver
-    ctx.fillStyle = "#fbbf24"
-    ctx.font = "10px sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText("📞", x + 1, y - 1)
-    
-  } else if (type === "shield") {
-    // Shield
-    ctx.beginPath()
-    ctx.moveTo(x, y - 9)
-    ctx.lineTo(x + 8, y - 6)
-    ctx.lineTo(x + 8, y + 1)
-    ctx.quadraticCurveTo(x + 8, y + 7, x, y + 11)
-    ctx.quadraticCurveTo(x - 8, y + 7, x - 8, y + 1)
-    ctx.lineTo(x - 8, y - 6)
-    ctx.closePath()
-    ctx.stroke()
-    
-    // Checkmark inside shield
-    ctx.beginPath()
-    ctx.moveTo(x - 3, y)
-    ctx.lineTo(x - 1, y + 2)
-    ctx.lineTo(x + 3, y - 2)
-    ctx.stroke()
-  }
-  
-  ctx.restore()
-}
-
 export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { data: storeSettings } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/settings')
@@ -245,47 +52,36 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     return today.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
   })
 
-  // Extract only ready stock laptops
   const readyLaptops = items.filter((item: any) => 
     item.quantity > 0 && 
     (item.category?.toLowerCase() === "laptop bekas" || item.category?.toLowerCase() === "laptop")
   )
 
-  // Get all unique brands available in stock
   const allBrands = Array.from(new Set(readyLaptops.map(item => getBrand(item.itemName)))).sort()
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [showPrice, setShowPrice] = useState(true)
   const [customInstagram, setCustomInstagram] = useState("")
-
   const [logoImgElement, setLogoImgElement] = useState<HTMLImageElement | null>(null)
 
-  // Sync selected brands when open
   useEffect(() => {
     if (isOpen && allBrands.length > 0) {
       setSelectedBrands(allBrands)
     }
   }, [isOpen, items])
 
-  // Load Store Logo Image safely
   useEffect(() => {
     if (storeSettings?.storeLogo) {
       const img = new Image()
+      img.crossOrigin = "anonymous"
       img.src = storeSettings.storeLogo
-      img.crossOrigin = "anonymous" // Avoid tainted canvas problems
-      img.onload = () => {
-        setLogoImgElement(img)
-      }
-      img.onerror = () => {
-        console.error("Failed to load store logo image from settings")
-        setLogoImgElement(null)
-      }
+      img.onload = () => setLogoImgElement(img)
+      img.onerror = () => setLogoImgElement(null)
     } else {
       setLogoImgElement(null)
     }
   }, [storeSettings])
 
-  // Parse Instagram from storeSettings footer
   useEffect(() => {
     if (storeSettings?.storeFooter) {
       const rawFooter = storeSettings.storeFooter
@@ -300,10 +96,8 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     }
   }, [storeSettings])
 
-  // Filter items based on selected brands
   const filteredItems = readyLaptops.filter(item => selectedBrands.includes(getBrand(item.itemName)))
 
-  // Group filtered items by brand
   const itemsByBrand: Record<string, any[]> = {}
   filteredItems.forEach(item => {
     const brand = getBrand(item.itemName)
@@ -313,493 +107,639 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     itemsByBrand[brand].push(item)
   })
 
-  // Draw the flyer to canvas
+  // ══════════════════════════════════════════════════════
+  // MAIN CANVAS DRAW FUNCTION
+  // ══════════════════════════════════════════════════════
   const drawFlyer = () => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Layout configuration
-    const width = 1200
-    
-    // Dynamic height calculation
-    const headerHeight = 420
-    const footerInfoHeight = 280
-    const footerContactHeight = 150
-    let mainContentHeight = 40
-    
-    const brandRows: Record<string, number> = {}
-    selectedBrands.forEach(brand => {
-      const brandItems = itemsByBrand[brand] || []
-      if (brandItems.length === 0) return
-      // Header brand height (50px) + items * rowHeight (65px) + padding spacing (30px)
-      const brandHeight = 50 + (brandItems.length * 65) + 30
-      brandRows[brand] = brandHeight
-      mainContentHeight += brandHeight
+    const W = 1200 // canvas width
+
+    // ── CONSTANTS ──
+    const NAVY = "#0c2340"
+    const GOLD = "#c5962a"
+    const GOLD_LIGHT = "#d4a843"
+    const WHITE = "#ffffff"
+    const LIGHT_BG = "#f2f4f7"
+    const DARK_TEXT = "#1a2332"
+    const GRAY_TEXT = "#5a6577"
+    const RED_LENOVO = "#cc1820"
+    const TABLE_BORDER = "#d8dce3"
+
+    // ── CALCULATE DYNAMIC HEIGHT ──
+    const HEADER_H = 400
+    const BRAND_GAP = 35
+    const ROW_H = 52
+    const TABLE_HEADER_H = 40
+    const FOOTER_CARDS_H = 200
+    const FOOTER_CONTACT_H = 90
+    const BOTTOM_PAD = 40
+
+    let brandsContentH = 0
+    const activeBrands = selectedBrands.filter(b => (itemsByBrand[b] || []).length > 0)
+    activeBrands.forEach(brand => {
+      const count = (itemsByBrand[brand] || []).length
+      brandsContentH += TABLE_HEADER_H + count * ROW_H + BRAND_GAP
     })
 
-    const height = headerHeight + mainContentHeight + footerInfoHeight + footerContactHeight
-    canvas.width = width
-    canvas.height = height
+    const H = HEADER_H + brandsContentH + 30 + FOOTER_CARDS_H + FOOTER_CONTACT_H + BOTTOM_PAD
+    canvas.width = W
+    canvas.height = H
 
-    // 1. Background drawing
-    ctx.fillStyle = "#f8fafc"
-    ctx.fillRect(0, 0, width, height)
+    // ════════════════════════════
+    // 1. BACKGROUND
+    // ════════════════════════════
+    ctx.fillStyle = LIGHT_BG
+    ctx.fillRect(0, 0, W, H)
 
-    // ── DRAW HEADER ACCENTS (Navy & Gold geometric bands at top-left/right) ──
+    // ════════════════════════════
+    // 2. TOP-LEFT NAVY DIAGONAL RIBBON
+    // ════════════════════════════
     ctx.save()
-    
-    // Navy main diagonal block (Top Left)
-    ctx.fillStyle = "#0f172a"
+    ctx.fillStyle = NAVY
     ctx.beginPath()
     ctx.moveTo(0, 0)
-    ctx.lineTo(480, 0)
-    ctx.lineTo(240, 140)
-    ctx.lineTo(0, 140)
+    ctx.lineTo(420, 0)
+    ctx.lineTo(200, 160)
+    ctx.lineTo(0, 160)
     ctx.closePath()
     ctx.fill()
 
-    // Gold accent wedge (Top Left)
-    ctx.fillStyle = "#fbbf24"
+    // Gold accent stripe
+    ctx.fillStyle = GOLD
     ctx.beginPath()
-    ctx.moveTo(480, 0)
-    ctx.lineTo(510, 0)
-    ctx.lineTo(260, 140)
-    ctx.lineTo(240, 140)
+    ctx.moveTo(420, 0)
+    ctx.lineTo(450, 0)
+    ctx.lineTo(220, 160)
+    ctx.lineTo(200, 160)
     ctx.closePath()
     ctx.fill()
+    ctx.restore()
 
-    // Navy & Gold accent lines (Top Right)
-    ctx.strokeStyle = "#e2e8f0"
-    ctx.lineWidth = 1.5
-    
-    // Helper to draw hexagon outline
-    const drawHexagon = (hx: number, hy: number, size: number) => {
+    // ════════════════════════════
+    // 3. TOP-RIGHT HEXAGONS + DOT GRID
+    // ════════════════════════════
+    ctx.save()
+    const drawHex = (cx: number, cy: number, r: number, color: string, lw: number) => {
+      ctx.strokeStyle = color
+      ctx.lineWidth = lw
       ctx.beginPath()
       for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3
-        const px = hx + size * Math.cos(angle)
-        const py = hy + size * Math.sin(angle)
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
+        const a = (Math.PI / 3) * i - Math.PI / 6
+        const px = cx + r * Math.cos(a)
+        const py = cy + r * Math.sin(a)
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
       }
       ctx.closePath()
       ctx.stroke()
     }
+    // Two overlapping hexagons
+    drawHex(W - 115, 65, 50, NAVY, 3)
+    drawHex(W - 65, 100, 50, GOLD, 2.5)
 
-    // Interlocking hexagons in the top right
-    drawHexagon(width - 120, 80, 50)
-    drawHexagon(width - 70, 110, 50)
-
-    // Floating dot pattern
-    const drawDots = (startX: number, startY: number) => {
-      ctx.fillStyle = "#cbd5e1"
-      for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 5; c++) {
-          ctx.beginPath()
-          ctx.arc(startX + c * 20, startY + r * 20, 3, 0, Math.PI * 2)
-          ctx.fill()
-        }
+    // Dot grid pattern top-right
+    ctx.fillStyle = "#c8cdd5"
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 6; c++) {
+        ctx.beginPath()
+        ctx.arc(W - 260 + c * 18, 50 + r * 18, 2.5, 0, Math.PI * 2)
+        ctx.fill()
       }
     }
-    drawDots(width - 240, 60)
-    drawDots(60, height - 420)
-
     ctx.restore()
 
-    // 2. HEADER TITLE SECTION
-    const storeName = storeSettings?.storeName || "HAN LAPTOP"
-    
-    // Draw Logo from Settings or Fallback
+    // ════════════════════════════
+    // 4. STORE LOGO + NAME (centered)
+    // ════════════════════════════
+    const storeName = storeSettings?.storeName || "Han Laptop"
+
     if (logoImgElement) {
-      ctx.save()
-      const maxW = 160
-      const maxH = 80
-      let drawW = logoImgElement.width
-      let drawH = logoImgElement.height
-      const ratio = Math.min(maxW / drawW, maxH / drawH)
-      drawW = drawW * ratio
-      drawH = drawH * ratio
+      const maxW = 90, maxH = 90
+      let dw = logoImgElement.width, dh = logoImgElement.height
+      const ratio = Math.min(maxW / dw, maxH / dh)
+      dw *= ratio; dh *= ratio
+      ctx.drawImage(logoImgElement, W / 2 - dw / 2, 40, dw, dh)
       
-      // Center logo vertically and horizontally
-      ctx.drawImage(logoImgElement, width / 2 - drawW / 2, 85 - drawH / 2, drawW, drawH)
-      ctx.restore()
-    } else {
-      // Draw Logo Curve (styled 'H' or minimalist curve like user reference logo)
-      ctx.save()
-      ctx.strokeStyle = "#0f172a"
-      ctx.lineWidth = 6
-      ctx.lineCap = "round"
-      ctx.beginPath()
-      ctx.moveTo(width / 2 - 25, 80)
-      ctx.quadraticCurveTo(width / 2, 45, width / 2 + 15, 90)
-      ctx.moveTo(width / 2 - 8, 55)
-      ctx.quadraticCurveTo(width / 2 - 18, 90, width / 2 - 12, 100)
-      ctx.stroke()
-      ctx.restore()
-      
-      // Store Name Title (only show if using default logo curve fallback)
-      ctx.fillStyle = "#0f172a"
-      ctx.font = "bold 26px 'Inter', sans-serif"
+      // Store name below logo
+      ctx.fillStyle = NAVY
+      ctx.font = "500 24px 'Inter', sans-serif"
       ctx.textAlign = "center"
-      ctx.fillText(storeName.toUpperCase(), width / 2, 140)
+      ctx.textBaseline = "top"
+      ctx.fillText(storeName, W / 2, 40 + dh + 8)
+    } else {
+      ctx.fillStyle = NAVY
+      ctx.font = "600 30px 'Inter', sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+      ctx.fillText(storeName, W / 2, 60)
     }
 
-    // "UPDATE"
-    ctx.fillStyle = "#0f172a"
-    ctx.font = "900 68px 'Inter', sans-serif"
+    // ════════════════════════════
+    // 5. "UPDATE" + "STOK LAPTOP" titles
+    // ════════════════════════════
     ctx.textAlign = "center"
-    ctx.fillText("UPDATE", width / 2, 220)
+    ctx.textBaseline = "top"
 
-    // "STOK LAPTOP"
-    ctx.fillStyle = "#d97706" // Warm gold/dark amber
-    ctx.font = "900 85px 'Inter', sans-serif"
-    ctx.fillText("STOK LAPTOP", width / 2, 300)
+    ctx.fillStyle = NAVY
+    ctx.font = "900 72px 'Inter', sans-serif"
+    ctx.fillText("UPDATE", W / 2, 175)
 
-    // Date/Subtitle
-    ctx.fillStyle = "#475569"
-    ctx.font = "bold 22px 'Inter', sans-serif"
-    ctx.fillText(`Update per ${flyerDate}`, width / 2, 355)
+    ctx.fillStyle = GOLD
+    ctx.font = "900 92px 'Inter', sans-serif"
+    ctx.fillText("STOK LAPTOP", W / 2, 252)
 
-    // Thin accent lines next to date (aligned center at y = 355)
-    ctx.strokeStyle = "#fbbf24"
-    ctx.lineWidth = 3
+    // ════════════════════════════
+    // 6. DATE LINE with gold accent dashes
+    // ════════════════════════════
+    const dateY = 365
+    ctx.fillStyle = GRAY_TEXT
+    ctx.font = "500 22px 'Inter', sans-serif"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(`Update per ${flyerDate}`, W / 2, dateY)
+
+    // Gold dashes left and right of date
+    ctx.strokeStyle = GOLD
+    ctx.lineWidth = 2.5
     ctx.beginPath()
-    ctx.moveTo(width / 2 - 320, 355)
-    ctx.lineTo(width / 2 - 180, 355)
-    ctx.moveTo(width / 2 + 180, 355)
-    ctx.lineTo(width / 2 + 320, 355)
+    ctx.moveTo(W / 2 - 280, dateY)
+    ctx.lineTo(W / 2 - 160, dateY)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(W / 2 + 160, dateY)
+    ctx.lineTo(W / 2 + 280, dateY)
     ctx.stroke()
 
-    // 3. BRAND LISTINGS (Tables)
-    let currentY = headerHeight
+    // ════════════════════════════
+    // 7. BRAND TABLE SECTIONS
+    // ════════════════════════════
+    let curY = HEADER_H
 
-    selectedBrands.forEach(brand => {
+    // Table layout constants
+    const MARGIN_L = 60  // left margin for brand name area
+    const BRAND_COL_W = 200 // width for brand name column
+    const TABLE_X = MARGIN_L + BRAND_COL_W // table starts after brand column
+    const TABLE_W = W - TABLE_X - 60 // table width
+
+    // Column positions within the table (relative to TABLE_X)
+    const COL_TYPE_X = 20 // left padding for TYPE
+    const COL_PRICE_CENTER = TABLE_W * 0.52 // center of HARGA LAPTOP
+    const COL_SPECS_X = TABLE_W * 0.66 // left of KETERANGAN
+
+    activeBrands.forEach(brand => {
       const brandItems = itemsByBrand[brand] || []
       if (brandItems.length === 0) return
 
-      const tableX = 270
-      const tableW = 870
-      const rowH = 65
+      const tableH = TABLE_HEADER_H + brandItems.length * ROW_H
 
-      // A. Draw Brand Logo inside the left column space
-      // Logo area centered at x = 160
-      const logoY = currentY + 25 // Center with header bar
-      drawBrandLogo(ctx, brand, 160, logoY)
-
-      // A1. Draw a clean card container with subtle shadow for the table
+      // ── A. BRAND NAME (left column, vertically centered with table) ──
       ctx.save()
-      ctx.shadowColor = "rgba(15, 23, 42, 0.05)"
-      ctx.shadowBlur = 10
-      ctx.shadowOffsetY = 4
-      ctx.fillStyle = "#ffffff"
-      ctx.beginPath()
-      ctx.roundRect(tableX, currentY, tableW, 48 + (brandItems.length * rowH), 8)
-      ctx.fill()
+      const brandCenterY = curY + tableH / 2
+      
+      // Brand name text styling per brand
+      ctx.textAlign = "left"
+      ctx.textBaseline = "middle"
+      
+      if (brand === "ASUS") {
+        ctx.fillStyle = DARK_TEXT
+        ctx.font = "italic 900 42px 'Inter', sans-serif"
+        ctx.fillText("ASUS", MARGIN_L, brandCenterY - 20)
+      } else if (brand === "HP") {
+        ctx.fillStyle = "#0284c7"
+        ctx.font = "italic 900 48px 'Inter', sans-serif"
+        ctx.fillText("hp", MARGIN_L, brandCenterY - 20)
+      } else if (brand === "LENOVO") {
+        ctx.fillStyle = DARK_TEXT
+        ctx.font = "900 40px 'Inter', sans-serif"
+        ctx.fillText("Lenovo", MARGIN_L, brandCenterY - 20)
+      } else if (brand === "DELL") {
+        ctx.fillStyle = "#0076c0"
+        ctx.font = "900 40px 'Inter', sans-serif"
+        ctx.fillText("DELL", MARGIN_L, brandCenterY - 20)
+      } else {
+        ctx.fillStyle = DARK_TEXT
+        ctx.font = "900 36px 'Inter', sans-serif"
+        ctx.fillText(brand, MARGIN_L, brandCenterY - 20)
+      }
       ctx.restore()
 
-      // B. Draw Table Header Bar
-      // Use RED header for Lenovo, Navy blue header for others to match example photo!
-      let headerColor = "#0f172a"
-      if (brand === "LENOVO") {
-        headerColor = "#e11d48" // Lenovo Red
-      }
+      // ── B. TABLE HEADER BAR ──
+      const headerColor = brand === "LENOVO" ? RED_LENOVO : NAVY
       
-      ctx.save()
       ctx.fillStyle = headerColor
       ctx.beginPath()
-      ctx.roundRect(tableX, currentY, tableW, 48, [8, 8, 0, 0])
+      ctx.roundRect(TABLE_X, curY, TABLE_W, TABLE_HEADER_H, [6, 6, 0, 0])
       ctx.fill()
 
-      // Header column labels (aligned exactly with row columns for supreme neatness!)
-      ctx.fillStyle = "#ffffff"
-      ctx.font = "bold 15px 'Inter', sans-serif"
-      
-      ctx.textAlign = "left"
-      ctx.fillText("TYPE", tableX + 24, currentY + 30)
-      
-      ctx.textAlign = "center"
-      ctx.fillText("HARGA LAPTOP", tableX + 460, currentY + 30)
-      
-      ctx.textAlign = "left"
-      ctx.fillText("KETERANGAN", tableX + 560, currentY + 30)
-      ctx.restore()
+      ctx.fillStyle = WHITE
+      ctx.font = "bold 14px 'Inter', sans-serif"
+      ctx.textBaseline = "middle"
+      const headerMidY = curY + TABLE_HEADER_H / 2
 
-      // C. Draw Table Rows
-      let itemY = currentY + 48
-      brandItems.forEach((item, index) => {
-        // Alternating row backgrounds inside the table
-        ctx.fillStyle = index % 2 === 0 ? "#ffffff" : "#f8fafc"
-        // Rounded corners for the very last row
-        if (index === brandItems.length - 1) {
-          ctx.save()
+      ctx.textAlign = "left"
+      ctx.fillText("TYPE", TABLE_X + COL_TYPE_X, headerMidY)
+
+      ctx.textAlign = "center"
+      ctx.fillText("HARGA LAPTOP", TABLE_X + COL_PRICE_CENTER, headerMidY)
+
+      ctx.textAlign = "left"
+      ctx.fillText("KETERANGAN", TABLE_X + COL_SPECS_X, headerMidY)
+
+      // ── C. TABLE ROWS ──
+      let rowY = curY + TABLE_HEADER_H
+
+      brandItems.forEach((item: any, idx: number) => {
+        const isLast = idx === brandItems.length - 1
+
+        // Row background (alternating white/light gray)
+        ctx.fillStyle = idx % 2 === 0 ? WHITE : "#f7f8fa"
+        if (isLast) {
           ctx.beginPath()
-          ctx.roundRect(tableX, itemY, tableW, rowH, [0, 0, 8, 8])
+          ctx.roundRect(TABLE_X, rowY, TABLE_W, ROW_H, [0, 0, 6, 6])
           ctx.fill()
-          ctx.restore()
         } else {
-          ctx.fillRect(tableX, itemY, tableW, rowH)
+          ctx.fillRect(TABLE_X, rowY, TABLE_W, ROW_H)
         }
 
-        // Horizontal bottom border line (only if not the last row)
-        if (index < brandItems.length - 1) {
-          ctx.strokeStyle = "#e2e8f0"
+        // Row bottom border
+        if (!isLast) {
+          ctx.strokeStyle = TABLE_BORDER
           ctx.lineWidth = 1
           ctx.beginPath()
-          ctx.moveTo(tableX, itemY + rowH)
-          ctx.lineTo(tableX + tableW, itemY + rowH)
+          ctx.moveTo(TABLE_X, rowY + ROW_H)
+          ctx.lineTo(TABLE_X + TABLE_W, rowY + ROW_H)
           ctx.stroke()
         }
 
-        // B1. Draw "Garansi Resmi" badge on the LEFT column aligned with this item
-        const isOfficialWarranty = item.condition === 'NEW' || (item.specs && /resmi|resmy|official/i.test(item.specs))
-        if (isOfficialWarranty) {
+        const rowMidY = rowY + ROW_H / 2
+
+        // ── GARANSI RESMI BADGE (in brand column, aligned with this row) ──
+        const isOfficial = item.condition === 'NEW' || (item.specs && /resmi|resmy|official/i.test(item.specs))
+        if (isOfficial) {
+          const badgeX = MARGIN_L + 20
+          const badgeY = rowMidY
+
+          // Gold shield shape
           ctx.save()
-          // Gold Checkmark Shield
-          const shieldX = 100
-          const shieldY = itemY + (rowH / 2)
-          
-          ctx.fillStyle = "#fbbf24"
-          ctx.strokeStyle = "#0f172a"
-          ctx.lineWidth = 2.5
-          
+          ctx.fillStyle = GOLD
           ctx.beginPath()
-          ctx.moveTo(shieldX, shieldY - 14)
-          ctx.lineTo(shieldX + 11, shieldY - 9)
-          ctx.lineTo(shieldX + 11, shieldY + 1)
-          ctx.quadraticCurveTo(shieldX + 11, shieldY + 10, shieldX, shieldY + 15)
-          ctx.quadraticCurveTo(shieldX - 11, shieldY + 10, shieldX - 11, shieldY + 1)
-          ctx.lineTo(shieldX - 11, shieldY - 9)
+          ctx.moveTo(badgeX, badgeY - 16)
+          ctx.lineTo(badgeX + 14, badgeY - 11)
+          ctx.lineTo(badgeX + 14, badgeY + 2)
+          ctx.quadraticCurveTo(badgeX + 14, badgeY + 13, badgeX, badgeY + 18)
+          ctx.quadraticCurveTo(badgeX - 14, badgeY + 13, badgeX - 14, badgeY + 2)
+          ctx.lineTo(badgeX - 14, badgeY - 11)
           ctx.closePath()
           ctx.fill()
+
+          // Dark border on shield
+          ctx.strokeStyle = NAVY
+          ctx.lineWidth = 2
           ctx.stroke()
-          
-          // White check symbol inside shield
-          ctx.strokeStyle = "#ffffff"
-          ctx.lineWidth = 2.5
+
+          // White checkmark
+          ctx.strokeStyle = WHITE
+          ctx.lineWidth = 3
           ctx.lineCap = "round"
+          ctx.lineJoin = "round"
           ctx.beginPath()
-          ctx.moveTo(shieldX - 5, shieldY)
-          ctx.lineTo(shieldX - 1, shieldY + 4)
-          ctx.lineTo(shieldX + 5, shieldY - 4)
+          ctx.moveTo(badgeX - 5, badgeY)
+          ctx.lineTo(badgeX - 1, badgeY + 5)
+          ctx.lineTo(badgeX + 7, badgeY - 5)
           ctx.stroke()
-          
-          // Shield Side Text labels
-          ctx.fillStyle = "#0f172a"
-          ctx.font = "900 11px 'Inter', sans-serif"
+          ctx.restore()
+
+          // "GARANSI RESMI" text next to badge
+          ctx.save()
+          ctx.fillStyle = NAVY
+          ctx.font = "800 10px 'Inter', sans-serif"
           ctx.textAlign = "left"
-          ctx.fillText("GARANSI", shieldX + 18, shieldY - 5)
-          ctx.fillText("RESMI", shieldX + 18, shieldY + 8)
+          ctx.textBaseline = "middle"
+          ctx.fillText("GARANSI", badgeX + 20, badgeY - 6)
+          ctx.fillText("RESMI", badgeX + 20, badgeY + 6)
           ctx.restore()
         }
 
-        // B2. TYPE Column (aligned left)
-        ctx.fillStyle = "#0f172a"
-        ctx.font = "bold 18px 'Inter', sans-serif"
+        // ── TYPE column ──
+        ctx.fillStyle = DARK_TEXT
+        ctx.font = "600 16px 'Inter', sans-serif"
         ctx.textAlign = "left"
-        let nameToDraw = item.itemName
-        if (nameToDraw.length > 30) {
-          nameToDraw = nameToDraw.substring(0, 28) + "..."
-        }
-        ctx.fillText(nameToDraw, tableX + 24, itemY + 38)
+        ctx.textBaseline = "middle"
+        let typeName = item.itemName
+        if (typeName.length > 28) typeName = typeName.substring(0, 26) + "…"
+        ctx.fillText(typeName, TABLE_X + COL_TYPE_X, rowMidY)
 
-        // B3. PRICE Column (aligned center)
-        ctx.fillStyle = "#0f172a" // elegant deep black/navy price
-        ctx.font = "900 21px 'Inter', sans-serif"
+        // ── HARGA column ──
+        ctx.fillStyle = DARK_TEXT
+        ctx.font = "800 17px 'Inter', sans-serif"
         ctx.textAlign = "center"
-        const priceText = showPrice ? formatCurrency(item.sellingPrice) : "Hubungi Admin"
-        ctx.fillText(priceText, tableX + 460, itemY + 38)
+        ctx.textBaseline = "middle"
+        const priceStr = showPrice ? formatCurrency(item.sellingPrice) : "Hubungi Admin"
+        ctx.fillText(priceStr, TABLE_X + COL_PRICE_CENTER, rowMidY)
 
-        // B4. SPECS/KETERANGAN Column (aligned left)
-        ctx.fillStyle = "#475569" // gray/slate
-        ctx.font = "normal 14px 'Inter', sans-serif"
+        // ── KETERANGAN column ──
+        ctx.fillStyle = GRAY_TEXT
+        ctx.font = "400 13px 'Inter', sans-serif"
         ctx.textAlign = "left"
-        
-        let specsDesc = item.specs || "-"
-        specsDesc = specsDesc.replace(/\||\n/g, ", ")
-        if (specsDesc.length > 44) {
-          specsDesc = specsDesc.substring(0, 42) + "..."
-        }
-        ctx.fillText(specsDesc, tableX + 560, itemY + 38)
+        ctx.textBaseline = "middle"
+        let specs = item.specs || "-"
+        specs = specs.replace(/\||\n/g, ", ")
+        if (specs.length > 40) specs = specs.substring(0, 38) + "…"
+        ctx.fillText(specs, TABLE_X + COL_SPECS_X, rowMidY)
 
-        itemY += rowH
+        rowY += ROW_H
       })
 
-      // Draw border outline around table card
-      ctx.strokeStyle = "#cbd5e1"
+      // ── D. TABLE OUTER BORDER ──
+      ctx.strokeStyle = TABLE_BORDER
       ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.roundRect(tableX, currentY, tableW, 48 + (brandItems.length * rowH), [8, 8, 8, 8])
+      ctx.roundRect(TABLE_X, curY, TABLE_W, tableH, 6)
       ctx.stroke()
 
-      currentY += 50 + (brandItems.length * rowH) + 30
+      curY += tableH + BRAND_GAP
     })
 
-    // 4. FOOTER INFORMATIONAL CARDS
-    const infoY = currentY + 20
-    ctx.save()
+    // ════════════════════════════
+    // 8. FOOTER INFO CARDS
+    // ════════════════════════════
+    const cardsY = curY + 20
+    const CARD_W = 245
+    const CARD_H = 160
+    const CARD_GAP = 18
+    const totalCardsW = 4 * CARD_W + 3 * CARD_GAP
+    const cardsStartX = (W - totalCardsW) / 2
 
-    const cardW = 250
-    const cardH = 170
-    const cardGap = 20
-    const startX = (width - (4 * cardW + 3 * cardGap)) / 2
-
-    const footerCards = [
+    const infoCards = [
       {
-        type: "ship",
-        title: "PENGAMBILAN / KIRIM",
-        desc: "Datang ke toko langsung atau kami antar ke alamat Anda."
+        icon: "truck",
+        title: "PENGAMBILAN /\nPENGIRIMAN",
+        desc: "Datang ke toko langsung\natau kami antar ke alamat Anda."
       },
       {
-        type: "pay",
+        icon: "payment",
         title: "PEMBAYARAN",
-        desc: "Cash, Transfer Bank, QRIS, E-Wallet."
+        desc: "• Cash\n• Transfer Bank\n• QRIS\n• E-Wallet"
       },
       {
-        type: "chat",
-        title: "RESPON RAMAH",
-        desc: "Hubungi kami via WhatsApp untuk info lebih lanjut dan konsultasi."
+        icon: "chat",
+        title: "INFORMASI CEPAT\n& RESPON RAMAH",
+        desc: "Hubungi kami via WhatsApp\nuntuk info lebih lanjut\ndan konsultasi."
       },
       {
-        type: "shield",
+        icon: "shield",
         title: "GARANSI RESMI",
-        desc: "Laptop dengan ikon ini berarti masih memiliki garansi resmi."
+        desc: "Laptop dengan ikon ini\nberarti masih memiliki\ngaransi resmi.\n\n*S&K berlaku"
       }
     ]
 
-    footerCards.forEach((card, idx) => {
-      const cx = startX + idx * (cardW + cardGap)
+    infoCards.forEach((card, idx) => {
+      const cx = cardsStartX + idx * (CARD_W + CARD_GAP)
       
-      // Card container background
-      ctx.fillStyle = "#ffffff"
-      ctx.beginPath()
-      ctx.roundRect(cx, infoY, cardW, cardH, 16)
-      ctx.fill()
-      
-      // Subtle Card Shadow
-      ctx.shadowColor = "rgba(0, 0, 0, 0.04)"
-      ctx.shadowBlur = 8
+      // Card background
+      ctx.save()
+      ctx.shadowColor = "rgba(0,0,0,0.06)"
+      ctx.shadowBlur = 12
       ctx.shadowOffsetY = 4
-      ctx.strokeStyle = "#e2e8f0"
-      ctx.lineWidth = 1.5
+      ctx.fillStyle = WHITE
+      ctx.beginPath()
+      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 12)
+      ctx.fill()
+      ctx.restore()
+
+      // Card border
+      ctx.strokeStyle = "#e8eaee"
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 12)
       ctx.stroke()
-      
-      // Disable shadow for text/inner shapes
-      ctx.shadowColor = "transparent"
 
-      // Card Icon
-      drawInfoCardIcon(ctx, card.type, cx + cardW / 2, infoY + 36)
+      // Icon circle
+      const iconCX = cx + CARD_W / 2
+      const iconCY = cardsY + 35
+      ctx.fillStyle = NAVY
+      ctx.beginPath()
+      ctx.arc(iconCX, iconCY, 20, 0, Math.PI * 2)
+      ctx.fill()
 
-      // Card Title
-      ctx.fillStyle = "#0f172a"
-      ctx.font = "bold 13px 'Inter', sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(card.title, cx + cardW / 2, infoY + 85)
+      // Icon shapes (gold on navy circle)
+      ctx.save()
+      ctx.strokeStyle = GOLD
+      ctx.fillStyle = GOLD
+      ctx.lineWidth = 2
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
 
-      // Card Description
-      ctx.fillStyle = "#475569"
-      ctx.font = "normal 11px 'Inter', sans-serif"
-      
-      const words = card.desc.split(" ")
-      let line = ""
-      let lineCount = 0
-      for (const w of words) {
-        const testLine = line + w + " "
-        const metrics = ctx.measureText(testLine)
-        if (metrics.width > cardW - 36) {
-          ctx.fillText(line, cx + cardW / 2, infoY + 110 + lineCount * 16)
-          line = w + " "
-          lineCount++
-        } else {
-          line = testLine
+      if (card.icon === "truck") {
+        // Truck / delivery icon
+        ctx.beginPath()
+        ctx.rect(iconCX - 10, iconCY - 5, 12, 10)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(iconCX + 2, iconCY - 5)
+        ctx.lineTo(iconCX + 10, iconCY - 5)
+        ctx.lineTo(iconCX + 12, iconCY)
+        ctx.lineTo(iconCX + 12, iconCY + 5)
+        ctx.lineTo(iconCX + 2, iconCY + 5)
+        ctx.stroke()
+        // Wheels
+        ctx.beginPath()
+        ctx.arc(iconCX - 5, iconCY + 6, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(iconCX + 8, iconCY + 6, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+      } else if (card.icon === "payment") {
+        // Credit card icon
+        ctx.beginPath()
+        ctx.roundRect(iconCX - 11, iconCY - 8, 22, 16, 2)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(iconCX - 11, iconCY - 3)
+        ctx.lineTo(iconCX + 11, iconCY - 3)
+        ctx.stroke()
+        ctx.fillRect(iconCX - 7, iconCY + 1, 6, 3)
+      } else if (card.icon === "chat") {
+        // Chat bubble
+        ctx.beginPath()
+        ctx.roundRect(iconCX - 10, iconCY - 9, 20, 15, 4)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(iconCX - 3, iconCY + 6)
+        ctx.lineTo(iconCX - 7, iconCY + 11)
+        ctx.lineTo(iconCX + 1, iconCY + 6)
+        ctx.fill()
+        // Dots inside
+        for (let d = -4; d <= 4; d += 4) {
+          ctx.beginPath()
+          ctx.arc(iconCX + d, iconCY - 2, 1.5, 0, Math.PI * 2)
+          ctx.fill()
         }
+      } else if (card.icon === "shield") {
+        // Shield icon
+        ctx.beginPath()
+        ctx.moveTo(iconCX, iconCY - 11)
+        ctx.lineTo(iconCX + 10, iconCY - 7)
+        ctx.lineTo(iconCX + 10, iconCY + 2)
+        ctx.quadraticCurveTo(iconCX + 10, iconCY + 9, iconCX, iconCY + 13)
+        ctx.quadraticCurveTo(iconCX - 10, iconCY + 9, iconCX - 10, iconCY + 2)
+        ctx.lineTo(iconCX - 10, iconCY - 7)
+        ctx.closePath()
+        ctx.stroke()
+        // Check inside
+        ctx.beginPath()
+        ctx.moveTo(iconCX - 4, iconCY)
+        ctx.lineTo(iconCX - 1, iconCY + 3)
+        ctx.lineTo(iconCX + 5, iconCY - 3)
+        ctx.stroke()
       }
-      ctx.fillText(line, cx + cardW / 2, infoY + 110 + lineCount * 16)
+      ctx.restore()
+
+      // Card title (multi-line)
+      ctx.fillStyle = DARK_TEXT
+      ctx.font = "800 12px 'Inter', sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+      const titleLines = card.title.split("\n")
+      titleLines.forEach((line, li) => {
+        ctx.fillText(line, cx + CARD_W / 2, cardsY + 65 + li * 15)
+      })
+
+      // Card description (multi-line)
+      ctx.fillStyle = GRAY_TEXT
+      ctx.font = "400 11px 'Inter', sans-serif"
+      const descStartY = cardsY + 65 + titleLines.length * 15 + 8
+      const descLines = card.desc.split("\n")
+      descLines.forEach((line, li) => {
+        ctx.fillText(line, cx + CARD_W / 2, descStartY + li * 14)
+      })
     })
 
-    ctx.restore()
+    // ════════════════════════════
+    // 9. BOTTOM CONTACT BAR
+    // ════════════════════════════
+    const contactY = cardsY + CARD_H + 30
+    const BAR_H = 70
+    const BAR_X = 50
+    const BAR_W = W - 100
 
-    // 5. FOOTER SOCIAL / CONTACT BAR
-    const contactY = infoY + footerInfoHeight + 20
-    
-    // Draw solid navy footer block with rounded corners
-    ctx.fillStyle = "#0f172a"
+    ctx.fillStyle = NAVY
     ctx.beginPath()
-    ctx.roundRect(50, contactY, width - 100, 96, 16)
+    ctx.roundRect(BAR_X, contactY, BAR_W, BAR_H, 14)
     ctx.fill()
+
+    // Dividing the bar into 3 equal columns
+    const colW = BAR_W / 3
+    const barMidY = contactY + BAR_H / 2
 
     const storePhone = storeSettings?.storePhone || "0812-3456-7890"
     const storeAddress = storeSettings?.storeAddress || "Bandung, Jawa Barat"
 
-    const drawContactItem = (iconType: string, label: string, val: string, startX: number, colW: number) => {
+    // Helper: draw a contact column
+    const drawContactCol = (colIdx: number, iconDraw: () => void, labelText: string, valueText: string) => {
+      const colStartX = BAR_X + colIdx * colW
+      const iconX = colStartX + 30
+
       ctx.save()
-      
-      const itemCenterX = startX + colW / 2
-      const centerY = contactY + 48
+      // Gold circle behind icon
+      ctx.fillStyle = GOLD
+      ctx.beginPath()
+      ctx.arc(iconX, barMidY, 15, 0, Math.PI * 2)
+      ctx.fill()
 
-      // Draw Gold Icon
-      ctx.fillStyle = "#fbbf24"
-      ctx.strokeStyle = "#fbbf24"
-      ctx.lineWidth = 2.5
-      
-      const iconX = itemCenterX - 90
-      
-      if (iconType === "wa") {
-        // WhatsApp circular call icon
-        ctx.beginPath()
-        ctx.arc(iconX, centerY, 12, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.font = "12px sans-serif"
-        ctx.fillText("📞", iconX, centerY + 4)
-      } else if (iconType === "loc") {
-        // Location pin icon
-        ctx.beginPath()
-        ctx.arc(iconX, centerY - 4, 6, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.moveTo(iconX, centerY - 4)
-        ctx.lineTo(iconX, centerY + 8)
-        ctx.stroke()
-      } else if (iconType === "ig") {
-        // Instagram camera square
-        ctx.beginPath()
-        ctx.roundRect(iconX - 10, centerY - 10, 20, 20, 5)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(iconX, centerY, 5, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-
-      // Draw Text Labels next to icon
-      ctx.textAlign = "left"
-      ctx.fillStyle = "#ffffff"
-      ctx.font = "bold 13px 'Inter', sans-serif"
-      ctx.fillText(label, iconX + 24, centerY - 5)
-      
-      ctx.fillStyle = "#fbbf24"
-      ctx.font = "normal 14px 'Inter', sans-serif"
-      let valShort = val
-      if (valShort.length > 25) {
-        valShort = valShort.substring(0, 23) + "..."
-      }
-      ctx.fillText(valShort, iconX + 24, centerY + 13)
-      
+      // Icon (navy on gold circle)
+      ctx.fillStyle = NAVY
+      ctx.strokeStyle = NAVY
+      ctx.lineWidth = 2
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      iconDraw()
       ctx.restore()
+
+      // Label
+      ctx.fillStyle = WHITE
+      ctx.font = "700 11px 'Inter', sans-serif"
+      ctx.textAlign = "left"
+      ctx.textBaseline = "bottom"
+      ctx.fillText(labelText, iconX + 22, barMidY - 2)
+
+      // Value
+      ctx.fillStyle = GOLD_LIGHT
+      ctx.font = "600 13px 'Inter', sans-serif"
+      ctx.textAlign = "left"
+      ctx.textBaseline = "top"
+      let val = valueText
+      if (val.length > 30) val = val.substring(0, 28) + "…"
+      ctx.fillText(val, iconX + 22, barMidY + 3)
     }
 
-    const colW = (width - 100) / 3
-    drawContactItem("wa", "WHATSAPP", storePhone, 50, colW)
-    drawContactItem("loc", "LOKASI TOKO", storeAddress, 50 + colW, colW)
-    drawContactItem("ig", "INSTAGRAM", `@${customInstagram}`, 50 + colW * 2, colW)
+    // WhatsApp column
+    drawContactCol(0, () => {
+      const ix = BAR_X + 30, iy = barMidY
+      // Phone receiver shape
+      ctx.beginPath()
+      ctx.moveTo(ix - 5, iy - 6)
+      ctx.quadraticCurveTo(ix - 7, iy - 2, ix - 4, iy + 2)
+      ctx.quadraticCurveTo(ix, iy + 6, ix + 5, iy + 6)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(ix - 5, iy - 6)
+      ctx.quadraticCurveTo(ix - 1, iy - 8, ix + 3, iy - 4)
+      ctx.stroke()
+    }, "WHATSAPP", storePhone)
+
+    // Location column
+    drawContactCol(1, () => {
+      const ix = BAR_X + colW + 30, iy = barMidY
+      // Pin shape
+      ctx.beginPath()
+      ctx.arc(ix, iy - 3, 4, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(ix, iy + 1)
+      ctx.lineTo(ix, iy + 7)
+      ctx.stroke()
+    }, "LOKASI TOKO", storeAddress)
+
+    // Instagram column
+    drawContactCol(2, () => {
+      const ix = BAR_X + colW * 2 + 30, iy = barMidY
+      // Camera square
+      ctx.beginPath()
+      ctx.roundRect(ix - 7, iy - 7, 14, 14, 3)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(ix, iy, 4, 0, Math.PI * 2)
+      ctx.stroke()
+      // Dot
+      ctx.beginPath()
+      ctx.arc(ix + 4, iy - 4, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+    }, "INSTAGRAM", customInstagram)
+
+    // ════════════════════════════
+    // 10. BOTTOM-LEFT DOT GRID (subtle decoration)
+    // ════════════════════════════
+    ctx.fillStyle = "#c8cdd5"
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        ctx.beginPath()
+        ctx.arc(60 + c * 18, contactY - 100 + r * 18, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
   }
 
-  // Redraw whenever date, price setting, custom instagram or brand list changes
+  // ═══ REDRAW TRIGGER ═══
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(drawFlyer, 100) // Ensure canvas is rendered in DOM first
+      const timer = setTimeout(drawFlyer, 100)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, flyerDate, selectedBrands, showPrice, customInstagram, filteredItems])
+  }, [isOpen, flyerDate, selectedBrands, showPrice, customInstagram, filteredItems, logoImgElement])
 
   const handleDownload = () => {
     const canvas = canvasRef.current
