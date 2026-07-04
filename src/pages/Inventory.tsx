@@ -21,6 +21,7 @@ import * as XLSX from "xlsx"
 import { MarkdownTab } from "@/components/inventory/MarkdownTab"
 import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
 import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
+import { AIPricingWidget } from "@/components/AIPricingWidget"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
@@ -1790,9 +1791,17 @@ export function Inventory() {
                 />
               </div>
               {addCategory === "Laptop Bekas" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Spesifikasi Laptop</label>
-                  <LaptopSpecForm value={addSpecs} onChange={setAddSpecs} />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Spesifikasi Laptop</label>
+                    <LaptopSpecForm value={addSpecs} onChange={setAddSpecs} />
+                  </div>
+                  <AIPricingWidget 
+                    specs={addSpecs} 
+                    condition={parseItemSpecs(addSpecs).condition || "Bekas (Mulus)"} 
+                    onApplyBuyPrice={(price) => setAddCost(price.toString())}
+                    onApplySellPrice={(price) => setAddSell(price.toString())}
+                  />
                 </div>
               )}
               <div className="grid grid-cols-3 gap-4">
@@ -1869,9 +1878,17 @@ export function Inventory() {
               </div>
               {editCategory === "Laptop Bekas" && (
                 <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Spesifikasi Laptop</label>
-                    <LaptopSpecForm value={editSpecs} onChange={setEditSpecs} />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Spesifikasi Laptop</label>
+                      <LaptopSpecForm value={editSpecs} onChange={setEditSpecs} />
+                    </div>
+                    <AIPricingWidget 
+                      specs={editSpecs} 
+                      condition={parseItemSpecs(editSpecs).condition || "Bekas (Mulus)"} 
+                      onApplyBuyPrice={(price) => setEditCost(price.toString())}
+                      onApplySellPrice={(price) => setEditSell(price.toString())}
+                    />
                   </div>
                   <div className="space-y-2 pt-2 border-t mt-4">
                     <label className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Ringkasan Spesifikasi (Untuk Disalin)</label>

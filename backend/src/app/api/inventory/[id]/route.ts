@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
+import { Permissions } from "@/lib/permissions";
 import { inventorySchema } from "@/lib/validators";
 import { del } from "@vercel/blob";
 
@@ -33,7 +34,7 @@ async function deleteBlobIfExists(url: string | null | undefined) {
 //  PUT — Update item inventory
 // ══════════════════════════════════════════
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
-    const authResult = await requireOwnerOrManager();
+    const authResult = await requirePermission(Permissions.INVENTORY_EDIT);
     if (authResult instanceof NextResponse) return authResult;
 
     try {
@@ -127,7 +128,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 //  DELETE — Hapus item inventory
 // ══════════════════════════════════════════
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-    const authResult = await requireOwnerOrManager();
+    const authResult = await requirePermission(Permissions.INVENTORY_DELETE);
     if (authResult instanceof NextResponse) return authResult;
 
     try {

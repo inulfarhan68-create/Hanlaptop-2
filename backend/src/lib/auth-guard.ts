@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { db } from "@/db";
 import { userStoreAccess } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { Permission, hasPermission } from "./permissions";
 
 /**
  * Checks if the incoming request has a valid session.
@@ -164,7 +165,26 @@ export async function requireReportAccess() {
     }
 
     return authResult;
+}/**
+ * PBAC: Checks if the user has a specific granular permission for the store.
+ */
+export async function requirePermission(permission: Permission) {
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
+    // A user might have a global role (authResult.user.role) OR a store-specific role (authResult.storeRole).
+    // If global owner, they have all permissions.
+    const globalRole = (authResult.user as any).role;
+    if (globalRole === "owner") return authResult;
+
+    const role = authResult.storeRole;
+    if (!hasPermission(role, permission)) {
+        return NextResponse.json(
+            { error: `Forbidden — PBAC Violation: You lack the '${permission}' permission required for this action.` },
+            { status: 403 }
+        );
+    }
+
+    return authResult;
 }
-
-
 

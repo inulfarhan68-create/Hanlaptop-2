@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, stores, storeSettings, cashierShifts } from "@/db/schema";
-import { desc, eq, count, gte, lte, and, like, inArray } from "drizzle-orm";
+import { desc, eq, count, gte, lte, and, like, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { Permissions } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
 import { awardPoints } from "@/lib/crm-helper";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.TRANSACTION_READ);
     if (authResult instanceof NextResponse) return authResult;
 
     try {
@@ -118,11 +119,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.TRANSACTION_CREATE);
     if (authResult instanceof NextResponse) return authResult;
-
-    const writeAccessError = requireWriteAccess(authResult);
-    if (writeAccessError) return writeAccessError;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to create a transaction" }, { status: 400 });
@@ -170,7 +168,7 @@ export async function POST(request: Request) {
             supplierId
         } = parsed.data;
 
-        const tx = db;
+        const result = await db.transaction(async (tx) => {
 
         // Generate custom invoice number: INV/YYYY/MM/XXX
         const now = new Date();
@@ -286,10 +284,18 @@ export async function POST(request: Request) {
                     throw new Error(`Unit "${invItem.itemName}" masih dalam proses inspeksi QC. Tidak bisa dijual sebelum melewati proses QC.`);
                 }
 
-                // Reduce Stock
-                await tx.update(inventory)
-                    .set({ quantity: invItem.quantity - item.quantity })
-                    .where(eq(inventory.id, item.inventoryId as string));
+                // Reduce Stock Atomically
+                const updatedInv = await tx.update(inventory)
+                    .set({ quantity: sql`${inventory.quantity} - ${item.quantity}` })
+                    .where(and(
+                        eq(inventory.id, item.inventoryId as string),
+                        gte(inventory.quantity, item.quantity)
+                    ))
+                    .returning();
+                    
+                if (updatedInv.length === 0) {
+                    throw new Error(`Insufficient stock for item ID: ${item.inventoryId} due to concurrent checkout. Please try again.`);
+                }
 
                 // Add Transaction Item
                 await tx.insert(transactionItems).values({
@@ -506,7 +512,8 @@ export async function POST(request: Request) {
             }
         }
 
-        const result = newTx;
+        return newTx;
+        });
 
         // Log activity
         await db.insert(activityLogs).values({
@@ -515,8 +522,8 @@ export async function POST(request: Request) {
             userName: authResult.user.name,
             action: "CREATE_TRANSACTION",
             entityType: "transaction",
-            entityId: newTx.id,
-            details: JSON.stringify({ transactionType, amount, description, invoiceNumber: invoiceNumber })
+            entityId: result.id,
+            details: JSON.stringify({ transactionType, amount, description, invoiceNumber: result.invoiceNumber })
         });
 
         return NextResponse.json(result, { status: 201 });

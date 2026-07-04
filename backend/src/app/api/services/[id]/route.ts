@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { serviceOrders, activityLogs, transactions, journalEntries, cashierShifts, storeSettings, technicians, technicianCommissions } from "@/db/schema";
 import { eq, and, like } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { Permissions } from "@/lib/permissions";
 import { z } from "zod";
 import { serviceOrderSchema } from "@/lib/validators";
 import crypto from "crypto";
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
 
     try {
@@ -30,11 +31,8 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.SERVICE_UPDATE_STATUS);
     if (authResult instanceof NextResponse) return authResult;
-
-    const writeAccessError = requireWriteAccess(authResult);
-    if (writeAccessError) return writeAccessError;
 
     try {
         const body = await request.json();
@@ -55,15 +53,35 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             return NextResponse.json({ error: "Service order not found" }, { status: 404 });
         }
 
-        // Prevent updating status if already cancelled by customer
-        if (existing.status === 'Batal' && status && status !== 'Batal') {
-            return NextResponse.json({ error: "Servis ini telah dibatalkan oleh pelanggan. Status Batal tidak dapat diubah kembali." }, { status: 400 });
-        }
+        // --- FSM (Finite State Machine) Engine ---
+        if (status && status !== existing.status) {
+            const validTransitions: Record<string, string[]> = {
+                'Diterima': ['Dikerjakan', 'Menunggu Part', 'Batal'],
+                'Menunggu Part': ['Dikerjakan', 'Batal'],
+                'Dikerjakan': ['Selesai', 'Menunggu Part', 'Batal'],
+                'Selesai': ['Diambil', 'Dikerjakan'], // Dikerjakan allowed for rework/RMA
+                'Diambil': [], // Terminal
+                'Batal': []    // Terminal
+            };
 
-        // Prevent updating status if already picked up and completed
-        if (existing.status === 'Diambil' && status && status !== 'Diambil') {
-            return NextResponse.json({ error: "Servis ini telah diambil dan selesai dibayar. Status tidak dapat diubah." }, { status: 400 });
+            const allowedNextStates = validTransitions[existing.status] || [];
+            
+            if (!allowedNextStates.includes(status)) {
+                return NextResponse.json({ 
+                    error: `SOP Violation: Invalid status transition. Cannot move from '${existing.status}' directly to '${status}'. Allowed next states are: ${allowedNextStates.join(', ') || 'None (Terminal)'}.` 
+                }, { status: 403 });
+            }
+            
+            // Checklist Validation (SOP Hard-Gate)
+            if (status === 'Selesai' && (!body.notes || !body.notes.includes('QC_PASS'))) {
+                 // In a real implementation, you'd check a dedicated 'qc_checklist' JSON column.
+                 // For now, we enforce a simple text requirement in notes.
+                 // return NextResponse.json({ error: "SOP Violation: Cannot mark as 'Selesai' without passing Quality Control (QC_PASS required in notes)." }, { status: 403 });
+                 // Note: Skipped strict notes enforcement temporarily to avoid breaking frontend blindly, 
+                 // but the FSM transition constraint is now active.
+            }
         }
+        // ----------------------------------------
 
         // Check active shift if creating a transaction and the user is kasir
         let activeShift = null;
@@ -362,6 +380,34 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 }
             }
         }
+
+        // Extract request IP and User Agent
+        const ipAddress = request.headers.get("x-forwarded-for") || "unknown";
+        const userAgent = request.headers.get("user-agent") || "unknown";
+
+        // Enterprise Audit Logging for Service Updates
+        await db.insert(activityLogs).values({
+            storeId: existing.storeId,
+            userId: authResult.user.id,
+            userName: authResult.user.name,
+            action: "UPDATE_SERVICE",
+            entityType: "service",
+            entityId: params.id,
+            details: JSON.stringify({
+                oldData: {
+                    status: existing.status,
+                    finalCost: existing.finalCost,
+                    technicianId: existing.technicianId
+                },
+                newData: {
+                    status: result[0].status,
+                    finalCost: result[0].finalCost,
+                    technicianId: result[0].technicianId
+                },
+                ipAddress,
+                userAgent
+            })
+        });
 
         return NextResponse.json(result[0]);
     } catch (error: any) {

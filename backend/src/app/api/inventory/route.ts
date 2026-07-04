@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq, ilike, or, and, sql } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
+import { Permissions } from "@/lib/permissions";
 import { inventorySchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.INVENTORY_READ);
     if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const authResult = await requireOwnerOrManager();
+    const authResult = await requirePermission(Permissions.INVENTORY_CREATE);
     if (authResult instanceof NextResponse) return authResult;
 
     // Must select a specific store to insert

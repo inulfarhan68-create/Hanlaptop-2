@@ -3,13 +3,14 @@ import { db } from "@/db";
 import { serviceOrders, activityLogs } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import crypto from "crypto";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { Permissions } from "@/lib/permissions";
 import { serviceOrderSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
 
     try {
@@ -31,11 +32,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const authResult = await requireAuth();
+    const authResult = await requirePermission(Permissions.SERVICE_CREATE);
     if (authResult instanceof NextResponse) return authResult;
-
-    const writeAccessError = requireWriteAccess(authResult);
-    if (writeAccessError) return writeAccessError;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to create a service order" }, { status: 400 });

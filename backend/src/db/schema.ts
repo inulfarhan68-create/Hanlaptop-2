@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import { sqliteTable, text, integer, real, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
 
 // Better Auth built-in tables
 export const user = sqliteTable("user", {
@@ -103,6 +103,7 @@ export const inventory = sqliteTable("inventory", {
 }, (table) => ({
     storeIdIdx: index("inventory_store_id_idx").on(table.storeId),
     categoryIdx: index("inventory_category_idx").on(table.category),
+    quantityCheck: check("quantity_check", sql`${table.quantity} >= 0`),
 }));
 
 export const customers = sqliteTable("customers", {
@@ -200,6 +201,7 @@ export const transactions = sqliteTable("transactions", {
     originalTransactionId: text("original_transaction_id"), // Linked transaction for returns
     userId: text("user_id").references(() => user.id, { onDelete: 'set null' }),
     shiftId: text("shift_id").references(() => cashierShifts.id, { onDelete: 'set null' }),
+    isVoided: integer("is_voided", { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("transaction_store_id_idx").on(table.storeId),
@@ -227,11 +229,14 @@ export const journalEntries = sqliteTable("journal_entries", {
     accountName: text("account_name").notNull(), // 'Kas', 'Persediaan', 'Pendapatan', 'HPP', 'Modal', 'Beban Gaji', etc.
     debit: real("debit").notNull().default(0),
     credit: real("credit").notNull().default(0),
+    isVoided: integer("is_voided", { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("journal_entries_store_id_idx").on(table.storeId),
     transactionIdIdx: index("journal_entries_tx_id_idx").on(table.transactionId),
     createdAtIdx: index("journal_entries_created_at_idx").on(table.createdAt),
+    debitCheck: check("debit_check", sql`${table.debit} >= 0`),
+    creditCheck: check("credit_check", sql`${table.credit} >= 0`),
 }));
 
 export const storeSettings = sqliteTable("store_settings", {
@@ -270,6 +275,17 @@ export const activityLogs = sqliteTable("activity_logs", {
 }, (table) => ({
     storeIdIdx: index("activity_logs_store_id_idx").on(table.storeId),
 }));
+
+export const aiPricingLogs = sqliteTable("ai_pricing_logs", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    specs: text("specs").notNull(),
+    condition: text("condition").notNull(),
+    recommendedBuyPrice: real("recommended_buy_price").notNull(),
+    recommendedSellPrice: real("recommended_sell_price").notNull(),
+    confidenceScore: integer("confidence_score").notNull(),
+    reasoning: text("reasoning"),
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
 
 export const serviceOrders = sqliteTable("service_orders", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
