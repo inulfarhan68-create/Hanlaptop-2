@@ -1593,11 +1593,11 @@ export function LandingPage() {
               {/* Kolom Kiri: Statistik (Dark) */}
               <div className="p-8 md:p-12 flex flex-col justify-center space-y-6 sm:space-y-8">
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-bold tracking-tighter" >
-                    Dipercaya Ratusan Pelanggan.
+                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
+                    Solusi Cerdas Hemat Uang & Tenaga
                   </h2>
-                  <p className="mt-4 text-slate-400 text-sm md:text-base leading-relaxed">
-                    Kami tidak sekadar menjual laptop, kami membangun ekosistem komputasi yang aman, transparan, dan bergaransi penuh untuk Anda.
+                  <p className="mt-4 text-slate-400 text-sm md:text-base leading-relaxed font-normal">
+                    Han Laptop hadir sebagai solusi satu atap tepercaya. Dapatkan laptop berspesifikasi tinggi dengan jaminan kualitas prima tanpa perlu membuang waktu dan energi ekstra.
                   </p>
                 </div>
                 
@@ -1622,8 +1622,8 @@ export function LandingPage() {
                       <ShieldCheck className="w-6 h-6 text-slate-900 stroke-[1.5]" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Cek Fisik 40+ Poin Ketat</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Setiap laptop wajib lolos standarisasi ketat Han Laptop sebelum dijual. <a href="#" className="text-slate-900 font-semibold hover:underline">Lihat daftar inspeksi</a>.</p>
+                      <h4 className="text-sm font-bold text-slate-900">Uji QC 40+ Poin & Deep Cleaning</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Setiap unit dijamin lolos inspeksi fisik & fungsi menyeluruh, lengkap dengan perawatan pembersihan fan serta repasting thermal paste baru sebelum dipajang.</p>
                     </div>
                   </div>
 
@@ -1632,8 +1632,8 @@ export function LandingPage() {
                       <Award className="w-6 h-6 text-slate-900 stroke-[1.5]" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Garansi Transparan 30 Hari</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Nikmati jaminan garansi perangkat keras (hardware) dan lunak (software) penuh tanpa syarat berbelit.</p>
+                      <h4 className="text-sm font-bold text-slate-900">Garansi Lengkap & Transparan</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Kami berikan jaminan penuh: 1 bulan garansi hardware, 6 bulan garansi software gratis, ditambah perlindungan sisa garansi resmi pabrikan yang masih aktif.</p>
                     </div>
                   </div>
 
@@ -1642,8 +1642,8 @@ export function LandingPage() {
                       <Activity className="w-6 h-6 text-slate-900 stroke-[1.5]" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Lacak Servis Real-Time</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Pantau status perbaikan laptop Anda kapan saja secara langsung melalui sistem pelacakan cerdas kami.</p>
+                      <h4 className="text-sm font-bold text-slate-900">Servis & Upgrade Transparan</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Layanan upgrade spesifikasi dan servis laptop dilakukan secara terbuka, mudah dipantau, dengan estimasi harga yang sangat kompetitif di pasaran.</p>
                     </div>
                   </div>
 
