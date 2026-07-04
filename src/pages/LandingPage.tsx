@@ -356,6 +356,11 @@ export function LandingPage() {
         setJualSelectedDefects([]);
         setJualCustomDefect("");
         setJualWarrantyDuration("");
+        setJualStep(1);
+        setJualPhysicalCondition("Mulus");
+        setJualHasFunctionIssue(false);
+        setJualHasServiceHistory(false);
+        setJualServiceDetails("");
       }
     }
   };
@@ -388,6 +393,7 @@ export function LandingPage() {
   };
   
   // States for Jual Laptop (Valuasi Instan & Lead Submission)
+  const [jualStep, setJualStep] = useState(1)
   const [jualName, setJualName] = useState("")
   const [jualPhone, setJualPhone] = useState("")
   const [jualBrand, setJualBrand] = useState("Asus")
@@ -402,6 +408,12 @@ export function LandingPage() {
   const [jualResult, setJualResult] = useState<any>(null)
   const [jualLoading, setJualLoading] = useState(false)
   const [jualSubmitted, setJualSubmitted] = useState(false)
+  
+  // States for Step 2 - Physical Condition & Function Check
+  const [jualPhysicalCondition, setJualPhysicalCondition] = useState("Mulus")
+  const [jualHasFunctionIssue, setJualHasFunctionIssue] = useState(false)
+  const [jualHasServiceHistory, setJualHasServiceHistory] = useState(false)
+  const [jualServiceDetails, setJualServiceDetails] = useState("")
   
   // States for AI estimation features
   const [jualPurchaseYear, setJualPurchaseYear] = useState(new Date().getFullYear().toString())
@@ -586,60 +598,60 @@ export function LandingPage() {
     fetchStoreInfo()
   }, [selectedBranch])
 
-  // Action for Jual Laptop Valuasi
-  const handleJualValuation = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!jualModel.trim()) {
-      toast.error("Silakan masukkan Tipe / Model Laptop (misal: ROG Zephyrus G14).")
-      return
-    }
-    if (!jualPurchaseYear.trim()) {
-      toast.error("Silakan isi Tahun Pembelian terlebih dahulu.")
-      return
-    }
-    
-    if (!jualSpecDetectedByAi) {
-      // Step 1: Detect specs via AI first
-      handleJualAutocomplete()
+  // Derive jualCondition from physicalCondition + functionIssue for pricing
+  useEffect(() => {
+    if (jualPhysicalCondition === "Mulus") {
+      setJualCondition(jualHasFunctionIssue ? "Minus Fungsi/Rusak" : "Mulus")
+    } else if (jualPhysicalCondition === "Baret Ringan") {
+      setJualCondition(jualHasFunctionIssue ? "Minus Fungsi/Rusak" : "Baret Ringan")
     } else {
-      // Step 2: Calculate price based on reviewed specifications
-      const baseMarketPrice = jualLowestMarketPrice || 3000000;
-      const baseline = jualAiBaseline || {
-        processorFamily: "Intel Core i5",
-        ram: "8GB",
-        storage: "256GB SSD",
-        vgaType: "Integrated",
-        purchaseYear: "2023",
-        hasWarranty: false
-      };
-
-      const current = {
-        processorFamily: jualProcessor,
-        ram: jualRam,
-        storage: jualStorage,
-        vgaType: jualVga,
-        purchaseYear: jualPurchaseYear,
-        hasWarranty: jualHasWarranty === "yes",
-        completeness: jualCompleteness,
-        minusDetails: jualConditionDetails
-      };
-
-      const offerPrice = calculateAdjustedPrice({
-        baseMarketPrice,
-        baseline,
-        current,
-        condition: jualCondition
-      });
-
-      setJualResult({
-        lowestMarketPrice: baseMarketPrice,
-        offerValueRangeMin: offerPrice,
-        offerValueRangeMax: offerPrice,
-        isLocalFallback: !jualAiBaseline,
-        aiBaseline: baseline
-      });
-      toast.success("Taksiran harga berhasil dihitung berdasarkan spesifikasi akhir! 💰")
+      // Penyok/Dent, Cat Mengelupas, Patah → always "Minus Fungsi/Rusak"
+      setJualCondition("Minus Fungsi/Rusak")
     }
+  }, [jualPhysicalCondition, jualHasFunctionIssue])
+
+  // Calculate taksiran price (called when moving to Step 3)
+  const calculateJualTaksiran = () => {
+    const baseMarketPrice = jualLowestMarketPrice || 3000000;
+    const baseline = jualAiBaseline || {
+      processorFamily: "Intel Core i5",
+      ram: "8GB",
+      storage: "256GB SSD",
+      vgaType: "Integrated",
+      purchaseYear: "2023",
+      hasWarranty: false
+    };
+
+    const current = {
+      processorFamily: jualProcessor,
+      ram: jualRam,
+      storage: jualStorage,
+      vgaType: jualVga,
+      purchaseYear: jualPurchaseYear,
+      hasWarranty: jualHasWarranty === "yes",
+      completeness: jualCompleteness,
+      minusDetails: jualConditionDetails
+    };
+
+    const offerPrice = calculateAdjustedPrice({
+      baseMarketPrice,
+      baseline,
+      current,
+      condition: jualCondition
+    });
+
+    // Range: ±10% rounded to 50k
+    const roundTo50k = (v: number) => Math.max(500000, Math.round(v / 50000) * 50000);
+    const rangeMin = roundTo50k(offerPrice * 0.90);
+    const rangeMax = roundTo50k(offerPrice * 1.10);
+
+    setJualResult({
+      lowestMarketPrice: baseMarketPrice,
+      offerValueRangeMin: rangeMin,
+      offerValueRangeMax: rangeMax,
+      isLocalFallback: !jualAiBaseline,
+      aiBaseline: baseline
+    });
   }
 
   // Reactive Effect: Automatically recalculate price when specs or conditions change
@@ -667,13 +679,16 @@ export function LandingPage() {
     });
 
     // Only update state if the value has actually changed to avoid render loops
-    if (jualResult.offerValueRangeMin !== offerPrice) {
+    const roundTo50k = (v: number) => Math.max(500000, Math.round(v / 50000) * 50000);
+    const newMin = roundTo50k(offerPrice * 0.90);
+    const newMax = roundTo50k(offerPrice * 1.10);
+    if (jualResult.offerValueRangeMin !== newMin || jualResult.offerValueRangeMax !== newMax) {
       setJualResult((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
-          offerValueRangeMin: offerPrice,
-          offerValueRangeMax: offerPrice
+          offerValueRangeMin: newMin,
+          offerValueRangeMax: newMax
         };
       });
     }
@@ -699,6 +714,10 @@ export function LandingPage() {
 
     setJualLoading(true)
     try {
+      const physCondText = `Fisik: ${jualPhysicalCondition}` + 
+        (jualHasFunctionIssue && jualConditionDetails ? ` | Minus: ${jualConditionDetails}` : '') +
+        (jualHasServiceHistory ? ` | Riwayat Service: ${jualServiceDetails || 'Ya'}` : '');
+      
       const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -710,13 +729,11 @@ export function LandingPage() {
           processor: `${jualProcessor} | Tahun: ${jualPurchaseYear || '-'} | Garansi Resmi: ${jualHasWarranty === 'yes' ? `Aktif (${jualWarrantyDuration || '0'} Bulan)` : 'Habis/Tidak Ada'}`,
           ram: jualRam,
           storage: `${jualStorage} | VGA: ${jualVga}`,
-          condition: jualCondition === "Minus Fungsi/Rusak" && jualConditionDetails
-            ? `Minus (${jualConditionDetails})`
-            : jualCondition,
+          condition: physCondText,
           completeness: jualCompleteness,
-          estimatedMarketPrice: jualResult.offerValueRangeMin,
+          estimatedMarketPrice: jualResult.lowestMarketPrice,
           estimatedOfferPriceMin: jualResult.offerValueRangeMin,
-          estimatedOfferPriceMax: jualResult.offerValueRangeMin,
+          estimatedOfferPriceMax: jualResult.offerValueRangeMax,
           type: "JUAL_LAPTOP"
         })
       })
@@ -725,20 +742,18 @@ export function LandingPage() {
         setJualSubmitted(true)
         toast.success("Penawaran Anda berhasil disimpan! Dialihkan ke WhatsApp...")
 
-        const condVal = jualCondition === "Minus Fungsi/Rusak" && jualConditionDetails
-          ? `Minus (${jualConditionDetails})`
-          : jualCondition;
-        
         const messageText = `Halo Han Laptop, saya ingin menjual laptop saya:\n` +
           `- *Nama*: ${jualName}\n` +
           `- *No WA*: ${jualPhone}\n` +
           `- *Model*: ${jualBrand} ${jualModel}\n` +
           `- *Spesifikasi*: ${jualProcessor}, RAM ${jualRam}, ${jualStorage}, VGA ${jualVga}\n` +
-          `- *Kondisi*: ${condVal}\n` +
+          `- *Kondisi Fisik*: ${jualPhysicalCondition}\n` +
+          (jualHasFunctionIssue && jualConditionDetails ? `- *Minus Fungsi*: ${jualConditionDetails}\n` : '') +
+          (jualHasServiceHistory ? `- *Riwayat Service*: ${jualServiceDetails || 'Ya'}\n` : '') +
           `- *Kelengkapan*: ${jualCompleteness}\n` +
           `- *Tahun Pembelian*: ${jualPurchaseYear || '-'}\n` +
           `- *Garansi*: ${jualHasWarranty === 'yes' ? `Aktif (${jualWarrantyDuration || '0'} Bulan)` : 'Habis/Tidak Ada'}\n` +
-          `- *Estimasi Taksiran*: ${formatCurrency(jualResult.offerValueRangeMin)}`;
+          `- *Estimasi Taksiran*: ${formatCurrency(jualResult.offerValueRangeMin)} – ${formatCurrency(jualResult.offerValueRangeMax)}`;
 
         window.open(getWhatsAppUrlWithText(messageText), "_blank");
       } else {
@@ -1783,9 +1798,9 @@ export function LandingPage() {
         </main>
       )}
 
-      {/* JUAL LAPTOP SECTION */}
+      {/* JUAL LAPTOP SECTION - 3 STEP WIZARD */}
       {activeSection === "jual" && (
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-12">
+        <div className="relative z-10 max-w-3xl mx-auto px-4 py-12">
           <button 
             type="button"
             onClick={() => setActiveSection("hero")}
@@ -1795,423 +1810,600 @@ export function LandingPage() {
             Kembali ke Beranda
           </button>
 
-          <div className="space-y-4 mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Mesin Penilaian Instan Jual Laptop</h1>
-            <p className="text-slate-650 text-sm leading-relaxed font-normal">
-              Masukkan spesifikasi laptop bekas Anda di bawah untuk mendapatkan taksiran harga jual wajar di pasar serta estimasi penawaran terbaik dari Han Laptop.
+          <div className="space-y-2 mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Jual Laptop Bekas</h1>
+            <p className="text-slate-600 text-sm leading-relaxed font-normal">
+              Ikuti 3 langkah mudah untuk mendapatkan taksiran harga jual terbaik dari Han Laptop.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* VALUASI FORM */}
-            <form onSubmit={handleJualValuation} className="lg:col-span-7 bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl shadow-xs space-y-5">
-              
-              {/* Petunjuk Penggunaan */}
-              <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl text-left space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                  <Info className="w-4 h-4 text-slate-600 shrink-0" strokeWidth={1.5} />
-                  <span>Petunjuk Taksir Harga Laptop</span>
-                </div>
-                <p className="text-xs text-slate-650 leading-relaxed font-normal">
-                  Ketik tipe laptop lalu klik <span className="text-slate-900 font-bold">Cari Specs AI ✨</span> untuk mendeteksi spesifikasi secara otomatis. Periksa & sesuaikan jika tidak cocok, lalu klik <span className="text-slate-900 font-bold">Taksir Harga Sekarang 💰</span> di bawah untuk melihat harga.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5 sm:col-span-1">
-                  <label className="text-xs font-bold text-slate-700">Merek Laptop</label>
-                  <ModernSelect 
-                    value={jualBrand}
-                    onChange={setJualBrand}
-                    options={[
-                      {value: "Asus", label: "Asus"},
-                      {value: "Lenovo", label: "Lenovo"},
-                      {value: "HP", label: "HP"},
-                      {value: "Acer", label: "Acer"},
-                      {value: "Dell", label: "Dell"},
-                      {value: "MacBook", label: "MacBook"},
-                      {value: "MSI", label: "MSI"},
-                      {value: "Gigabyte", label: "Gigabyte"},
-                      {value: "Lainnya", label: "Merek Lain"}
-                    ]}
-                    className="w-full h-11 bg-white border-slate-250 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-slate-700">Tipe / Model Laptop</label>
-                  <div className="relative flex items-center">
-                    <input 
-                      type="text"
-                      required
-                      list="laptop-model-suggestions"
-                      placeholder="Contoh: ROG Zephyrus G14"
-                      value={jualModel}
-                      onChange={(e) => setJualModel(e.target.value)}
-                      className="w-full h-11 bg-white border border-slate-250 rounded-lg pl-3 pr-[110px] text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                    />
-                    <datalist id="laptop-model-suggestions">
-                      {getBrandSuggestions(jualBrand).map(s => <option key={s} value={s} />)}
-                    </datalist>
-                    <button
-                      type="button"
-                      onClick={handleJualAutocomplete}
-                      disabled={jualAiLoading || !jualModel}
-                      className="absolute right-0 top-0 bottom-0 h-11 bg-slate-900 hover:bg-slate-800 text-white px-4 rounded-r-lg text-[10px] sm:text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-md"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
-                      {jualAiLoading ? "Mencari..." : "Cari Specs AI"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2 pb-2 space-y-4 relative">
-                <div className="flex justify-between items-center pb-1">
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
-                    Spesifikasi Terdeteksi AI
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium">Bisa diubah manual</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Prosesor (Model & Seri)</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Contoh: Intel Core i5-11400H / AMD Ryzen 5 5600H / Apple M1"
-                    value={jualProcessor}
-                    onChange={(e) => setJualProcessor(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Kartu Grafis (VGA)</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Contoh: NVIDIA GeForce RTX 3050 Ti / Integrated (Intel Iris Xe / AMD Radeon Vega)"
-                    value={jualVga}
-                    onChange={(e) => setJualVga(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Kapasitas RAM</label>
-                    <ModernSelect 
-                      value={jualRam}
-                      onChange={setJualRam}
-                      options={[
-                        {value: "4GB", label: "4GB"},
-                        {value: "8GB", label: "8GB"},
-                        {value: "16GB", label: "16GB"},
-                        {value: "32GB", label: "32GB"}
-                      ]}
-                      className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Penyimpanan</label>
-                    <ModernSelect 
-                      value={jualStorage}
-                      onChange={setJualStorage}
-                      options={[
-                        {value: "128GB SSD", label: "128GB SSD"},
-                        {value: "256GB SSD", label: "256GB SSD"},
-                        {value: "512GB SSD", label: "512GB SSD"},
-                        {value: "1TB SSD", label: "1TB SSD"},
-                        {value: "2TB SSD", label: "2TB SSD"},
-                        {value: "500GB HDD", label: "500GB HDD"},
-                        {value: "1TB HDD", label: "1TB HDD"},
-                        {value: "128GB SSD + 1TB HDD", label: "128GB SSD + 1TB HDD"},
-                        {value: "256GB SSD + 1TB HDD", label: "256GB SSD + 1TB HDD"},
-                        {value: "512GB SSD + 1TB HDD", label: "512GB SSD + 1TB HDD"},
-                        {value: "1TB SSD + 1TB HDD", label: "1TB SSD + 1TB HDD"}
-                      ]}
-                      className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Kondisi Fisik Laptop</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {["Mulus", "Baret Ringan", "Minus Fungsi/Rusak"].map((cond) => (
-                    <button
-                      key={cond}
-                      type="button"
-                      onClick={() => setJualCondition(cond)}
-                      className={`h-11 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                        jualCondition === cond 
-                          ? "bg-slate-900 border-slate-900 text-white" 
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-350"
-                      }`}
-                    >
-                      {cond}
-                    </button>
-                  ))}
-                </div>
-                {jualCondition === "Minus Fungsi/Rusak" && (
-                  <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left space-y-3">
-                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      Pilih Minus / Kerusakan (Bisa pilih lebih dari 1):
-                    </label>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {laptopDefects.map((defect) => {
-                        const isChecked = jualSelectedDefects.includes(defect);
-                        return (
-                          <label 
-                            key={defect} 
-                            className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                              isChecked 
-                                ? "bg-amber-50/50 border-amber-300 text-slate-900 shadow-xs" 
-                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                            }`}
-                          >
-                            <input 
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleDefectToggle(defect)}
-                              className="mt-0.5 h-3.5 w-3.5 rounded border-slate-350 text-slate-900 focus:ring-slate-900 cursor-pointer"
-                            />
-                            <span>{defect}</span>
-                          </label>
-                        );
-                      })}
+          {/* STEPPER BAR */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between relative">
+              {[
+                { step: 1, label: "Identifikasi", icon: Cpu },
+                { step: 2, label: "Kondisi & Kelengkapan", icon: ShieldCheck },
+                { step: 3, label: "Hasil Taksiran", icon: TrendingUp }
+              ].map((s, idx) => (
+                <div key={s.step} className="flex items-center flex-1 last:flex-none">
+                  <div className="flex flex-col items-center relative z-10">
+                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 ${
+                      jualStep > s.step 
+                        ? "bg-emerald-600 border-emerald-600 text-white shadow-md" 
+                        : jualStep === s.step 
+                          ? "bg-slate-900 border-slate-900 text-white shadow-lg scale-110" 
+                          : "bg-white border-slate-250 text-slate-400"
+                    }`}>
+                      {jualStep > s.step ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <s.icon className="w-4 h-4" strokeWidth={2} />
+                      )}
                     </div>
+                    <span className={`mt-2 text-[10px] sm:text-xs font-bold transition-colors duration-300 text-center leading-tight ${
+                      jualStep >= s.step ? "text-slate-800" : "text-slate-400"
+                    }`}>{s.label}</span>
+                  </div>
+                  {idx < 2 && (
+                    <div className="flex-1 mx-2 sm:mx-3 mb-5">
+                      <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-500 ease-out ${
+                          jualStep > s.step ? "w-full bg-emerald-500" : "w-0 bg-slate-300"
+                        }`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
-                    <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Minus Lainnya (Opsional)</label>
+          {/* ============================================================ */}
+          {/* STEP 1: IDENTIFIKASI LAPTOP */}
+          {/* ============================================================ */}
+          {jualStep === 1 && (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-fade-in">
+              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+                    <Cpu className="w-4 h-4" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">Langkah 1: Identifikasi Laptop</h2>
+                    <p className="text-[11px] text-slate-500 font-medium">Pilih merek, ketik model, dan biarkan AI mendeteksi spesifikasi.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Brand & Model */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 sm:col-span-1">
+                    <label className="text-xs font-bold text-slate-700">Merek Laptop</label>
+                    <ModernSelect 
+                      value={jualBrand}
+                      onChange={setJualBrand}
+                      options={[
+                        {value: "Asus", label: "Asus"},
+                        {value: "Lenovo", label: "Lenovo"},
+                        {value: "HP", label: "HP"},
+                        {value: "Acer", label: "Acer"},
+                        {value: "Dell", label: "Dell"},
+                        {value: "MacBook", label: "MacBook"},
+                        {value: "MSI", label: "MSI"},
+                        {value: "Gigabyte", label: "Gigabyte"},
+                        {value: "Lainnya", label: "Merek Lain"}
+                      ]}
+                      className="w-full h-11 bg-white border-slate-250 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-700">Tipe / Model Laptop</label>
+                    <div className="relative flex items-center">
                       <input 
                         type="text"
-                        placeholder="Misal: port audio mati, keyboard berdebu parah"
-                        value={jualCustomDefect}
-                        onChange={(e) => setJualCustomDefect(e.target.value)}
-                        className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
+                        required
+                        list="laptop-model-suggestions"
+                        placeholder="Contoh: ROG Zephyrus G14"
+                        value={jualModel}
+                        onChange={(e) => setJualModel(e.target.value)}
+                        className="w-full h-11 bg-white border border-slate-250 rounded-lg pl-3 pr-[110px] text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
                       />
+                      <datalist id="laptop-model-suggestions">
+                        {getBrandSuggestions(jualBrand).map(s => <option key={s} value={s} />)}
+                      </datalist>
+                      <button
+                        type="button"
+                        onClick={handleJualAutocomplete}
+                        disabled={jualAiLoading || !jualModel}
+                        className="absolute right-0 top-0 bottom-0 h-11 bg-slate-900 hover:bg-slate-800 text-white px-4 rounded-r-lg text-[10px] sm:text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-md"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        {jualAiLoading ? "Mencari..." : "Cari Specs AI"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Detected Specs */}
+                {jualSpecDetectedByAi && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+                        Spesifikasi Terdeteksi AI
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">Bisa diubah manual</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">Prosesor (Model & Seri)</label>
+                      <input 
+                        type="text"
+                        placeholder="Contoh: Intel Core i5-11400H"
+                        value={jualProcessor}
+                        onChange={(e) => setJualProcessor(e.target.value)}
+                        className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">Kartu Grafis (VGA)</label>
+                      <input 
+                        type="text"
+                        placeholder="Contoh: NVIDIA GeForce RTX 3050 Ti"
+                        value={jualVga}
+                        onChange={(e) => setJualVga(e.target.value)}
+                        className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Kapasitas RAM</label>
+                        <ModernSelect 
+                          value={jualRam}
+                          onChange={setJualRam}
+                          options={[
+                            {value: "4GB", label: "4GB"},
+                            {value: "8GB", label: "8GB"},
+                            {value: "16GB", label: "16GB"},
+                            {value: "32GB", label: "32GB"}
+                          ]}
+                          className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Penyimpanan</label>
+                        <ModernSelect 
+                          value={jualStorage}
+                          onChange={setJualStorage}
+                          options={[
+                            {value: "128GB SSD", label: "128GB SSD"},
+                            {value: "256GB SSD", label: "256GB SSD"},
+                            {value: "512GB SSD", label: "512GB SSD"},
+                            {value: "1TB SSD", label: "1TB SSD"},
+                            {value: "2TB SSD", label: "2TB SSD"},
+                            {value: "500GB HDD", label: "500GB HDD"},
+                            {value: "1TB HDD", label: "1TB HDD"},
+                            {value: "128GB SSD + 1TB HDD", label: "128GB SSD + 1TB HDD"},
+                            {value: "256GB SSD + 1TB HDD", label: "256GB SSD + 1TB HDD"},
+                            {value: "512GB SSD + 1TB HDD", label: "512GB SSD + 1TB HDD"},
+                            {value: "1TB SSD + 1TB HDD", label: "1TB SSD + 1TB HDD"}
+                          ]}
+                          className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Kelengkapan Perangkat</label>
-                <ModernSelect 
-                  value={jualCompleteness}
-                  onChange={setJualCompleteness}
-                  options={[
-                    {value: "Lengkap", label: "Lengkap (Dusbox, Charger, Unit)"},
-                    {value: "Hanya Charger", label: "Batangan + Charger"},
-                    {value: "Hanya Batangan", label: "Hanya Unit (Batangan)"}
-                  ]}
-                  className="w-full h-11 bg-white border-slate-250 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Tahun Pembelian</label>
-                  <select 
-                    value={jualPurchaseYear}
-                    onChange={(e) => setJualPurchaseYear(e.target.value)}
-                    style={selectStyle}
-                    className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors appearance-none cursor-pointer"
-                  >
-                    {Array.from({ length: new Date().getFullYear() - 2018 + 1 }, (_, i) => {
-                      const yr = (new Date().getFullYear() - i).toString();
-                      return <option key={yr} value={yr}>{yr}</option>;
-                    })}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Garansi Resmi Aktif</label>
-                  <select 
-                    value={jualHasWarranty}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setJualHasWarranty(val);
-                      if (val === "no") setJualWarrantyDuration("");
+                {/* Footer Button */}
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!jualModel.trim()) {
+                        toast.error("Silakan ketik tipe/model laptop terlebih dahulu.")
+                        return
+                      }
+                      if (!jualSpecDetectedByAi) {
+                        handleJualAutocomplete()
+                        return
+                      }
+                      setJualStep(2)
+                      window.scrollTo({ top: 0, behavior: "smooth" })
                     }}
-                    style={selectStyle}
-                    className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors appearance-none cursor-pointer"
+                    disabled={jualAiLoading}
+                    className="h-12 px-8 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-400 text-white font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-all shadow-xs text-sm disabled:cursor-not-allowed"
                   >
-                    <option value="no">Habis / Tidak Ada</option>
-                    <option value="yes">Masih Aktif</option>
-                  </select>
-                  {jualHasWarranty === "yes" && (
-                    <div className="mt-2 space-y-1 animate-fade-in">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sisa Masa Garansi (Bulan)</label>
+                    {jualAiLoading ? (
+                      <>Menganalisis... <Sparkles className="h-4 w-4 animate-spin" /></>
+                    ) : !jualSpecDetectedByAi ? (
+                      <>Cari Spesifikasi via AI <Sparkles className="h-4 w-4" /></>
+                    ) : (
+                      <>Lanjut ke Pengecekan Kondisi <ChevronRight className="h-4 w-4" /></>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* STEP 2: PENGECEKAN KONDISI & KELENGKAPAN */}
+          {/* ============================================================ */}
+          {jualStep === 2 && (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-fade-in">
+              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">Langkah 2: Pengecekan Kondisi & Kelengkapan</h2>
+                    <p className="text-[11px] text-slate-500 font-medium">Pilih kondisi fisik, cek fungsi, dan informasi kelengkapan laptop Anda.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-6">
+                {/* SUB-SECTION A: Kondisi Fisik */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                    Kondisi Fisik Casing
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: "Mulus", emoji: "✨", desc: "Tidak ada cacat" },
+                      { value: "Baret Ringan", emoji: "〰️", desc: "Baret halus di body" },
+                      { value: "Penyok/Dent", emoji: "📦", desc: "Ada penyok di casing" },
+                      { value: "Cat Mengelupas", emoji: "🎨", desc: "Cat luntur/mengelupas" },
+                      { value: "Patah/Retak", emoji: "💔", desc: "Ada retakan/patah" }
+                    ].map((cond) => (
+                      <button
+                        key={cond.value}
+                        type="button"
+                        onClick={() => setJualPhysicalCondition(cond.value)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          jualPhysicalCondition === cond.value 
+                            ? "bg-slate-900 border-slate-900 text-white shadow-md" 
+                            : "bg-white border-slate-200 text-slate-700 hover:border-slate-350 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="text-base mb-1">{cond.emoji}</div>
+                        <div className="text-xs font-bold">{cond.value}</div>
+                        <div className={`text-[10px] font-medium mt-0.5 ${
+                          jualPhysicalCondition === cond.value ? "text-slate-300" : "text-slate-400"
+                        }`}>{cond.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SUB-SECTION B: Cek Fungsi */}
+                <div className="space-y-3 border-t border-slate-150 pt-5">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
+                    Cek Fungsi
+                  </label>
+
+                  {/* Toggle: Ada Minus Fungsi? */}
+                  <div 
+                    onClick={() => setJualHasFunctionIssue(!jualHasFunctionIssue)}
+                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      jualHasFunctionIssue 
+                        ? "bg-amber-50 border-amber-300 shadow-xs" 
+                        : "bg-white border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">Ada minus fungsi / kerusakan?</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Layar bermasalah, baterai drop, speaker sember, dll.</div>
+                    </div>
+                    <div className={`w-10 h-6 rounded-full transition-all duration-300 flex items-center ${
+                      jualHasFunctionIssue ? "bg-amber-500 justify-end" : "bg-slate-300 justify-start"
+                    }`}>
+                      <div className="w-4 h-4 bg-white rounded-full shadow-sm mx-1 transition-all" />
+                    </div>
+                  </div>
+
+                  {/* Checklist Defects */}
+                  {jualHasFunctionIssue && (
+                    <div className="space-y-3 animate-fade-in pl-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {laptopDefects.map((defect) => {
+                          const isChecked = jualSelectedDefects.includes(defect);
+                          return (
+                            <label 
+                              key={defect} 
+                              className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                isChecked 
+                                  ? "bg-amber-50/50 border-amber-300 text-slate-900 shadow-xs" 
+                                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleDefectToggle(defect)}
+                                className="mt-0.5 h-3.5 w-3.5 rounded border-slate-350 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                              />
+                              <span>{defect}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Minus Lainnya (Opsional)</label>
+                        <input 
+                          type="text"
+                          placeholder="Misal: port audio mati, keyboard berdebu parah"
+                          value={jualCustomDefect}
+                          onChange={(e) => setJualCustomDefect(e.target.value)}
+                          className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Toggle: Pernah Di-Service? */}
+                  <div 
+                    onClick={() => setJualHasServiceHistory(!jualHasServiceHistory)}
+                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      jualHasServiceHistory 
+                        ? "bg-blue-50 border-blue-300 shadow-xs" 
+                        : "bg-white border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">Pernah di-service / ganti part?</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Ganti LCD, baterai, keyboard, motherboard, dll.</div>
+                    </div>
+                    <div className={`w-10 h-6 rounded-full transition-all duration-300 flex items-center ${
+                      jualHasServiceHistory ? "bg-blue-500 justify-end" : "bg-slate-300 justify-start"
+                    }`}>
+                      <div className="w-4 h-4 bg-white rounded-full shadow-sm mx-1 transition-all" />
+                    </div>
+                  </div>
+
+                  {jualHasServiceHistory && (
+                    <div className="space-y-1.5 animate-fade-in pl-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Detail Service / Part yang Diganti</label>
                       <input 
-                        type="number" 
-                        min="1"
-                        max="60"
-                        required
-                        placeholder="Misal: 12" 
-                        value={jualWarrantyDuration}
-                        onChange={(e) => setJualWarrantyDuration(e.target.value)}
+                        type="text"
+                        placeholder="Misal: Ganti baterai baru, ganti LCD 2024"
+                        value={jualServiceDetails}
+                        onChange={(e) => setJualServiceDetails(e.target.value)}
                         className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
                       />
                     </div>
                   )}
                 </div>
-              </div>
 
-              <Button 
-                type="submit" 
-                disabled={jualAiLoading}
-                className="w-full h-12 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-400 text-white font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all shadow-xs"
-              >
-                {jualAiLoading ? (
-                  <>Menganalisis Spesifikasi... <Sparkles className="h-4 w-4 animate-spin" /></>
-                ) : !jualSpecDetectedByAi ? (
-                  <>Cari Spesifikasi via AI ✨</>
-                ) : !jualResult ? (
-                  <>Taksir Harga Sekarang 💰</>
-                ) : (
-                  <>Perbarui Hasil Taksiran Harga 🔄</>
-                )}
-              </Button>
-              
-            </form>
+                {/* Garansi, Kelengkapan, Tahun Pembelian */}
+                <div className="space-y-4 border-t border-slate-150 pt-5">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                    Garansi, Kelengkapan & Tahun Pembelian
+                  </label>
 
-            {/* RESULTS VIEW */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl shadow-xs">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Estimasi Taksiran Harga</h3>
-                
-                {jualResult ? (
-                  <div className="space-y-6">
-                    <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Penawaran Han Laptop</div>
-                      <div className="text-3xl font-bold text-slate-900">
-                        {formatCurrency(jualResult.offerValueRangeMin)}
-                      </div>
-                      <div className="text-[9px] text-slate-500 font-normal">*Harga penawaran berdasarkan kondisi unit. Toko siap bayar langsung setelah cek fisik.</div>
-                      
-                      <div className="text-[10px] text-slate-600 font-normal leading-normal mt-3 p-3 bg-slate-100/70 border border-slate-200 rounded-lg space-y-1.5 text-left">
-                        <p className="text-[9px] font-normal"><span className="text-slate-900 font-bold">⚠️ PENTING:</span> Harga di atas adalah <strong>harga taksiran sementara</strong> (bisa lebih murah atau lebih mahal setelah pengecekan fisik langsung).</p>
-                        <p className="text-[9px] font-normal">Untuk info selengkapnya, silakan <a href={getWhatsAppUrlWithText("Halo Han Laptop, saya ingin tanya taksiran harga laptop saya secara langsung.")} target="_blank" rel="noopener noreferrer" className="text-slate-900 hover:underline font-semibold">chat langsung ke WA</a> atau kunjungi toko terdekat kami.</p>
-                      </div>
-                    </div>
-
-                    {/* LEAD FORM SECTION */}
-                    {!jualSubmitted ? (
-                      <form onSubmit={submitJualLead} className="border-t border-slate-200 pt-4 space-y-3">
-                        <div className="text-xs font-semibold text-slate-800 text-center mb-1">Simpan Penawaran & Hubungi Staf</div>
-                        <div className="space-y-1.5">
-                          <input 
-                            type="text" 
-                            required
-                            placeholder="Nama Anda"
-                            value={jualName}
-                            onChange={(e) => setJualName(e.target.value)}
-                            className="w-full h-10 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-850 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <input 
-                            type="tel" 
-                            required
-                            placeholder="Nomor WhatsApp (Contoh: 08123456789)"
-                            value={jualPhone}
-                            onChange={(e) => setJualPhone(e.target.value)}
-                            className="w-full h-10 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-850 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
-                          />
-                        </div>
-                        <Button 
-                          type="submit" 
-                          disabled={jualLoading}
-                          className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg cursor-pointer transition-colors shadow-xs"
-                        >
-                          {jualLoading ? "Menyimpan..." : "Kirim Lead & Hubungi WhatsApp"}
-                        </Button>
-                      </form>
-                    ) : (
-                      <div className="p-3 bg-slate-100 border border-slate-200 rounded-lg text-center text-xs font-bold text-slate-800">
-                        ✓ Taksiran Penawaran Anda Berhasil Disimpan! Tim CRM kami akan segera menghubungi Anda.
-                      </div>
-                    )}
-                  </div>
-                ) : jualSpecDetectedByAi ? (
-                  <div className="p-5 bg-amber-50/50 border border-amber-250 rounded-xl space-y-4 text-slate-800 text-left">
-                    <div className="flex items-center gap-2 text-amber-700 font-bold text-sm">
-                      <Sparkles className="w-5 h-5 animate-pulse text-amber-600" />
-                      <span>Spesifikasi Terdeteksi!</span>
-                    </div>
-                    <p className="text-xs leading-relaxed font-normal text-slate-650">
-                      AI telah mengisi spesifikasi laptop Anda di panel kiri.
-                    </p>
-                    <div className="p-3.5 bg-white border border-amber-100/70 rounded-xl space-y-2 text-xs">
-                      <div className="grid grid-cols-2 gap-y-2.5 gap-x-2.5 text-[11px] leading-normal font-normal text-slate-700">
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Merek</span><span className="text-slate-900 font-bold">{jualBrand}</span></div>
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Model</span><span className="text-slate-900 font-bold truncate block">{jualModel}</span></div>
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Processor</span><span className="text-slate-900 font-bold truncate block">{jualProcessor}</span></div>
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">RAM</span><span className="text-slate-900 font-bold">{jualRam}</span></div>
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Penyimpanan</span><span className="text-slate-900 font-bold truncate block">{jualStorage}</span></div>
-                        <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">VGA</span><span className="text-slate-900 font-bold truncate block">{jualVga}</span></div>
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-amber-800 leading-relaxed font-medium bg-amber-100/50 p-3 rounded-lg border border-amber-200/50 space-y-1">
-                      <p><strong>⚠️ PERIKSA KEMBALI:</strong> Apakah spesifikasi di atas sudah sesuai dengan laptop Anda?</p>
-                      <p>• Jika <strong>belum sesuai</strong>, silakan ubah langsung di panel kiri.</p>
-                      <p>• Jika <strong>sudah sesuai</strong>, klik tombol <strong className="text-slate-950">"Taksir Harga Sekarang"</strong> di bagian bawah formulir.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-12 text-center text-slate-500 flex flex-col items-center justify-center gap-4">
-                    <Info className="h-8 w-8 text-slate-400" strokeWidth={1.5} />
-                    <p className="text-xs max-w-[200px] leading-relaxed font-normal">Isi tipe laptop di kiri lalu klik <span className="font-bold text-slate-800">Cari Specs AI</span> untuk mendeteksi spesifikasi secara otomatis.</p>
-                    
-                    <div className="w-2/3 border-t border-slate-150 my-1"></div>
-                    
-                    <div className="space-y-2">
-                      <p className="text-[10px] text-slate-400">Ingin langsung tanya admin tanpa isi form?</p>
-                      <a 
-                        href={getWhatsAppUrlWithText("Halo Han Laptop, saya ingin tanya taksiran harga laptop saya secara langsung.")}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-10 items-center justify-center bg-white hover:bg-slate-50 text-slate-800 border border-slate-250 rounded-lg px-4 text-xs font-bold transition-all cursor-pointer gap-1.5 shadow-xs"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">Tahun Pembelian</label>
+                      <select 
+                        value={jualPurchaseYear}
+                        onChange={(e) => setJualPurchaseYear(e.target.value)}
+                        style={selectStyle}
+                        className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors appearance-none cursor-pointer"
                       >
-                        <span>Chat WhatsApp Langsung 💬</span>
-                      </a>
+                        {Array.from({ length: new Date().getFullYear() - 2018 + 1 }, (_, i) => {
+                          const yr = (new Date().getFullYear() - i).toString();
+                          return <option key={yr} value={yr}>{yr}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">Garansi Resmi Aktif</label>
+                      <select 
+                        value={jualHasWarranty}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setJualHasWarranty(val);
+                          if (val === "no") setJualWarrantyDuration("");
+                        }}
+                        style={selectStyle}
+                        className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors appearance-none cursor-pointer"
+                      >
+                        <option value="no">Habis / Tidak Ada</option>
+                        <option value="yes">Masih Aktif</option>
+                      </select>
+                      {jualHasWarranty === "yes" && (
+                        <div className="mt-2 space-y-1 animate-fade-in">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sisa Masa Garansi (Bulan)</label>
+                          <input 
+                            type="number" 
+                            min="1"
+                            max="60"
+                            placeholder="Misal: 12" 
+                            value={jualWarrantyDuration}
+                            onChange={(e) => setJualWarrantyDuration(e.target.value)}
+                            className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* TUKAR TAMBAH CARDS */}
-              <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-2">
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <RefreshCw className="h-4 w-4 text-slate-700" strokeWidth={1.5} /> Ingin Tukar Tambah?
-                </h4>
-                <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                  Gunakan nilai penawaran laptop lama Anda untuk langsung memotong harga laptop baru impian Anda di toko kami.
-                </p>
-                <Button 
-                  onClick={() => {
-                    setActiveSection("tukar")
-                    setJualSubmitted(false)
-                    setJualResult(null)
-                  }} 
-                  size="sm" 
-                  variant="link" 
-                  className="p-0 h-auto text-xs text-slate-800 hover:text-slate-900 font-bold cursor-pointer hover:underline transition-colors"
-                >
-                  Coba Simulator Tukar Tambah →
-                </Button>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Kelengkapan Perangkat</label>
+                    <ModernSelect 
+                      value={jualCompleteness}
+                      onChange={setJualCompleteness}
+                      options={[
+                        {value: "Lengkap", label: "Lengkap (Dusbox, Charger, Unit)"},
+                        {value: "Hanya Charger", label: "Batangan + Charger"},
+                        {value: "Hanya Batangan", label: "Hanya Unit (Batangan)"}
+                      ]}
+                      className="w-full h-11 bg-white border-slate-250 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Navigation Buttons */}
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setJualStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    className="h-12 px-6 bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-all text-sm"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> Kembali
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      calculateJualTaksiran();
+                      setJualStep(3);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      toast.success("Taksiran harga berhasil dihitung! 💰");
+                    }}
+                    className="h-12 px-8 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-all shadow-xs text-sm"
+                  >
+                    Lihat Hasil Taksiran <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
+          )}
 
-          </div>
+          {/* ============================================================ */}
+          {/* STEP 3: HASIL TAKSIRAN */}
+          {/* ============================================================ */}
+          {jualStep === 3 && (
+            <div className="space-y-5 animate-fade-in">
+              {/* Result Card */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Langkah 3: Hasil Estimasi Taksiran</h2>
+                      <p className="text-[11px] text-slate-500 font-medium">Range harga penawaran berdasarkan spesifikasi & kondisi laptop Anda.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Price Range Display */}
+                  {jualResult && (
+                    <div className="p-6 bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200 rounded-xl text-center space-y-3">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Estimasi Penawaran Han Laptop</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-slate-900">
+                        {formatCurrency(jualResult.offerValueRangeMin)} <span className="text-slate-400 font-normal text-lg">–</span> {formatCurrency(jualResult.offerValueRangeMax)}
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-normal leading-relaxed max-w-md mx-auto">
+                        *Harga final ditentukan setelah pengecekan fisik langsung. Range di atas merupakan perkiraan berdasarkan data AI dan kondisi yang Anda sampaikan.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Specs & Condition Summary */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Ringkasan Data Laptop</div>
+                    <div className="grid grid-cols-2 gap-y-2.5 gap-x-4 text-[11px]">
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Model</span><span className="text-slate-900 font-bold">{jualBrand} {jualModel}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Prosesor</span><span className="text-slate-900 font-bold truncate block">{jualProcessor}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">RAM</span><span className="text-slate-900 font-bold">{jualRam}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Penyimpanan</span><span className="text-slate-900 font-bold truncate block">{jualStorage}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">VGA</span><span className="text-slate-900 font-bold truncate block">{jualVga}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Tahun Beli</span><span className="text-slate-900 font-bold">{jualPurchaseYear}</span></div>
+                    </div>
+                    <div className="border-t border-slate-200 pt-2.5 grid grid-cols-2 gap-y-2.5 gap-x-4 text-[11px]">
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Kondisi Fisik</span><span className="text-slate-900 font-bold">{jualPhysicalCondition}</span></div>
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Kelengkapan</span><span className="text-slate-900 font-bold">{jualCompleteness}</span></div>
+                      {jualHasFunctionIssue && jualConditionDetails && (
+                        <div className="col-span-2"><span className="text-slate-400 font-semibold uppercase text-[9px] block">Minus Fungsi</span><span className="text-amber-700 font-bold text-[10px]">{jualConditionDetails}</span></div>
+                      )}
+                      {jualHasServiceHistory && jualServiceDetails && (
+                        <div className="col-span-2"><span className="text-slate-400 font-semibold uppercase text-[9px] block">Riwayat Service</span><span className="text-blue-700 font-bold text-[10px]">{jualServiceDetails}</span></div>
+                      )}
+                      <div><span className="text-slate-400 font-semibold uppercase text-[9px] block">Garansi</span><span className="text-slate-900 font-bold">{jualHasWarranty === "yes" ? `Aktif (${jualWarrantyDuration || '0'} bln)` : "Habis/Tidak Ada"}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Important Notice */}
+                  <div className="p-3.5 bg-amber-50/50 border border-amber-200/60 rounded-xl text-[10px] text-amber-800 leading-relaxed font-medium space-y-1">
+                    <p><strong>⚠️ PENTING:</strong> Harga di atas adalah <strong>estimasi sementara</strong> berdasarkan data yang Anda berikan. Harga final bisa lebih tinggi atau lebih rendah setelah pengecekan fisik langsung di toko.</p>
+                    <p>Untuk info lebih lanjut, silakan <a href={getWhatsAppUrlWithText("Halo Han Laptop, saya ingin tanya taksiran harga laptop saya secara langsung.")} target="_blank" rel="noopener noreferrer" className="text-slate-900 hover:underline font-semibold">chat langsung ke WhatsApp</a>.</p>
+                  </div>
+
+                  {/* Lead Submission Form */}
+                  {!jualSubmitted ? (
+                    <form onSubmit={submitJualLead} className="border-t border-slate-200 pt-5 space-y-3">
+                      <div className="text-xs font-bold text-slate-800 text-center">Simpan Penawaran & Hubungi Staf</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="Nama Anda"
+                          value={jualName}
+                          onChange={(e) => setJualName(e.target.value)}
+                          className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-850 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
+                        />
+                        <input 
+                          type="tel" 
+                          required
+                          placeholder="Nomor WhatsApp (08xxx)"
+                          value={jualPhone}
+                          onChange={(e) => setJualPhone(e.target.value)}
+                          className="w-full h-11 bg-white border border-slate-250 rounded-lg px-3 text-xs text-slate-850 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
+                        />
+                      </div>
+                      <Button 
+                        type="submit" 
+                        disabled={jualLoading}
+                        className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl cursor-pointer transition-colors shadow-xs flex items-center justify-center gap-2"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        {jualLoading ? "Menyimpan..." : "Kirim & Hubungi WhatsApp"}
+                      </Button>
+                    </form>
+                  ) : (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-xs font-bold text-emerald-800 space-y-1">
+                      <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-600 mb-2" />
+                      <p>Taksiran Penawaran Anda Berhasil Disimpan!</p>
+                      <p className="font-normal text-emerald-700">Tim CRM kami akan segera menghubungi Anda.</p>
+                    </div>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setJualStep(2); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      className="h-11 px-5 bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-all text-xs"
+                    >
+                      <ArrowLeft className="h-4 w-4" /> Ubah Kondisi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveSection("tukar")
+                        setJualSubmitted(false)
+                      }}
+                      className="h-11 px-5 bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-all text-xs"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Tukar Tambah?
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
