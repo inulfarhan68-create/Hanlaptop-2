@@ -48,7 +48,7 @@ Return your response strictly as a JSON object with the following structure:
   "ram": "Typical default RAM, one of: 4GB, 8GB, 16GB, 32GB",
   "storage": "Typical default storage, one of: 128GB SSD, 256GB SSD, 512GB SSD, 1TB SSD, 2TB SSD, 1TB HDD, or double storage like 256GB SSD + 1TB HDD",
   "vga": "Full VGA card name including brand and series (e.g., NVIDIA GeForce RTX 3050 Ti, AMD Radeon RX 6600M, Intel Iris Xe Graphics, Integrated)",
-  "keyboard": "Default keyboard type, MUST be one of: Non-Backlight, Backlight (White/Single Color), RGB Backlight (Single Zone), RGB Backlight (4-Zone), RGB Backlight (Per-Key)",
+  "keyboard": "Default keyboard type, MUST be one of: Non-Backlight, Single Backlight, RGB Backlight",
   "connectivity": "Typical wireless connectivity info, e.g. Wi-Fi 6 + Bluetooth 5.1 or Wi-Fi 5 + Bluetooth 4.2",
   "lowestMarketPrice": 7500000
 }

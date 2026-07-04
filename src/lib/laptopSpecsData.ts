@@ -341,10 +341,8 @@ export const laptopScreens = [
 
 export const laptopKeyboards = [
   "Non-Backlight",
-  "Backlight (White/Single Color)",
-  "RGB Backlight (Single Zone)",
-  "RGB Backlight (4-Zone)",
-  "RGB Backlight (Per-Key)"
+  "Single Backlight",
+  "RGB Backlight"
 ];
 
 export const laptopOS = [
