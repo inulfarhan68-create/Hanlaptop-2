@@ -160,6 +160,27 @@ export function getProcessorFamily(procStr: string): string {
   return "Intel Core i5"; // default fallback
 }
 
+export function parseItemSpecs(specs: string) {
+  const result: { 
+    processor?: string; 
+    vga?: string; 
+    ram?: string; 
+    storage?: string; 
+    screen?: string; 
+  } = {}
+  
+  if (!specs) return result
+  const parts = specs.split(" | ")
+  parts.forEach(part => {
+    if (part.startsWith("Processor: ")) result.processor = part.replace("Processor: ", "")
+    else if (part.startsWith("VGA: ")) result.vga = part.replace("VGA: ", "")
+    else if (part.startsWith("RAM: ")) result.ram = part.replace("RAM: ", "")
+    else if (part.startsWith("Storage: ")) result.storage = part.replace("Storage: ", "")
+    else if (part.startsWith("Layar: ")) result.screen = part.replace("Layar: ", "")
+  })
+  return result
+}
+
 export function getVgaType(vgaStr: string): string {
   const s = (vgaStr || "").toUpperCase();
   if (s.includes("RTX")) return "NVIDIA RTX Series";
@@ -395,6 +416,7 @@ export function LandingPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
   const [storeInfo, setStoreInfo] = useState<any>(null)
+  const [katalogSearchVal, setKatalogSearchVal] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   const getWhatsAppUrlWithText = (text: string) => {
@@ -1473,13 +1495,24 @@ export function LandingPage() {
                 <input 
                   type="text" 
                   placeholder="Cari spesifik, e.g. MacBook M1, RTX 3060..."
+                  value={katalogSearchVal}
+                  onChange={(e) => setKatalogSearchVal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      navigate(`/catalog/${selectedBranch}?q=${encodeURIComponent(katalogSearchVal)}`)
+                    }
+                  }}
                   className="w-full h-12 pl-12 pr-4 bg-white border border-slate-250 shadow-sm rounded-full text-sm focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10"
                 />
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <span className="text-xs text-slate-500 font-medium">Tren Pencarian:</span>
                 {["ThinkPad X1", "MacBook M1", "Gaming Budget", "Desain Grafis"].map(tag => (
-                  <button key={tag} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold rounded-full transition-colors cursor-pointer">
+                  <button 
+                    key={tag} 
+                    onClick={() => navigate(`/catalog/${selectedBranch}?q=${encodeURIComponent(tag)}`)}
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-650 text-[10px] font-bold rounded-full transition-colors cursor-pointer"
+                  >
                     {tag}
                   </button>
                 ))}
@@ -1488,94 +1521,77 @@ export function LandingPage() {
 
             <div className="flex overflow-x-auto snap-x snap-mandatory pb-8 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 sm:overflow-visible" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <style>{`.flex::-webkit-scrollbar { display: none; }`}</style>
-              {/* Dummy Card 1 */}
-              <Card className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden group hover:border-slate-400 hover:shadow-md transition-all">
-                <div className="aspect-[4/3] bg-slate-50 relative">
-                  <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    Grade A+
-                  </div>
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <Laptop className="w-12 h-12 stroke-[1.5]" />
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">MacBook Air M1 (2020)</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">Apple M1 • 8GB RAM • 256GB SSD</p>
-                  </div>
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-900">Rp 10.500.000</span>
-                    <Button size="sm" className="h-7 text-[10px] px-3 bg-slate-900 hover:bg-slate-800 rounded-md">Lihat</Button>
-                  </div>
-                </CardContent>
-              </Card>
+              {storeInfo?.items && storeInfo.items.length > 0 ? (
+                storeInfo.items.slice(0, 4).map((item: any) => {
+                  const specs = parseItemSpecs(item.specs || "");
+                  const specsParts = [];
+                  if (specs.processor) specsParts.push(specs.processor);
+                  if (specs.ram) specsParts.push(`RAM ${specs.ram}`);
+                  if (specs.storage) specsParts.push(specs.storage);
+                  const specsString = specsParts.join(" • ") || "Spesifikasi tidak tersedia";
+                  const isNew = item.condition === "NEW";
+                  const grade = item.condition === "USED_A" ? "Grade A+" : item.condition === "USED_B" ? "Grade B" : item.condition === "USED_C" ? "Grade C" : "Ready";
 
-              {/* Dummy Card 2 */}
-              <Card className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden group hover:border-slate-400 hover:shadow-md transition-all">
-                <div className="aspect-[4/3] bg-slate-50 relative">
-                  <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    Ready Stock
-                  </div>
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <Laptop className="w-12 h-12 stroke-[1.5]" />
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">Lenovo ThinkPad X1 Carbon</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">Core i7 Gen 10 • 16GB RAM • 512GB SSD</p>
-                  </div>
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-900">Rp 8.200.000</span>
-                    <Button size="sm" className="h-7 text-[10px] px-3 bg-slate-900 hover:bg-slate-800 rounded-md">Lihat</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Dummy Card 3 */}
-              <Card className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden group hover:border-slate-400 hover:shadow-md transition-all">
-                <div className="aspect-[4/3] bg-slate-50 relative">
-                  <div className="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    Like New
-                  </div>
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <Laptop className="w-12 h-12 stroke-[1.5]" />
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">ROG Zephyrus G14</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">Ryzen 9 • RTX 3060 • 16GB RAM</p>
-                  </div>
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-900">Rp 16.500.000</span>
-                    <Button size="sm" className="h-7 text-[10px] px-3 bg-slate-900 hover:bg-slate-800 rounded-md">Lihat</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Dummy Card 4 */}
-              <Card className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden group hover:border-slate-400 hover:shadow-md transition-all">
-                <div className="aspect-[4/3] bg-slate-50 relative">
-                  <div className="absolute top-2 right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    Best Value
-                  </div>
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <Laptop className="w-12 h-12 stroke-[1.5]" />
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">ASUS VivoBook 14</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">Core i5 Gen 11 • 8GB RAM • 512GB SSD</p>
-                  </div>
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-900">Rp 6.800.000</span>
-                    <Button size="sm" className="h-7 text-[10px] px-3 bg-slate-900 hover:bg-slate-800 rounded-md">Lihat</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
+                  return (
+                    <Card 
+                      key={item.id} 
+                      className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden group hover:border-slate-400 hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="aspect-[4/3] bg-slate-50 relative flex items-center justify-center overflow-hidden border-b border-slate-100">
+                          <span className={`absolute top-2 right-2 text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-sm z-10 ${
+                            isNew ? "bg-emerald-500 text-white" : "bg-slate-900 text-white"
+                          }`}>
+                            {isNew ? "Baru" : grade}
+                          </span>
+                          {item.imageUrl ? (
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.itemName} 
+                              className="w-[85%] h-[85%] object-contain p-2 group-hover:scale-[1.02] transition-transform duration-500" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                              <Laptop className="w-12 h-12 stroke-[1.5]" />
+                            </div>
+                          )}
+                        </div>
+                        <CardContent className="p-4 space-y-2">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors line-clamp-1">{item.itemName}</h3>
+                            <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{specsString}</p>
+                          </div>
+                        </CardContent>
+                      </div>
+                      <div className="p-4 pt-0">
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-sm font-black text-slate-900">{formatCurrency(item.sellingPrice)}</span>
+                          <Link to={`/catalog/${selectedBranch}?item=${item.id}`}>
+                            <Button size="sm" className="h-7 text-[10px] px-3 bg-slate-900 hover:bg-slate-800 rounded-md cursor-pointer">Lihat</Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })
+              ) : (
+                // Skeletons fallback
+                [1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-white border border-slate-200 overflow-hidden animate-pulse">
+                    <div className="aspect-[4/3] bg-slate-100 flex items-center justify-center">
+                      <Laptop className="w-12 h-12 text-slate-200" />
+                    </div>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="h-4 bg-slate-100 rounded w-3/4"></div>
+                      <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                      <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <div className="h-4 bg-slate-100 rounded w-1/3"></div>
+                        <div className="h-7 w-16 bg-slate-100 rounded"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
             
             <div className="text-center mt-4">

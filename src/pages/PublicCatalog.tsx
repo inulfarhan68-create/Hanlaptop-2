@@ -175,7 +175,9 @@ export function PublicCatalog() {
   
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState(() => {
+    return searchParams.get("q") || searchParams.get("search") || ""
+  })
   const [lightboxItem, setLightboxItem] = useState<any>(null)
   const [selectedCategory, setSelectedCategory] = useState("Semua")
   const [selectedRecommendation, setSelectedRecommendation] = useState<string>("all")
@@ -183,6 +185,11 @@ export function PublicCatalog() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const q = searchParams.get("q") || searchParams.get("search") || ""
+    setSearch(q)
+  }, [searchParams])
 
   useEffect(() => {
     fetchCatalog()
