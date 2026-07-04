@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Search, PlusCircle, CheckCircle, Smartphone, Laptop, Trash, Package } from "lucide-react"
+import { Search, PlusCircle, CheckCircle, Smartphone, Laptop, Trash, Package, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { calculateAdjustedPrice } from "@/pages/LandingPage"
 
 interface TradeInTabProps {
   active: boolean
@@ -38,6 +39,111 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
   const [paymentMethod, setPaymentMethod] = useState("Cash")
   const [notes, setNotes] = useState("")
   
+  // States for AI estimation features
+  const [purchaseYear, setPurchaseYear] = useState("")
+  const [hasWarranty, setHasWarranty] = useState("no")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<any>(null)
+  const [selectedGrade, setSelectedGrade] = useState<string>("USED_B")
+  const [minusDetails, setMinusDetails] = useState("")
+
+  // Helper to dynamically calculate recommended price by grade based on current purchaseYear and hasWarranty
+  const getRecPrice = (grade: string) => {
+    if (!aiResult) return 0;
+    
+    // Baseline specs from AI
+    const baseline = {
+      processorFamily: aiResult.processor || "Intel Core i5",
+      ram: aiResult.ram || "8GB",
+      storage: aiResult.storage || "256GB SSD",
+      vgaType: aiResult.vga || "Integrated",
+      purchaseYear: aiResult.aiBaselineYear || "2023",
+      hasWarranty: aiResult.aiBaselineHasWarranty || false
+    };
+
+    const current = {
+      processorFamily: aiResult.processor || "Intel Core i5",
+      ram: aiResult.ram || "8GB",
+      storage: aiResult.storage || "256GB SSD",
+      vgaType: aiResult.vga || "Integrated",
+      purchaseYear: purchaseYear || "2023",
+      hasWarranty: hasWarranty === "yes",
+      minusDetails: minusDetails
+    };
+
+    return calculateAdjustedPrice({
+      baseMarketPrice: aiResult.lowestMarketPrice || 3000000,
+      baseline,
+      current,
+      condition: grade
+    });
+  };
+
+  const handleAiEstimate = async () => {
+    if (!oldUnit.itemName.trim()) {
+      toast.error("Masukkan nama unit / model laptop terlebih dahulu.")
+      return
+    }
+    if (!purchaseYear.trim()) {
+      toast.error("Masukkan Tahun Pembelian terlebih dahulu sebelum melakukan taksiran AI.")
+      return
+    }
+    setAiLoading(true)
+    setAiResult(null)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback/estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: oldUnit.itemName,
+          purchaseYear: purchaseYear || undefined,
+          hasWarranty: hasWarranty === "yes"
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Gagal melakukan taksiran AI")
+
+      setAiResult(data.data)
+      
+      const mappedGrade = oldUnit.condition === "USED_A" ? "USED_A" :
+                           oldUnit.condition === "USED_C" ? "USED_C" :
+                           oldUnit.condition === "BROKEN" ? "BROKEN" : "USED_B";
+      setSelectedGrade(mappedGrade)
+      toast.success("Taksiran AI berhasil didapatkan!")
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyAiSpecsAndPrice = () => {
+    if (!aiResult) return
+
+    const estimatedVal = getRecPrice(selectedGrade) || 0
+
+    const specParts = [
+      aiResult.processor,
+      aiResult.vga && aiResult.vga !== "Integrated" ? `VGA: ${aiResult.vga}` : null,
+      `RAM ${aiResult.ram}`,
+      aiResult.storage,
+      purchaseYear ? `Tahun ${purchaseYear}` : null,
+      hasWarranty === "yes" ? "Garansi Resmi Aktif" : "Tanpa Garansi"
+    ].filter(Boolean)
+
+    setOldUnit({
+      ...oldUnit,
+      itemName: `${aiResult.brand} ${aiResult.model}`,
+      condition: selectedGrade,
+      specs: specParts.join(", "),
+      estimatedValue: estimatedVal
+    })
+
+    toast.success("Spesifikasi dan harga AI berhasil diterapkan ke form!")
+    setAiResult(null)
+  }
+
   // For selecting new unit from inventory
   const [searchQuery, setSearchQuery] = useState("")
   const [inventoryList, setInventoryList] = useState<any[]>([])
@@ -83,6 +189,9 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
     if (!customer.name) {
       return toast.error("Nama pelanggan wajib diisi")
     }
+    if (!purchaseYear.trim()) {
+      return toast.error("Tahun Pembelian wajib diisi")
+    }
 
     setLoading(true)
     try {
@@ -91,7 +200,12 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
-          oldUnit,
+          oldUnit: {
+            ...oldUnit,
+            specs: (oldUnit.condition === "USED_C" || oldUnit.condition === "BROKEN") && minusDetails
+              ? `${oldUnit.specs} | Minus: ${minusDetails}`
+              : oldUnit.specs
+          },
           newUnit: type === "Tukar Tambah" ? newUnit : undefined,
           customer,
           paymentMethod,
@@ -107,6 +221,7 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
       
       // Reset form
       setOldUnit({ itemName: "", category: "Laptop Bekas", condition: "USED_B", specs: "", estimatedValue: 0 })
+      setMinusDetails("")
       setNewUnit(null)
       setCustomer({ name: "", phone: "", address: "" })
       
@@ -162,8 +277,27 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
             <CardContent className="p-4 space-y-3">
               <div className="space-y-1">
                 <Label>Nama Unit / Model</Label>
-                <Input value={oldUnit.itemName} onChange={e => setOldUnit({...oldUnit, itemName: e.target.value})} placeholder="Contoh: Asus ROG Strix" required />
+                <div className="flex gap-2">
+                  <Input 
+                    value={oldUnit.itemName} 
+                    onChange={e => setOldUnit({...oldUnit, itemName: e.target.value})} 
+                    placeholder="Contoh: Asus ROG Strix G15" 
+                    required 
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAiEstimate}
+                    disabled={aiLoading || !oldUnit.itemName}
+                    variant="outline"
+                    className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shrink-0 gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {aiLoading ? "Mencari..." : "Taksir AI ✨"}
+                  </Button>
+                </div>
               </div>
+              
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Kondisi Taksiran</Label>
@@ -182,10 +316,152 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
                   <Input type="number" min="0" value={oldUnit.estimatedValue || ''} onChange={e => setOldUnit({...oldUnit, estimatedValue: parseInt(e.target.value) || 0})} required />
                 </div>
               </div>
+
+              {(oldUnit.condition === "USED_C" || oldUnit.condition === "BROKEN") && (
+                <div className="space-y-1">
+                  <Label>Keterangan Minus / Rusak</Label>
+                  <Input 
+                    type="text"
+                    required
+                    placeholder="Contoh: keyboard double-click, layar bergaris, batre drop" 
+                    value={minusDetails} 
+                    onChange={e => setMinusDetails(e.target.value)} 
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Tahun Pembelian</Label>
+                  <Input 
+                    type="number" 
+                    required
+                    placeholder="Contoh: 2024" 
+                    value={purchaseYear} 
+                    onChange={e => setPurchaseYear(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Garansi Resmi</Label>
+                  <Select value={hasWarranty} onValueChange={setHasWarranty}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">Habis / Tidak Ada</SelectItem>
+                      <SelectItem value="yes">Masih Aktif</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <Label>Spesifikasi / Kelengkapan</Label>
                 <Input value={oldUnit.specs} onChange={e => setOldUnit({...oldUnit, specs: e.target.value})} placeholder="Contoh: Core i5, RAM 8GB, Dus, Charger" />
               </div>
+
+              {/* AI Loading State */}
+              {aiLoading && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed flex flex-col items-center justify-center space-y-2 animate-pulse">
+                  <Sparkles className="w-5 h-5 text-indigo-500 animate-spin" />
+                  <span className="text-xs text-slate-500 font-medium">Menghubungi AI & Mencari Harga Pasar Tokopedia/Shopee/FB...</span>
+                </div>
+              )}
+
+              {/* AI Estimate Results Panel */}
+              {aiResult && (
+                <div className="p-4 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl space-y-3 text-left">
+                  <div className="flex items-center gap-1.5 text-indigo-900 dark:text-indigo-300 font-bold text-xs">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span>Hasil Analisis AI Gemini Grounding</span>
+                  </div>
+
+                  {/* Detected Specs */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-indigo-50 dark:border-indigo-950">
+                    <div>
+                      <span className="text-slate-400 block">Brand & Model:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{aiResult.brand} {aiResult.model}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block">Prosesor:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{aiResult.processor}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-slate-400 block">RAM & Storage:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{aiResult.ram} / {aiResult.storage}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-slate-400 block">Grafis (VGA):</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{aiResult.vga}</span>
+                    </div>
+                  </div>
+
+                  {/* Market Price Reference (Admin Only) */}
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-bold text-slate-500">Harga Pasar Terendah (Referensi Internal):</div>
+                    <div className="flex items-baseline gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-lg border border-emerald-100/50 dark:border-emerald-900/50">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-extrabold text-base">
+                        Rp {aiResult.lowestMarketPrice?.toLocaleString("id-ID") || '-'}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        (Margin 30% sudah diterapkan pada harga tawaran)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Recommended Buyback/Trade-in price by Grade */}
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-bold text-slate-500">Rekomendasi Beli (Ada Margin Aman & Sehat):</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.keys(aiResult.recommendedOfferPrice).map((grade: string) => {
+                        const price = getRecPrice(grade);
+                        const gradeNames: any = {
+                          USED_A: "Grade A (Mulus)",
+                          USED_B: "Grade B (Normal)",
+                          USED_C: "Grade C (Minus)",
+                          BROKEN: "Broken (Rusak)"
+                        };
+                        return (
+                          <button
+                            key={grade}
+                            type="button"
+                            onClick={() => setSelectedGrade(grade)}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              selectedGrade === grade
+                                ? "border-indigo-600 bg-indigo-600 text-white font-semibold"
+                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div className="text-[10px] opacity-90">{gradeNames[grade] || grade}</div>
+                            <div className="text-xs font-bold">Rp {price.toLocaleString("id-ID")}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8"
+                      onClick={applyAiSpecsAndPrice}
+                    >
+                      Terapkan Spesifikasi & Rekomendasi
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-500 hover:bg-slate-100 text-xs h-8"
+                      onClick={() => setAiResult(null)}
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

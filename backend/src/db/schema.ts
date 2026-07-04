@@ -931,5 +931,38 @@ export const consignmentPayablesRelations = relations(consignmentPayables, ({ on
     transaction: one(transactions, {
         fields: [consignmentPayables.transactionId],
         references: [transactions.id],
+      }),
+}));
+
+export const buybackLeads = sqliteTable("buyback_leads", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
+    customerName: text("customer_name").notNull(),
+    customerPhone: text("customer_phone").notNull(),
+    brand: text("brand").notNull(),
+    processor: text("processor").notNull(),
+    ram: text("ram").notNull(),
+    storage: text("storage").notNull(),
+    condition: text("condition").notNull(),
+    completeness: text("completeness").notNull(),
+    estimatedMarketPrice: real("estimated_market_price").notNull().default(0),
+    estimatedOfferPriceMin: real("estimated_offer_price_min").notNull().default(0),
+    estimatedOfferPriceMax: real("estimated_offer_price_max").notNull().default(0),
+    status: text("status").notNull().default('PENDING'), // 'PENDING', 'APPROVED', 'REJECTED', 'COMPLETED'
+    type: text("type").notNull().default('JUAL_LAPTOP'), // 'JUAL_LAPTOP', 'TUKAR_TAMBAH'
+    targetLaptopName: text("target_laptop_name"),
+    targetLaptopPrice: real("target_laptop_price"),
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+    storeIdIdx: index("buyback_leads_store_id_idx").on(table.storeId),
+    statusIdx: index("buyback_leads_status_idx").on(table.status),
+    typeIdx: index("buyback_leads_type_idx").on(table.type),
+}));
+
+export const buybackLeadsRelations = relations(buybackLeads, ({ one }) => ({
+    store: one(stores, {
+        fields: [buybackLeads.storeId],
+        references: [stores.id],
     }),
 }));
+

@@ -31,6 +31,7 @@ const Procurement = lazy(() => import("@/pages/Procurement").then(m => ({ defaul
 const CrmManagement = lazy(() => import("@/pages/CrmManagement").then(m => ({ default: m.CrmManagement })))
 const Reconciliation = lazy(() => import("@/pages/Reconciliation").then(m => ({ default: m.Reconciliation })))
 const PublicCatalog = lazy(() => import("@/pages/PublicCatalog").then(m => ({ default: m.PublicCatalog })))
+const LandingPage = lazy(() => import("@/pages/LandingPage").then(m => ({ default: m.LandingPage })))
 
 function App() {
   return (
@@ -72,9 +73,10 @@ function App() {
               <Route path="/nota/:id" element={<PublicInvoice />} />
               <Route path="/nota-servis/:id" element={<PublicServiceReceipt />} />
               <Route path="/catalog/:slug" element={<PublicCatalog />} />
+              <Route path="/" element={<LandingPage />} />
 
               <Route element={<Layout />}>
-                <Route path="/" element={<Home />} />
+                <Route path="/admin" element={<Home />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/transactions" element={<Transactions />} />

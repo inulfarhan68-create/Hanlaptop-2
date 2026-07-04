@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Percent, Users, MessageSquare, Send, CheckCircle, Clock, AlertCircle, Eye, History, Award, ShieldCheck, Wrench } from "lucide-react"
+import { Search, Percent, Users, MessageSquare, Send, CheckCircle, Clock, AlertCircle, Eye, History, Award, ShieldCheck, Wrench, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { ModernSelect } from "@/components/ui/modern-select"
 
 export function CrmManagement() {
-  const [activeTab, setActiveTab] = useState<"membership" | "reminders" | "warranty">("membership")
+  const [activeTab, setActiveTab] = useState<"membership" | "reminders" | "warranty" | "leads">("membership")
   const [searchQuery, setSearchQuery] = useState("")
   
   // Queries
@@ -21,6 +21,9 @@ export function CrmManagement() {
   )
   const { data: warrantyData, mutate: mutateWarranty, isLoading: warrantyLoading } = useSWR<any[]>(
     (import.meta.env.VITE_API_URL || '') + '/api/crm/warranty' // Placeholder endpoint based on PRD
+  )
+  const { data: leadsData, mutate: mutateLeads, isLoading: leadsLoading } = useSWR<any[]>(
+    (import.meta.env.VITE_API_URL || '') + '/api/crm/leads'
   )
 
   const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<any | null>(null)
@@ -103,6 +106,74 @@ export function CrmManagement() {
     w.claimId?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Filter Leads
+  const filteredLeads = (leadsData || []).filter((l: any) =>
+    l.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    l.customerPhone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    l.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const handleUpdateLeadStatus = async (leadId: string, newStatus: string) => {
+    setActionLoading(leadId)
+    try {
+      const res = await fetch((import.meta.env.VITE_API_URL || '') + `/api/crm/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      if (res.ok) {
+        toast.success(`Status lead diubah menjadi ${newStatus}`)
+        mutateLeads()
+      } else {
+        toast.error("Gagal mengubah status lead")
+      }
+    } catch (e) {
+      toast.error("Terjadi kesalahan jaringan")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus lead ini?")) return;
+    setActionLoading(leadId)
+    try {
+      const res = await fetch((import.meta.env.VITE_API_URL || '') + `/api/crm/leads/${leadId}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        toast.success("Lead berhasil dihapus")
+        mutateLeads()
+      } else {
+        toast.error("Gagal menghapus lead")
+      }
+    } catch (e) {
+      toast.error("Terjadi kesalahan jaringan")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSendLeadMessage = (lead: any) => {
+    let text = "";
+    if (lead.type === "TUKAR_TAMBAH") {
+      text = `Halo Kak ${lead.customerName},\n\nTerima kasih telah menggunakan simulator Tukar Tambah di website Han Laptop.\n\nBerikut ringkasan pengajuan Tukar Tambah Kakak:\n- Unit Lama: ${lead.brand}\n- Spesifikasi: ${lead.processor}, RAM ${lead.ram}, Storage ${lead.storage}\n- Nilai Taksiran Unit Lama: Rp ${lead.estimatedOfferPriceMin.toLocaleString("id-ID")}\n- Target Unit Baru: ${lead.targetLaptopName}\n- Harga Unit Baru: Rp ${lead.targetLaptopPrice?.toLocaleString("id-ID")}\n- Sisa Biaya Dibayar: Rp ${(lead.targetLaptopPrice - lead.estimatedOfferPriceMin).toLocaleString("id-ID")}\n\nSilakan kunjungi cabang ${lead.store?.name || 'terdekat'} kami untuk melakukan pencocokan fisik unit lama dan membawa pulang unit baru pilihan Kakak!\n\nJika ada pertanyaan, jangan ragu untuk membalas pesan ini. Terima kasih.`;
+    } else {
+      text = `Halo Kak ${lead.customerName},\n\nTerima kasih telah mengajukan taksiran harga jual laptop di website Han Laptop.\n\nBerikut ringkasan taksiran laptop Kakak:\n- Unit: ${lead.brand}\n- Spesifikasi: ${lead.processor}, RAM ${lead.ram}, Storage ${lead.storage}\n- Kondisi: ${lead.condition} | Kelengkapan: ${lead.completeness}\n- Estimasi Penawaran Kami: Rp ${lead.estimatedOfferPriceMin.toLocaleString("id-ID")} - Rp ${lead.estimatedOfferPriceMax.toLocaleString("id-ID")}\n\nSilakan bawa unit laptop Kakak ke cabang ${lead.store?.name || 'terdekat'} kami untuk dilakukan cek fisik langsung oleh teknisi. Kami siap melakukan pembayaran secara instan jika kondisi sesuai!\n\nDitunggu kehadirannya ya Kak. Terima kasih.`;
+    }
+
+    const formattedPhone = (lead.customerPhone || "").replace(/\D/g, "");
+    const waPhone = formattedPhone.startsWith("0") ? "62" + formattedPhone.slice(1) : formattedPhone;
+    
+    if (waPhone) {
+      window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, "_blank");
+    } else {
+      toast.error("Nomor WhatsApp pelanggan tidak valid");
+    }
+  }
+
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 text-left">
       <div className="sticky top-0 z-40 shrink-0 flex flex-col md:flex-row justify-between gap-2 md:items-center p-3 md:px-5 md:py-3 bg-white/80 dark:bg-card backdrop-blur-xl rounded-xl md:rounded-[2rem] border border-border shadow-sm mt-0 mb-4">
@@ -137,6 +208,14 @@ export function CrmManagement() {
           >
             <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Klaim Garansi
           </Button>
+          <Button 
+            size="sm" 
+            variant={activeTab === "leads" ? "default" : "ghost"}
+            onClick={() => { setActiveTab("leads"); setSearchQuery(""); }}
+            className="rounded-lg text-xs"
+          >
+            <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Leads Masuk
+          </Button>
         </div>
       </div>
 
@@ -145,7 +224,12 @@ export function CrmManagement() {
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input 
             type="search" 
-            placeholder={activeTab === "membership" ? "Cari member berdasarkan nama, nomor telepon..." : activeTab === "reminders" ? "Cari pengingat..." : "Cari ID Klaim atau Nama..."} 
+            placeholder={
+              activeTab === "membership" ? "Cari member berdasarkan nama, nomor telepon..." : 
+              activeTab === "reminders" ? "Cari pengingat..." : 
+              activeTab === "warranty" ? "Cari ID Klaim atau Nama..." :
+              "Cari leads berdasarkan nama, telepon, merek..."
+            } 
             className="pl-9 bg-card rounded-xl h-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -267,7 +351,7 @@ export function CrmManagement() {
                   </TableBody>
                 </Table>
               )
-            ) : (
+            ) : activeTab === "warranty" ? (
               warrantyLoading ? (
                 <div className="flex h-full items-center justify-center text-muted-foreground">Memuat data klaim garansi...</div>
               ) : filteredWarranty.length === 0 ? (
@@ -328,6 +412,113 @@ export function CrmManagement() {
                           {item.status === "COMPLETED" && (
                             <span className="text-[10px] text-muted-foreground italic">Garansi Selesai</span>
                           )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            ) : (
+              leadsLoading ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground">Memuat data leads...</div>
+              ) : filteredLeads.length === 0 ? (
+                <div className="flex flex-col h-full items-center justify-center p-8 text-center">
+                  <MessageSquare className="w-12 h-12 text-muted-foreground mb-3" />
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200">Tidak ada leads aktif</h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">Leads penawaran dari landing page akan muncul di sini.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader className="bg-muted/40 sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="font-bold text-xs">Tanggal</TableHead>
+                      <TableHead className="font-bold text-xs">Pelanggan</TableHead>
+                      <TableHead className="font-bold text-xs">Tipe / Cabang</TableHead>
+                      <TableHead className="font-bold text-xs">Detail Spesifikasi Unit</TableHead>
+                      <TableHead className="font-bold text-xs text-right">Taksiran Harga</TableHead>
+                      <TableHead className="font-bold text-xs">Status</TableHead>
+                      <TableHead className="font-bold text-xs text-center w-[160px]">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLeads.map((item: any) => (
+                      <TableRow key={item.id} className="hover:bg-muted/30">
+                        <TableCell className="text-xs py-3 font-mono text-muted-foreground">
+                          {new Date(item.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short' })}
+                        </TableCell>
+                        <TableCell className="text-xs py-3">
+                          <div className="font-bold">{item.customerName}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">{item.customerPhone}</div>
+                        </TableCell>
+                        <TableCell className="text-xs py-3">
+                          <span className={`inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold ${
+                            item.type === 'TUKAR_TAMBAH' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                          }`}>
+                            {item.type === 'TUKAR_TAMBAH' ? 'Tukar Tambah' : 'Jual Laptop'}
+                          </span>
+                          <div className="text-[10px] text-slate-500 font-semibold truncate max-w-[120px] mt-0.5">
+                            📍 {item.store?.name || 'Cabang Utama'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs py-3 max-w-[220px]">
+                          <div className="font-bold truncate">{item.brand}</div>
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            {item.processor} | {item.ram} | {item.storage}
+                          </div>
+                          <div className="text-[10px] text-amber-600 dark:text-amber-500 font-semibold mt-0.5">
+                            Kondisi: {item.condition} | {item.completeness}
+                          </div>
+                          {item.type === "TUKAR_TAMBAH" && (
+                            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-1 bg-blue-50 dark:bg-blue-950/20 p-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                              Target: {item.targetLaptopName} (Rp {item.targetLaptopPrice?.toLocaleString("id-ID")})
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs py-3 text-right font-bold font-mono">
+                          {item.type === "TUKAR_TAMBAH" ? (
+                            <div className="text-blue-600 dark:text-blue-400">
+                              Lama: Rp {item.estimatedOfferPriceMin.toLocaleString("id-ID")}
+                            </div>
+                          ) : (
+                            <div className="text-emerald-600 dark:text-emerald-400">
+                              Rp {item.estimatedOfferPriceMin.toLocaleString("id-ID")} - {item.estimatedOfferPriceMax.toLocaleString("id-ID")}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs py-3">
+                          <select 
+                            value={item.status} 
+                            disabled={actionLoading === item.id}
+                            onChange={(e) => handleUpdateLeadStatus(item.id, e.target.value)}
+                            className="bg-muted text-[11px] font-bold rounded-lg border px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                          >
+                            <option value="PENDING">Pending</option>
+                            <option value="APPROVED">Disetujui</option>
+                            <option value="REJECTED">Ditolak</option>
+                            <option value="COMPLETED">Selesai</option>
+                          </select>
+                        </TableCell>
+                        <TableCell className="text-xs py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50"
+                              onClick={() => handleSendLeadMessage(item)}
+                              disabled={actionLoading === item.id}
+                            >
+                              <Send className="w-3 h-3 mr-1" /> WA
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-7 w-7 text-red-500 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => handleDeleteLead(item.id)}
+                              disabled={actionLoading === item.id}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

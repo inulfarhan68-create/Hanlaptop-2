@@ -68,13 +68,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ stor
             };
         });
 
+        // 5. Find all active branches in the system
+        const otherStores = await db.select({
+            id: stores.id,
+            name: stores.name,
+            slug: stores.slug,
+        }).from(stores).where(
+            eq(stores.isActive, true)
+        );
+
         return NextResponse.json({
             store: {
+                id: store.id,
                 name: store.name,
                 address: store.address,
                 phone: store.phone,
                 logo: settings?.storeLogo,
+                slug: store.slug || store.id,
             },
+            branches: otherStores.map(b => ({
+                name: b.name,
+                slug: b.slug || b.id
+            })),
             items: itemsWithCTA
         });
     } catch (error: any) {

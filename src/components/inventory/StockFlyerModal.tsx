@@ -116,7 +116,7 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const W = 1200 // canvas width
+    const W = 1080 // canvas width (standard square Instagram feed post)
 
     // ── CONSTANTS ──
     const NAVY = "#0c2340"
@@ -124,19 +124,19 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     const GOLD_LIGHT = "#d4a843"
     const WHITE = "#ffffff"
     const LIGHT_BG = "#f2f4f7"
-    const DARK_TEXT = "#1a2332"
-    const GRAY_TEXT = "#5a6577"
+    const DARK_TEXT = "#000000"
+    const GRAY_TEXT = "#2b3442"
     const RED_LENOVO = "#cc1820"
     const TABLE_BORDER = "#d8dce3"
 
     // ── CALCULATE DYNAMIC HEIGHT ──
     const HEADER_H = 400
     const BRAND_GAP = 35
-    const ROW_H = 52
-    const TABLE_HEADER_H = 40
-    const FOOTER_CARDS_H = 200
-    const FOOTER_CONTACT_H = 90
-    const BOTTOM_PAD = 40
+    const ROW_H = 86
+    const TABLE_HEADER_H = 50
+    const FOOTER_CARDS_H = 240
+    const FOOTER_CONTACT_H = 110
+    const BOTTOM_PAD = 50
 
     let brandsContentH = 0
     const activeBrands = selectedBrands.filter(b => (itemsByBrand[b] || []).length > 0)
@@ -146,8 +146,142 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     })
 
     const H = HEADER_H + brandsContentH + 30 + FOOTER_CARDS_H + FOOTER_CONTACT_H + BOTTOM_PAD
-    canvas.width = W
-    canvas.height = H
+    const HD_SCALE = 2 // 2x export resolution for Crisp HD on WhatsApp
+    canvas.width = W * HD_SCALE
+    canvas.height = H * HD_SCALE
+    ctx.scale(HD_SCALE, HD_SCALE)
+
+    // ── VECTOR LOGO DRAWING HELPERS ──
+    // Helper: Draw authentic WhatsApp vector logo (green speech bubble + white handset)
+    const drawWhatsAppLogo = (cx: number, cy: number, size: number) => {
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.scale(size / 24, size / 24)
+      ctx.translate(-12, -12)
+
+      // 1. Official WhatsApp Brand Green Speech Bubble
+      const bubblePath = new Path2D("M 12 2 C 6.48 2 2 6.48 2 12 C 2 13.8 2.48 15.5 3.36 17 L 2 21 L 6.15 19.65 C 7.9 21.12 10.15 22 12.03 22 C 17.55 22 22 17.52 22 12 C 22 6.48 17.55 2 12 2 Z")
+      ctx.fillStyle = "#25D366" // Official WhatsApp Brand Green
+      ctx.fill(bubblePath)
+
+      // 2. White Telephone Handset
+      const phonePath = new Path2D("M 17.47 14.38 C 17.17 14.23 15.71 13.52 15.44 13.42 C 15.17 13.32 14.97 13.27 14.77 13.57 C 14.57 13.87 14 14.53 13.83 14.73 C 13.66 14.93 13.48 14.96 13.19 14.81 C 12.89 14.66 11.93 14.35 10.8 13.34 C 9.91 12.55 9.32 11.58 9.14 11.28 C 8.97 10.98 9.13 10.82 9.27 10.67 C 9.4 10.54 9.57 10.33 9.72 10.16 C 9.87 9.98 9.92 9.86 10.02 9.66 C 10.12 9.46 10.07 9.29 9.99 9.14 C 9.92 8.99 9.32 7.53 9.08 6.94 C 8.84 6.36 8.59 6.44 8.42 6.43 C 8.25 6.42 8.05 6.42 7.85 6.42 C 7.65 6.42 7.33 6.49 7.06 6.79 C 6.79 7.09 6.02 7.81 6.02 9.27 C 6.02 10.73 7.09 12.15 7.24 12.35 C 7.39 12.55 9.33 15.55 12.31 16.84 C 13.02 17.15 13.58 17.33 14.01 17.47 C 14.72 17.69 15.37 17.66 15.88 17.58 C 16.45 17.5 17.64 16.86 17.89 16.17 C 18.14 15.48 18.14 14.88 18.06 14.76 C 17.99 14.64 17.79 14.57 17.47 14.38 Z")
+      ctx.fillStyle = "#FFFFFF"
+      ctx.fill(phonePath)
+      ctx.restore()
+    }
+
+    // Helper: Draw authentic Google Maps style vibrant red map pin vector logo
+    const drawLocationLogo = (cx: number, cy: number, size: number) => {
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.scale(size / 24, size / 24)
+      ctx.translate(-12, -12)
+
+      // Outer drop pin with rich red gradient
+      const pinGrad = ctx.createLinearGradient(12, 2, 12, 22)
+      pinGrad.addColorStop(0, '#FF5252')
+      pinGrad.addColorStop(1, '#D32F2F')
+      ctx.fillStyle = pinGrad
+      const pinPath = new Path2D("M 12 2 C 8.13 2 5 5.13 5 9 C 5 14.25 12 22 12 22 C 12 22 19 14.25 19 9 C 19 5.13 15.87 2 12 2 Z")
+      ctx.fill(pinPath)
+
+      // Inner white dot
+      ctx.fillStyle = "#FFFFFF"
+      ctx.beginPath()
+      ctx.arc(12, 9, 3.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    // Helper: Draw authentic Instagram brand gradient vector logo
+    const drawInstagramLogo = (cx: number, cy: number, size: number) => {
+      ctx.save()
+      ctx.translate(cx, cy)
+      const r = size / 2
+      
+      // Instagram vibrant diagonal gradient background
+      const igGrad = ctx.createLinearGradient(-r, r, r, -r)
+      igGrad.addColorStop(0, '#f09433')
+      igGrad.addColorStop(0.25, '#e6683c')
+      igGrad.addColorStop(0.5, '#dc2743')
+      igGrad.addColorStop(0.75, '#cc2366')
+      igGrad.addColorStop(1, '#833ab4')
+      ctx.fillStyle = igGrad
+      ctx.beginPath()
+      ctx.roundRect(-r, -r, size, size, size * 0.28)
+      ctx.fill()
+
+      // Crisp white camera outline inside
+      ctx.strokeStyle = "#FFFFFF"
+      ctx.lineWidth = size * 0.08
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      const innerW = size * 0.62
+      ctx.beginPath()
+      ctx.roundRect(-innerW / 2, -innerW / 2, innerW, innerW, innerW * 0.26)
+      ctx.stroke()
+
+      // Lens circle
+      ctx.beginPath()
+      ctx.arc(0, 0, size * 0.16, 0, Math.PI * 2)
+      ctx.stroke()
+
+      // Flash dot
+      ctx.fillStyle = "#FFFFFF"
+      ctx.beginPath()
+      ctx.arc(size * 0.2, -size * 0.2, size * 0.05, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    // Helper: Draw authentic 3D Golden Warranty Shield logo (matches Info Card #4)
+    const drawWarrantyShieldLogo = (cx: number, cy: number, size: number) => {
+      ctx.save()
+      const scale = size / 28
+      ctx.translate(cx, cy)
+      ctx.scale(scale, scale)
+
+      // Outer gold gradient shield
+      const shieldGrad = ctx.createLinearGradient(0, -14, 0, 14)
+      shieldGrad.addColorStop(0, '#FCE081')
+      shieldGrad.addColorStop(0.5, '#E5B842')
+      shieldGrad.addColorStop(1, '#8A6614')
+      ctx.fillStyle = shieldGrad
+      ctx.beginPath()
+      ctx.moveTo(0, -13)
+      ctx.lineTo(12, -8)
+      ctx.lineTo(12, 2)
+      ctx.quadraticCurveTo(12, 11, 0, 15)
+      ctx.quadraticCurveTo(-12, 11, -12, 2)
+      ctx.lineTo(-12, -8)
+      ctx.closePath()
+      ctx.fill()
+
+      // Inner dark navy shield
+      ctx.fillStyle = NAVY
+      ctx.beginPath()
+      ctx.moveTo(0, -10)
+      ctx.lineTo(9, -6)
+      ctx.lineTo(9, 1)
+      ctx.quadraticCurveTo(9, 8, 0, 12)
+      ctx.quadraticCurveTo(-9, 8, -9, 1)
+      ctx.lineTo(-9, -6)
+      ctx.closePath()
+      ctx.fill()
+
+      // Glowing Gold Checkmark inside
+      ctx.strokeStyle = '#FCE081'
+      ctx.lineWidth = 2.5
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      ctx.beginPath()
+      ctx.moveTo(-4, 1)
+      ctx.lineTo(-1, 4)
+      ctx.lineTo(5, -3)
+      ctx.stroke()
+      ctx.restore()
+    }
 
     // ════════════════════════════
     // 1. BACKGROUND
@@ -225,13 +359,13 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       
       // Store name below logo
       ctx.fillStyle = NAVY
-      ctx.font = "500 24px 'Inter', sans-serif"
+      ctx.font = "500 24px 'Outfit', sans-serif"
       ctx.textAlign = "center"
       ctx.textBaseline = "top"
       ctx.fillText(storeName, W / 2, 40 + dh + 8)
     } else {
       ctx.fillStyle = NAVY
-      ctx.font = "600 30px 'Inter', sans-serif"
+      ctx.font = "600 30px 'Outfit', sans-serif"
       ctx.textAlign = "center"
       ctx.textBaseline = "top"
       ctx.fillText(storeName, W / 2, 60)
@@ -244,11 +378,11 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     ctx.textBaseline = "top"
 
     ctx.fillStyle = NAVY
-    ctx.font = "900 72px 'Inter', sans-serif"
+    ctx.font = "900 72px 'Outfit', sans-serif"
     ctx.fillText("UPDATE", W / 2, 175)
 
     ctx.fillStyle = GOLD
-    ctx.font = "900 92px 'Inter', sans-serif"
+    ctx.font = "900 92px 'Outfit', sans-serif"
     ctx.fillText("STOK LAPTOP", W / 2, 252)
 
     // ════════════════════════════
@@ -256,7 +390,7 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     // ════════════════════════════
     const dateY = 365
     ctx.fillStyle = GRAY_TEXT
-    ctx.font = "500 22px 'Inter', sans-serif"
+    ctx.font = "500 24px 'Outfit', sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     ctx.fillText(`Update per ${flyerDate}`, W / 2, dateY)
@@ -279,15 +413,56 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     let curY = HEADER_H
 
     // Table layout constants
-    const MARGIN_L = 60  // left margin for brand name area
-    const BRAND_COL_W = 200 // width for brand name column
+    const MARGIN_L = 40  // left margin for brand name area
+    const BRAND_COL_W = 140 // width for brand name column
     const TABLE_X = MARGIN_L + BRAND_COL_W // table starts after brand column
-    const TABLE_W = W - TABLE_X - 60 // table width
+    const TABLE_W = W - TABLE_X - 40 // table width
 
     // Column positions within the table (relative to TABLE_X)
     const COL_TYPE_X = 20 // left padding for TYPE
-    const COL_PRICE_CENTER = TABLE_W * 0.52 // center of HARGA LAPTOP
-    const COL_SPECS_X = TABLE_W * 0.66 // left of KETERANGAN
+    const COL_PRICE_CENTER = TABLE_W * 0.44 // center of HARGA LAPTOP
+    const COL_SPECS_X = TABLE_W * 0.58 // left of KETERANGAN
+    const COL_SPECS_MAX_W = TABLE_W - COL_SPECS_X - 20 // max width for specs text wrapping
+
+    // Helper: wrap text into multiple lines (with character-level fallback wrapping for long model codes)
+    const wrapText = (text: string, maxWidth: number, font: string): string[] => {
+      ctx.font = font
+      const words = text.split(' ')
+      const lines: string[] = []
+      let currentLine = ''
+      for (const word of words) {
+        const wordW = ctx.measureText(word).width
+        if (wordW > maxWidth) {
+          // If the word itself is too wide, we force wrap it character by character
+          if (currentLine) {
+            lines.push(currentLine)
+            currentLine = ''
+          }
+          let tempWord = ''
+          for (let i = 0; i < word.length; i++) {
+            const char = word[i]
+            const testLine = tempWord + char
+            if (ctx.measureText(testLine).width > maxWidth) {
+              if (tempWord) lines.push(tempWord)
+              tempWord = char
+            } else {
+              tempWord = testLine
+            }
+          }
+          currentLine = tempWord
+        } else {
+          const testLine = currentLine ? currentLine + ' ' + word : word
+          if (ctx.measureText(testLine).width > maxWidth) {
+            if (currentLine) lines.push(currentLine)
+            currentLine = word
+          } else {
+            currentLine = testLine
+          }
+        }
+      }
+      if (currentLine) lines.push(currentLine)
+      return lines
+    }
 
     activeBrands.forEach(brand => {
       const brandItems = itemsByBrand[brand] || []
@@ -299,35 +474,16 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       ctx.save()
       const brandCenterY = curY + tableH / 2
       
-      // Brand name text styling per brand
+      // Brand name text styling — unified to use the identical bold Outfit font
+      ctx.fillStyle = DARK_TEXT
+      ctx.font = "900 32px 'Outfit', sans-serif"
       ctx.textAlign = "left"
       ctx.textBaseline = "middle"
-      
-      if (brand === "ASUS") {
-        ctx.fillStyle = DARK_TEXT
-        ctx.font = "italic 900 42px 'Inter', sans-serif"
-        ctx.fillText("ASUS", MARGIN_L, brandCenterY - 20)
-      } else if (brand === "HP") {
-        ctx.fillStyle = "#0284c7"
-        ctx.font = "italic 900 48px 'Inter', sans-serif"
-        ctx.fillText("hp", MARGIN_L, brandCenterY - 20)
-      } else if (brand === "LENOVO") {
-        ctx.fillStyle = DARK_TEXT
-        ctx.font = "900 40px 'Inter', sans-serif"
-        ctx.fillText("Lenovo", MARGIN_L, brandCenterY - 20)
-      } else if (brand === "DELL") {
-        ctx.fillStyle = "#0076c0"
-        ctx.font = "900 40px 'Inter', sans-serif"
-        ctx.fillText("DELL", MARGIN_L, brandCenterY - 20)
-      } else {
-        ctx.fillStyle = DARK_TEXT
-        ctx.font = "900 36px 'Inter', sans-serif"
-        ctx.fillText(brand, MARGIN_L, brandCenterY - 20)
-      }
+      ctx.fillText(brand, MARGIN_L, brandCenterY)
       ctx.restore()
 
       // ── B. TABLE HEADER BAR ──
-      const headerColor = brand === "LENOVO" ? RED_LENOVO : NAVY
+      const headerColor = NAVY // Unified table header color (no longer red for Lenovo)
       
       ctx.fillStyle = headerColor
       ctx.beginPath()
@@ -335,7 +491,7 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       ctx.fill()
 
       ctx.fillStyle = WHITE
-      ctx.font = "bold 14px 'Inter', sans-serif"
+      ctx.font = "900 18px 'Outfit', sans-serif"
       ctx.textBaseline = "middle"
       const headerMidY = curY + TABLE_HEADER_H / 2
 
@@ -376,79 +532,78 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
 
         const rowMidY = rowY + ROW_H / 2
 
-        // ── GARANSI RESMI BADGE (in brand column, aligned with this row) ──
-        const isOfficial = item.condition === 'NEW' || (item.specs && /resmi|resmy|official/i.test(item.specs))
-        if (isOfficial) {
-          const badgeX = MARGIN_L + 20
-          const badgeY = rowMidY
-
-          // Gold shield shape
-          ctx.save()
-          ctx.fillStyle = GOLD
-          ctx.beginPath()
-          ctx.moveTo(badgeX, badgeY - 16)
-          ctx.lineTo(badgeX + 14, badgeY - 11)
-          ctx.lineTo(badgeX + 14, badgeY + 2)
-          ctx.quadraticCurveTo(badgeX + 14, badgeY + 13, badgeX, badgeY + 18)
-          ctx.quadraticCurveTo(badgeX - 14, badgeY + 13, badgeX - 14, badgeY + 2)
-          ctx.lineTo(badgeX - 14, badgeY - 11)
-          ctx.closePath()
-          ctx.fill()
-
-          // Dark border on shield
-          ctx.strokeStyle = NAVY
-          ctx.lineWidth = 2
-          ctx.stroke()
-
-          // White checkmark
-          ctx.strokeStyle = WHITE
-          ctx.lineWidth = 3
-          ctx.lineCap = "round"
-          ctx.lineJoin = "round"
-          ctx.beginPath()
-          ctx.moveTo(badgeX - 5, badgeY)
-          ctx.lineTo(badgeX - 1, badgeY + 5)
-          ctx.lineTo(badgeX + 7, badgeY - 5)
-          ctx.stroke()
-          ctx.restore()
-
-          // "GARANSI RESMI" text next to badge
-          ctx.save()
-          ctx.fillStyle = NAVY
-          ctx.font = "800 10px 'Inter', sans-serif"
-          ctx.textAlign = "left"
-          ctx.textBaseline = "middle"
-          ctx.fillText("GARANSI", badgeX + 20, badgeY - 6)
-          ctx.fillText("RESMI", badgeX + 20, badgeY + 6)
-          ctx.restore()
-        }
-
-        // ── TYPE column ──
+        // ── GARANSI RESMI BADGE — only show when Kondisi is "Garansi Resmi" ──
+        const isOfficialWarranty = item.specs && /Kondisi:\s*Garansi Resmi/i.test(item.specs)
+        
+        // ── TYPE column (multi-line wrapping to prevent truncation or price collision) ──
         ctx.fillStyle = DARK_TEXT
-        ctx.font = "600 16px 'Inter', sans-serif"
+        const typeFont = "700 20px 'Outfit', sans-serif"
+        ctx.font = typeFont
         ctx.textAlign = "left"
         ctx.textBaseline = "middle"
         let typeName = item.itemName
-        if (typeName.length > 28) typeName = typeName.substring(0, 26) + "…"
-        ctx.fillText(typeName, TABLE_X + COL_TYPE_X, rowMidY)
+        
+        let typeStartX = TABLE_X + COL_TYPE_X
+        if (isOfficialWarranty) {
+          typeStartX += 28 // shift right to make space for the shield icon
+        }
+
+        // Calculate a safe maximum width so the name doesn't overlap the centered price
+        const safeRightX = COL_PRICE_CENTER - 85 // padding from the center of the price column
+        const typeMaxW = safeRightX - (typeStartX - TABLE_X)
+        const typeLines = wrapText(typeName, typeMaxW, typeFont)
+        const typeStartY = rowMidY - ((typeLines.length - 1) * 22) / 2
+
+        typeLines.forEach((line, li) => {
+          ctx.fillText(line, typeStartX, typeStartY + li * 22)
+        })
+
+        if (isOfficialWarranty) {
+          // Authentic Info Garansi Resmi icon (matches Info Card #4)
+          const badgeSize = 24
+          const badgeCX = TABLE_X + COL_TYPE_X + badgeSize / 2
+          const badgeCY = typeStartY
+          drawWarrantyShieldLogo(badgeCX, badgeCY, badgeSize)
+        }
 
         // ── HARGA column ──
         ctx.fillStyle = DARK_TEXT
-        ctx.font = "800 17px 'Inter', sans-serif"
+        ctx.font = "900 22px 'Outfit', sans-serif"
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
         const priceStr = showPrice ? formatCurrency(item.sellingPrice) : "Hubungi Admin"
         ctx.fillText(priceStr, TABLE_X + COL_PRICE_CENTER, rowMidY)
 
-        // ── KETERANGAN column ──
-        ctx.fillStyle = GRAY_TEXT
-        ctx.font = "400 13px 'Inter', sans-serif"
+        // ── KETERANGAN column (multi-line wrapping) ──
+        const specsFont = "500 16px 'Outfit', sans-serif"
+        
+        // Clean specs description: strip prefixes dynamically and format with clean commas
+        const cleanSpecs = (specs: string): string => {
+          if (!specs) return "-"
+          return specs
+            .split(/[|\n]/)
+            .map(part => part.trim().replace(/^[^:]+:\s*/i, "").trim())
+            .filter(Boolean)
+            .join(", ")
+        }
+        let specsRaw = cleanSpecs(item.specs)
+        
+        const specsLines = wrapText(specsRaw, COL_SPECS_MAX_W, specsFont)
+        const maxLines = 3
+        const displayLines = specsLines.slice(0, maxLines)
+        if (specsLines.length > maxLines) {
+          const lastLine = displayLines[maxLines - 1]
+          displayLines[maxLines - 1] = lastLine.substring(0, lastLine.length - 2) + '…'
+        }
+
+        ctx.fillStyle = DARK_TEXT // Set specs text color to pure black
+        ctx.font = specsFont
         ctx.textAlign = "left"
-        ctx.textBaseline = "middle"
-        let specs = item.specs || "-"
-        specs = specs.replace(/\||\n/g, ", ")
-        if (specs.length > 40) specs = specs.substring(0, 38) + "…"
-        ctx.fillText(specs, TABLE_X + COL_SPECS_X, rowMidY)
+        ctx.textBaseline = "top"
+        const specsStartY = rowMidY - (displayLines.length * 18) / 2
+        displayLines.forEach((line, li) => {
+          ctx.fillText(line, TABLE_X + COL_SPECS_X, specsStartY + li * 18)
+        })
 
         rowY += ROW_H
       })
@@ -466,9 +621,9 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     // ════════════════════════════
     // 8. FOOTER INFO CARDS
     // ════════════════════════════
-    const cardsY = curY + 20
-    const CARD_W = 245
-    const CARD_H = 160
+    const cardsY = curY + 25
+    const CARD_W = 225
+    const CARD_H = 180
     const CARD_GAP = 18
     const totalCardsW = 4 * CARD_W + 3 * CARD_GAP
     const cardsStartX = (W - totalCardsW) / 2
@@ -492,40 +647,53 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       {
         icon: "shield",
         title: "GARANSI RESMI",
-        desc: "Laptop dengan ikon ini\nberarti masih memiliki\ngaransi resmi.\n\n*S&K berlaku"
+        desc: "Laptop dengan badge emas\nberarti masih memiliki\ngaransi resmi.\n\n*S&K berlaku"
       }
     ]
 
     infoCards.forEach((card, idx) => {
       const cx = cardsStartX + idx * (CARD_W + CARD_GAP)
       
-      // Card background
+      // Card background with subtle shadow
       ctx.save()
-      ctx.shadowColor = "rgba(0,0,0,0.06)"
-      ctx.shadowBlur = 12
+      ctx.shadowColor = "rgba(0,0,0,0.08)"
+      ctx.shadowBlur = 16
       ctx.shadowOffsetY = 4
       ctx.fillStyle = WHITE
       ctx.beginPath()
-      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 12)
+      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 14)
       ctx.fill()
       ctx.restore()
 
       // Card border
-      ctx.strokeStyle = "#e8eaee"
+      ctx.strokeStyle = "#e2e5ea"
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 12)
+      ctx.roundRect(cx, cardsY, CARD_W, CARD_H, 14)
       ctx.stroke()
 
-      // Icon circle
+      // Icon circle — larger and with gradient
       const iconCX = cx + CARD_W / 2
-      const iconCY = cardsY + 35
-      ctx.fillStyle = NAVY
+      const iconCY = cardsY + 38
+      const iconR = 22
+
+      // Navy gradient circle for all badges
+      const iconGrad = ctx.createRadialGradient(iconCX - 3, iconCY - 3, 2, iconCX, iconCY, iconR)
+      iconGrad.addColorStop(0, '#1a3a5c')
+      iconGrad.addColorStop(1, NAVY)
+      ctx.fillStyle = iconGrad
       ctx.beginPath()
-      ctx.arc(iconCX, iconCY, 20, 0, Math.PI * 2)
+      ctx.arc(iconCX, iconCY, iconR, 0, Math.PI * 2)
       ctx.fill()
 
-      // Icon shapes (gold on navy circle)
+      // Subtle ring around icon circle
+      ctx.strokeStyle = 'rgba(197, 150, 42, 0.3)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(iconCX, iconCY, iconR + 2, 0, Math.PI * 2)
+      ctx.stroke()
+
+      // Icon shapes — refined, cleaner, more precise
       ctx.save()
       ctx.strokeStyle = GOLD
       ctx.fillStyle = GOLD
@@ -534,102 +702,135 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       ctx.lineJoin = "round"
 
       if (card.icon === "truck") {
-        // Truck / delivery icon
+        // Modern Delivery Box & Truck Vector Icon
+        ctx.fillStyle = GOLD_LIGHT
         ctx.beginPath()
-        ctx.rect(iconCX - 10, iconCY - 5, 12, 10)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(iconCX + 2, iconCY - 5)
-        ctx.lineTo(iconCX + 10, iconCY - 5)
-        ctx.lineTo(iconCX + 12, iconCY)
-        ctx.lineTo(iconCX + 12, iconCY + 5)
-        ctx.lineTo(iconCX + 2, iconCY + 5)
-        ctx.stroke()
-        // Wheels
-        ctx.beginPath()
-        ctx.arc(iconCX - 5, iconCY + 6, 2.5, 0, Math.PI * 2)
+        ctx.roundRect(iconCX - 13, iconCY - 7, 14, 13, 2)
         ctx.fill()
+        ctx.fillStyle = GOLD
         ctx.beginPath()
-        ctx.arc(iconCX + 8, iconCY + 6, 2.5, 0, Math.PI * 2)
+        ctx.moveTo(iconCX + 3, iconCY - 3)
+        ctx.lineTo(iconCX + 10, iconCY - 3)
+        ctx.lineTo(iconCX + 13, iconCY + 2)
+        ctx.lineTo(iconCX + 13, iconCY + 6)
+        ctx.lineTo(iconCX + 3, iconCY + 6)
+        ctx.closePath()
+        ctx.fill()
+        // White detail lines
+        ctx.strokeStyle = WHITE
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.moveTo(iconCX - 6, iconCY - 7)
+        ctx.lineTo(iconCX - 6, iconCY + 6)
+        ctx.stroke()
+        // Dark Wheels with Gold Rims
+        ctx.fillStyle = NAVY
+        ctx.beginPath()
+        ctx.arc(iconCX - 7, iconCY + 7, 3.5, 0, Math.PI * 2)
+        ctx.arc(iconCX + 8, iconCY + 7, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = GOLD_LIGHT
+        ctx.beginPath()
+        ctx.arc(iconCX - 7, iconCY + 7, 1.5, 0, Math.PI * 2)
+        ctx.arc(iconCX + 8, iconCY + 7, 1.5, 0, Math.PI * 2)
         ctx.fill()
       } else if (card.icon === "payment") {
-        // Credit card icon
+        // Premium Dual Gold Wallet / Credit Card Vector Icon
+        ctx.fillStyle = 'rgba(197, 150, 42, 0.4)'
         ctx.beginPath()
-        ctx.roundRect(iconCX - 11, iconCY - 8, 22, 16, 2)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(iconCX - 11, iconCY - 3)
-        ctx.lineTo(iconCX + 11, iconCY - 3)
-        ctx.stroke()
-        ctx.fillRect(iconCX - 7, iconCY + 1, 6, 3)
-      } else if (card.icon === "chat") {
-        // Chat bubble
-        ctx.beginPath()
-        ctx.roundRect(iconCX - 10, iconCY - 9, 20, 15, 4)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(iconCX - 3, iconCY + 6)
-        ctx.lineTo(iconCX - 7, iconCY + 11)
-        ctx.lineTo(iconCX + 1, iconCY + 6)
+        ctx.roundRect(iconCX - 10, iconCY - 10, 22, 15, 3)
         ctx.fill()
-        // Dots inside
-        for (let d = -4; d <= 4; d += 4) {
-          ctx.beginPath()
-          ctx.arc(iconCX + d, iconCY - 2, 1.5, 0, Math.PI * 2)
-          ctx.fill()
-        }
+        // Front Gold Card
+        const cardGrad = ctx.createLinearGradient(iconCX - 14, iconCY - 5, iconCX + 10, iconCY + 9)
+        cardGrad.addColorStop(0, '#FCE081')
+        cardGrad.addColorStop(1, '#C5962A')
+        ctx.fillStyle = cardGrad
+        ctx.beginPath()
+        ctx.roundRect(iconCX - 14, iconCY - 5, 24, 15, 3.5)
+        ctx.fill()
+        // Magnetic dark stripe
+        ctx.fillStyle = NAVY
+        ctx.fillRect(iconCX - 14, iconCY - 2, 24, 3)
+        // EMV Chip
+        ctx.fillStyle = WHITE
+        ctx.beginPath()
+        ctx.roundRect(iconCX - 10, iconCY + 3, 5, 4, 1)
+        ctx.fill()
+        // Contactless waves
+        ctx.strokeStyle = NAVY
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.arc(iconCX + 5, iconCY + 5, 2.5, 1.1 * Math.PI, 1.9 * Math.PI)
+        ctx.arc(iconCX + 5, iconCY + 5, 5, 1.1 * Math.PI, 1.9 * Math.PI)
+        ctx.stroke()
+      } else if (card.icon === "chat") {
+        // Premium 3D Golden Chat / WhatsApp Badge inside Navy Circle
+        const chatGrad = ctx.createLinearGradient(iconCX - 12, iconCY - 12, iconCX + 12, iconCY + 12)
+        chatGrad.addColorStop(0, '#FCE081')
+        chatGrad.addColorStop(0.5, '#E5B842')
+        chatGrad.addColorStop(1, '#8A6614')
+        ctx.fillStyle = chatGrad
+        ctx.save()
+        ctx.translate(iconCX, iconCY)
+        ctx.scale(26 / 24, 26 / 24)
+        ctx.translate(-12, -12)
+        const bubblePath = new Path2D("M 12 2 C 6.48 2 2 6.48 2 12 C 2 13.8 2.48 15.5 3.36 17 L 2 21 L 6.15 19.65 C 7.9 21.12 10.15 22 12.03 22 C 17.55 22 22 17.52 22 12 C 22 6.48 17.55 2 12 2 Z")
+        ctx.fill(bubblePath)
+        const phonePath = new Path2D("M 17.47 14.38 C 17.17 14.23 15.71 13.52 15.44 13.42 C 15.17 13.32 14.97 13.27 14.77 13.57 C 14.57 13.87 14 14.53 13.83 14.73 C 13.66 14.93 13.48 14.96 13.19 14.81 C 12.89 14.66 11.93 14.35 10.8 13.34 C 9.91 12.55 9.32 11.58 9.14 11.28 C 8.97 10.98 9.13 10.82 9.27 10.67 C 9.4 10.54 9.57 10.33 9.72 10.16 C 9.87 9.98 9.92 9.86 10.02 9.66 C 10.12 9.46 10.07 9.29 9.99 9.14 C 9.92 8.99 9.32 7.53 9.08 6.94 C 8.84 6.36 8.59 6.44 8.42 6.43 C 8.25 6.42 8.05 6.42 7.85 6.42 C 7.65 6.42 7.33 6.49 7.06 6.79 C 6.79 7.09 6.02 7.81 6.02 9.27 C 6.02 10.73 7.09 12.15 7.24 12.35 C 7.39 12.55 9.33 15.55 12.31 16.84 C 13.02 17.15 13.58 17.33 14.01 17.47 C 14.72 17.69 15.37 17.66 15.88 17.58 C 16.45 17.5 17.64 16.86 17.89 16.17 C 18.14 15.48 18.14 14.88 18.06 14.76 C 17.99 14.64 17.79 14.57 17.47 14.38 Z")
+        ctx.fillStyle = NAVY
+        ctx.fill(phonePath)
+        ctx.restore()
       } else if (card.icon === "shield") {
-        // Shield icon
-        ctx.beginPath()
-        ctx.moveTo(iconCX, iconCY - 11)
-        ctx.lineTo(iconCX + 10, iconCY - 7)
-        ctx.lineTo(iconCX + 10, iconCY + 2)
-        ctx.quadraticCurveTo(iconCX + 10, iconCY + 9, iconCX, iconCY + 13)
-        ctx.quadraticCurveTo(iconCX - 10, iconCY + 9, iconCX - 10, iconCY + 2)
-        ctx.lineTo(iconCX - 10, iconCY - 7)
-        ctx.closePath()
-        ctx.stroke()
-        // Check inside
-        ctx.beginPath()
-        ctx.moveTo(iconCX - 4, iconCY)
-        ctx.lineTo(iconCX - 1, iconCY + 3)
-        ctx.lineTo(iconCX + 5, iconCY - 3)
-        ctx.stroke()
+        // Authentic Info Garansi Resmi icon
+        drawWarrantyShieldLogo(iconCX, iconCY, 30)
       }
       ctx.restore()
 
-      // Card title (multi-line)
+      // Card title (multi-line) — refined typography
       ctx.fillStyle = DARK_TEXT
-      ctx.font = "800 12px 'Inter', sans-serif"
-      ctx.textAlign = "center"
+      ctx.font = "900 16px 'Outfit', sans-serif"
       ctx.textBaseline = "top"
       const titleLines = card.title.split("\n")
       titleLines.forEach((line, li) => {
-        ctx.fillText(line, cx + CARD_W / 2, cardsY + 65 + li * 15)
+        ctx.textAlign = "center"
+        ctx.fillText(line, cx + CARD_W / 2, cardsY + 70 + li * 18)
       })
 
       // Card description (multi-line)
       ctx.fillStyle = GRAY_TEXT
-      ctx.font = "400 11px 'Inter', sans-serif"
-      const descStartY = cardsY + 65 + titleLines.length * 15 + 8
+      ctx.font = "500 14px 'Outfit', sans-serif"
+      const descStartY = cardsY + 70 + titleLines.length * 18 + 10
       const descLines = card.desc.split("\n")
       descLines.forEach((line, li) => {
-        ctx.fillText(line, cx + CARD_W / 2, descStartY + li * 14)
+        if (card.icon === "payment") {
+          ctx.textAlign = "left"
+          ctx.fillText(line, cx + 65, descStartY + li * 16)
+        } else {
+          ctx.textAlign = "center"
+          ctx.fillText(line, cx + CARD_W / 2, descStartY + li * 16)
+        }
       })
     })
 
     // ════════════════════════════
-    // 9. BOTTOM CONTACT BAR
+    // 9. BOTTOM CONTACT BAR — Modern & Elegant
     // ════════════════════════════
     const contactY = cardsY + CARD_H + 30
-    const BAR_H = 70
-    const BAR_X = 50
-    const BAR_W = W - 100
+    const BAR_H = 92
+    const BAR_X = 40
+    const BAR_W = W - 80
 
-    ctx.fillStyle = NAVY
+    // Transparent minimalist background (subtle light tint with border)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
     ctx.beginPath()
-    ctx.roundRect(BAR_X, contactY, BAR_W, BAR_H, 14)
+    ctx.roundRect(BAR_X, contactY, BAR_W, BAR_H, 16)
     ctx.fill()
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
+    ctx.lineWidth = 1.2
+    ctx.beginPath()
+    ctx.roundRect(BAR_X, contactY, BAR_W, BAR_H, 16)
+    ctx.stroke()
 
     // Dividing the bar into 3 equal columns
     const colW = BAR_W / 3
@@ -638,99 +839,78 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     const storePhone = storeSettings?.storePhone || "0812-3456-7890"
     const storeAddress = storeSettings?.storeAddress || "Bandung, Jawa Barat"
 
-    // Helper: draw a contact column
-    const drawContactCol = (colIdx: number, iconDraw: () => void, labelText: string, valueText: string) => {
+    // Vertical dividers between columns — clean minimalist gray
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
+    ctx.lineWidth = 1
+    for (let d = 1; d < 3; d++) {
+      const dx = BAR_X + colW * d
+      ctx.beginPath()
+      ctx.moveTo(dx, contactY + 16)
+      ctx.lineTo(dx, contactY + BAR_H - 16)
+      ctx.stroke()
+    }
+
+    // Helper: draw a contact column — redesigned
+    const drawContactCol = (colIdx: number, iconDraw: (ix: number, iy: number) => void, labelText: string, valueText: string) => {
       const colStartX = BAR_X + colIdx * colW
       const iconX = colStartX + 30
+      const iconR = 16
 
       ctx.save()
-      // Gold circle behind icon
-      ctx.fillStyle = GOLD
-      ctx.beginPath()
-      ctx.arc(iconX, barMidY, 15, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Icon (navy on gold circle)
-      ctx.fillStyle = NAVY
-      ctx.strokeStyle = NAVY
-      ctx.lineWidth = 2
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-      iconDraw()
+      // Authentic brand vector logo
+      iconDraw(iconX, barMidY)
       ctx.restore()
 
-      // Label
-      ctx.fillStyle = WHITE
-      ctx.font = "700 11px 'Inter', sans-serif"
+      // Label — bolder, slightly larger, clean dark gray
+      const textX = iconX + iconR + 14
+      ctx.fillStyle = '#4b5563' // Clean minimal gray label
+      ctx.font = "800 14px 'Outfit', sans-serif"
       ctx.textAlign = "left"
       ctx.textBaseline = "bottom"
-      ctx.fillText(labelText, iconX + 22, barMidY - 2)
 
-      // Value
-      ctx.fillStyle = GOLD_LIGHT
-      ctx.font = "600 13px 'Inter', sans-serif"
-      ctx.textAlign = "left"
-      ctx.textBaseline = "top"
+      // Value — pure black font for maximum clarity and minimalist elegance
+      ctx.fillStyle = "#000000" // Pure black text
       let val = valueText
-      if (val.length > 30) val = val.substring(0, 28) + "…"
-      ctx.fillText(val, iconX + 22, barMidY + 3)
-    }
+      const maxValW = colW - (textX - colStartX) - 16
 
-    // WhatsApp column
-    drawContactCol(0, () => {
-      const ix = BAR_X + 30, iy = barMidY
-      // Phone receiver shape
-      ctx.beginPath()
-      ctx.moveTo(ix - 5, iy - 6)
-      ctx.quadraticCurveTo(ix - 7, iy - 2, ix - 4, iy + 2)
-      ctx.quadraticCurveTo(ix, iy + 6, ix + 5, iy + 6)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(ix - 5, iy - 6)
-      ctx.quadraticCurveTo(ix - 1, iy - 8, ix + 3, iy - 4)
-      ctx.stroke()
-    }, "WHATSAPP", storePhone)
-
-    // Location column
-    drawContactCol(1, () => {
-      const ix = BAR_X + colW + 30, iy = barMidY
-      // Pin shape
-      ctx.beginPath()
-      ctx.arc(ix, iy - 3, 4, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(ix, iy + 1)
-      ctx.lineTo(ix, iy + 7)
-      ctx.stroke()
-    }, "LOKASI TOKO", storeAddress)
-
-    // Instagram column
-    drawContactCol(2, () => {
-      const ix = BAR_X + colW * 2 + 30, iy = barMidY
-      // Camera square
-      ctx.beginPath()
-      ctx.roundRect(ix - 7, iy - 7, 14, 14, 3)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(ix, iy, 4, 0, Math.PI * 2)
-      ctx.stroke()
-      // Dot
-      ctx.beginPath()
-      ctx.arc(ix + 4, iy - 4, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-    }, "INSTAGRAM", customInstagram)
-
-    // ════════════════════════════
-    // 10. BOTTOM-LEFT DOT GRID (subtle decoration)
-    // ════════════════════════════
-    ctx.fillStyle = "#c8cdd5"
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        ctx.beginPath()
-        ctx.arc(60 + c * 18, contactY - 100 + r * 18, 2.5, 0, Math.PI * 2)
-        ctx.fill()
+      if (labelText === "LOKASI TOKO" && val.length > 22) {
+        ctx.fillText(labelText, textX, barMidY - 8)
+        ctx.font = "700 14.5px 'Outfit', sans-serif"
+        ctx.textBaseline = "top"
+        const lines = wrapText(val, maxValW, "700 14.5px 'Outfit', sans-serif")
+        lines.slice(0, 2).forEach((line, li) => {
+          ctx.fillText(line, textX, barMidY + 2 + li * 15)
+        })
+      } else {
+        ctx.fillText(labelText, textX, barMidY - 2)
+        ctx.font = "800 18px 'Outfit', sans-serif"
+        ctx.textBaseline = "top"
+        if (ctx.measureText(val).width > maxValW) {
+          while (ctx.measureText(val + '…').width > maxValW && val.length > 0) {
+            val = val.slice(0, -1)
+          }
+          val += '…'
+        }
+        ctx.fillText(val, textX, barMidY + 3)
       }
     }
+
+    // WhatsApp column — authentic WhatsApp vector logo
+    drawContactCol(0, (ix, iy) => {
+      drawWhatsAppLogo(ix, iy, 34)
+    }, "WHATSAPP", storePhone)
+
+    // Location column — authentic Google Maps style red pin
+    drawContactCol(1, (ix, iy) => {
+      drawLocationLogo(ix, iy, 34)
+    }, "LOKASI TOKO", storeAddress)
+
+    // Instagram column — authentic Instagram brand gradient vector logo
+    drawContactCol(2, (ix, iy) => {
+      drawInstagramLogo(ix, iy, 34)
+    }, "INSTAGRAM", customInstagram)
+
+
   }
 
   // ═══ REDRAW TRIGGER ═══
@@ -747,8 +927,8 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     
     try {
       const link = document.createElement("a")
-      link.download = `stok-laptop-${flyerDate.replace(/\s+/g, "-")}.png`
-      link.href = canvas.toDataURL("image/png")
+      link.download = `stok-laptop-${flyerDate.replace(/\s+/g, "-")}.jpg`
+      link.href = canvas.toDataURL("image/jpeg", 1.0) // HD quality JPG for better social media posting
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -847,7 +1027,7 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
             
             <div className="border-t border-border pt-4 shrink-0">
               <Button onClick={handleDownload} className="w-full h-10 font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-                <Download className="h-4 w-4" /> Download Poster PNG
+                <Download className="h-4 w-4" /> Download Poster HD (JPG)
               </Button>
             </div>
           </div>

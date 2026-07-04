@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Filter, Edit, Trash2, Printer, Download, FileSpreadsheet, Settings } from "lucide-react"
+import { Plus, Search, Filter, Edit, Trash2, Printer, Download, FileSpreadsheet, Settings, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import { LaptopSpecForm } from "@/components/LaptopSpecForm"
 import { useUserRole } from "@/hooks/useUserRole"
@@ -24,6 +24,132 @@ import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
+}
+
+function parseItemSpecs(specs: string) {
+  const result: { 
+    processor?: string; 
+    vga?: string; 
+    ram?: string; 
+    storage?: string; 
+    screen?: string; 
+    keyboard?: string; 
+    os?: string; 
+    condition?: string; 
+    defect?: string; 
+  } = {}
+  
+  if (!specs) return result
+  const parts = specs.split(" | ")
+  parts.forEach(part => {
+    if (part.startsWith("Processor: ")) result.processor = part.replace("Processor: ", "")
+    else if (part.startsWith("VGA: ")) result.vga = part.replace("VGA: ", "")
+    else if (part.startsWith("RAM: ")) result.ram = part.replace("RAM: ", "")
+    else if (part.startsWith("Storage: ")) result.storage = part.replace("Storage: ", "")
+    else if (part.startsWith("Layar: ")) result.screen = part.replace("Layar: ", "")
+    else if (part.startsWith("Keyboard: ")) result.keyboard = part.replace("Keyboard: ", "")
+    else if (part.startsWith("OS: ")) result.os = part.replace("OS: ", "")
+    else if (part.startsWith("Kondisi: ")) {
+      const condStr = part.replace("Kondisi: ", "")
+      if (condStr.startsWith("Minus (") && condStr.endsWith(")")) {
+        result.condition = "Minus"
+        result.defect = condStr.substring(7, condStr.length - 1)
+      } else {
+        result.condition = condStr
+      }
+    }
+  })
+  return result
+}
+
+function classifyLaptop(itemName: string, specsStr: string, price: number) {
+  const specs = parseItemSpecs(specsStr || "");
+  const nameLower = itemName.toLowerCase();
+  const procLower = (specs.processor || "").toLowerCase();
+  const vgaLower = (specs.vga || "").toLowerCase();
+  
+  // Clean RAM value to number
+  const ramStr = (specs.ram || "").toLowerCase();
+  const ramGb = parseInt(ramStr.replace(/[^0-9]/g, "")) || 0;
+  
+  const classifications: { id: string; name: string; color: string }[] = [];
+  
+  // 1. Gaming & Rendering Berat
+  const hasDedicatedGpu = vgaLower.includes("rtx") || 
+                           vgaLower.includes("gtx") || 
+                           vgaLower.includes("radeon rx") || 
+                           vgaLower.includes("geforce") ||
+                           vgaLower.includes("quadro") ||
+                           vgaLower.includes("discrete") ||
+                           nameLower.includes("rog") || 
+                           nameLower.includes("tuf") || 
+                           nameLower.includes("legion") || 
+                           nameLower.includes("nitro") || 
+                           nameLower.includes("predator") ||
+                           nameLower.includes("alienware") ||
+                           nameLower.includes("gaming");
+  
+  const isHighPerformanceCpu = procLower.includes("i7") || 
+                               procLower.includes("i9") || 
+                               procLower.includes("ryzen 7") || 
+                               procLower.includes("ryzen 9");
+  
+  if (hasDedicatedGpu || (isHighPerformanceCpu && ramGb >= 16)) {
+    classifications.push({
+      id: "gaming_heavy",
+      name: "Gaming & Render",
+      color: "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-455 dark:border-rose-900/30"
+    });
+  }
+  
+  // 2. Desain, Editing & Coding
+  const isCapableCpu = procLower.includes("i5") || 
+                        procLower.includes("i7") || 
+                        procLower.includes("i9") || 
+                        procLower.includes("ryzen 5") || 
+                        procLower.includes("ryzen 7") || 
+                        procLower.includes("ryzen 9") || 
+                        procLower.includes("m1") || 
+                        procLower.includes("m2") || 
+                        procLower.includes("m3") || 
+                        procLower.includes("m4");
+  
+  const isAppleMac = nameLower.includes("macbook") || procLower.includes("apple");
+  
+  if ((isCapableCpu && ramGb >= 8) || isAppleMac || price >= 6000000) {
+    classifications.push({
+      id: "creative_dev",
+      name: "Desain & Coding",
+      color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/20 dark:text-purple-455 dark:border-purple-900/30"
+    });
+  }
+  
+  // 3. Pelajar & Kerja Harian
+  const isBasicCpu = procLower.includes("celeron") || 
+                     procLower.includes("pentium") || 
+                     procLower.includes("athlon") || 
+                     procLower.includes("i3") || 
+                     procLower.includes("ryzen 3") ||
+                     procLower.includes("core 2") ||
+                     procLower.includes("dual core");
+  
+  if (isBasicCpu || price < 7000000 || ramGb <= 8 || (!hasDedicatedGpu && price < 9000000)) {
+    classifications.push({
+      id: "student_office",
+      name: "Pelajar & Kerja",
+      color: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
+    });
+  }
+  
+  if (classifications.length === 0) {
+    classifications.push({
+      id: "student_office",
+      name: "Pelajar & Kerja",
+      color: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
+    });
+  }
+  
+  return classifications;
 }
 
 const generateMedsosTemplate = (item: any) => {
@@ -147,6 +273,7 @@ export function Inventory() {
   // Markdown state
   const [isMarkdownOpen, setIsMarkdownOpen] = useState(false)
   const [isFlyerOpen, setIsFlyerOpen] = useState(false)
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
 
   // Image & Watermark state
   const [erpImageUrl, setErpImageUrl] = useState("")
@@ -393,7 +520,7 @@ export function Inventory() {
       // Helper to draw premium gold vector specs icons inside thin gold-bordered dark circles
       const drawBadgeIcon = (cx: number, cy: number, r: number, iconType: string) => {
         // Solid dark circle background
-        ctx.fillStyle = "#0b1329";
+        ctx.fillStyle = "#000000";
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
@@ -475,20 +602,22 @@ export function Inventory() {
           ctx.moveTo(cx - w/4, cy + h/2 + 2);
           ctx.lineTo(cx + w/4, cy + h/2 + 2);
           ctx.stroke();
-        } else if (iconType === "shield") {
-          const w = r * 0.9;
+        } else if (iconType === "grade") {
+          // Minimalist Star Icon for Grade
+          ctx.fillStyle = "#c5a85c"; // Muted Gold
           ctx.beginPath();
-          ctx.moveTo(cx, cy - w/2);
-          ctx.quadraticCurveTo(cx + w/2, cy - w/2, cx + w/2, cy);
-          ctx.quadraticCurveTo(cx + w/2, cy + w/3, cx, cy + w/2);
-          ctx.quadraticCurveTo(cx - w/2, cy + w/3, cx - w/2, cy);
-          ctx.quadraticCurveTo(cx - w/2, cy - w/2, cx, cy - w/2);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(cx - w/5, cy);
-          ctx.lineTo(cx - w/25, cy + w/5);
-          ctx.lineTo(cx + w/5, cy - w/5);
-          ctx.stroke();
+          const outerR = r * 0.65;
+          const innerR = r * 0.3;
+          for (let i = 0; i < 10; i++) {
+            const angle = (i * Math.PI) / 5 - Math.PI / 2;
+            const radius = i % 2 === 0 ? outerR : innerR;
+            const x = cx + Math.cos(angle) * radius;
+            const y = cy + Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fill();
         }
       };
 
@@ -599,7 +728,7 @@ export function Inventory() {
         getGridItem(1, 0, "vga", currentSpecs.vga === "VGA / Graphics" ? "" : currentSpecs.vga, "Graphics GPU", "vga"),
         getGridItem(1, 1, "ssd", currentSpecs.storage === "Storage" ? "" : currentSpecs.storage, "SSD 256GB", "storage"),
         getGridItem(2, 0, "screen", currentSpecs.screen === "Layar / Screen" ? "" : currentSpecs.screen, "14\" Display", "screen"),
-        getGridItem(2, 1, "shield", currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? currentSpecs.condition : "Grade A", "Grade A", "condition")
+        getGridItem(2, 1, "grade", currentSpecs.condition && currentSpecs.condition !== "Kondisi Fisik" ? currentSpecs.condition : "Grade A", "Grade A", "condition")
       ];
 
       // Draw Grid Items (Pure Black texts with no shadows)
@@ -699,30 +828,42 @@ export function Inventory() {
       const storeInstagram = localStorage.getItem("storeInstagram") || "hanlaptop";
       const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
 
-      // Instagram (Left side: Black Icon + Black Text)
-      const igSize = 30; // Larger icon
+      // ── Authentic Instagram Brand Gradient Vector Logo ──
+      const igSize = 30; // Match WhatsApp icon size
       const igIconX = pad + 6;
       const igIconY = footerTextY - igSize / 2;
+      ctx.save();
+      const igCx = igIconX + igSize / 2;
+      const igCy = igIconY + igSize / 2;
+      ctx.translate(igCx, igCy);
+      const igR = igSize / 2;
+      
+      ctx.fillStyle = "#000000"; // Solid Black Badge
+      ctx.beginPath();
+      ctx.roundRect(-igR, -igR, igSize, igSize, igSize * 0.28);
+      ctx.fill();
 
-      // IG rounded square outline
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.5;
+      // Crisp white camera outline inside
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = igSize * 0.08;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      const innerW = igSize * 0.62;
       ctx.beginPath();
-      ctx.roundRect(igIconX, igIconY, igSize, igSize, 7);
+      ctx.roundRect(-innerW / 2, -innerW / 2, innerW, innerW, innerW * 0.26);
       ctx.stroke();
 
-      // IG inner circle
+      // Lens circle
       ctx.beginPath();
-      ctx.arc(igIconX + igSize / 2, igIconY + igSize / 2, igSize * 0.27, 0, Math.PI * 2);
+      ctx.arc(0, 0, igSize * 0.16, 0, Math.PI * 2);
       ctx.stroke();
 
-      // IG dot (top-right)
-      ctx.fillStyle = "#000000";
+      // Flash dot
+      ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.arc(igIconX + igSize * 0.74, igIconY + igSize * 0.26, 2.5, 0, Math.PI * 2);
+      ctx.arc(igSize * 0.2, -igSize * 0.2, igSize * 0.05, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
       // Draw Instagram text (Black)
       ctx.fillStyle = "#000000";
@@ -742,31 +883,17 @@ export function Inventory() {
       const waCy = waIconY + waSize / 2;
       const waR = waSize / 2 - 1.5;
 
-      // ── Chat bubble circle outline with pointy tail at bottom-left ──
-      ctx.save();
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      // Large arc clockwise from 155° to 115° (gap = 50° at bottom-left for the tail)
-      ctx.arc(waCx, waCy, waR, 155 * Math.PI / 180, 115 * Math.PI / 180, false);
-      ctx.lineTo(waCx - waR * 1.2, waCy + waR * 1.2);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-
-      // ── Phone handset: single thick arc with round end-caps ──
-      // earpiece at 330° (upper-right), mouthpiece at 120° (lower-left)
-      // arc sweeps CCW 210° through upper-left — matches the WA logo exactly
+      // ── Authentic WhatsApp vector logo (Green Speech Bubble + White Handset) ──
       ctx.save();
       ctx.translate(waCx, waCy);
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = waR * 0.40;  // Very thick → fat rounded earpiece/mouthpiece from round caps
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.arc(0, 0, waR * 0.40, 330 * Math.PI / 180, 120 * Math.PI / 180, true); // CCW 210°
-      ctx.stroke();
+      ctx.scale(waSize / 24, waSize / 24);
+      ctx.translate(-12, -12);
+      const bubblePath = new Path2D("M 12 2 C 6.48 2 2 6.48 2 12 C 2 13.8 2.48 15.5 3.36 17 L 2 21 L 6.15 19.65 C 7.9 21.12 10.15 22 12.03 22 C 17.55 22 22 17.52 22 12 C 22 6.48 17.55 2 12 2 Z");
+      ctx.fillStyle = "#000000"; // Solid Black Badge
+      ctx.fill(bubblePath);
+      const phonePath = new Path2D("M 17.47 14.38 C 17.17 14.23 15.71 13.52 15.44 13.42 C 15.17 13.32 14.97 13.27 14.77 13.57 C 14.57 13.87 14 14.53 13.83 14.73 C 13.66 14.93 13.48 14.96 13.19 14.81 C 12.89 14.66 11.93 14.35 10.8 13.34 C 9.91 12.55 9.32 11.58 9.14 11.28 C 8.97 10.98 9.13 10.82 9.27 10.67 C 9.4 10.54 9.57 10.33 9.72 10.16 C 9.87 9.98 9.92 9.86 10.02 9.66 C 10.12 9.46 10.07 9.29 9.99 9.14 C 9.92 8.99 9.32 7.53 9.08 6.94 C 8.84 6.36 8.59 6.44 8.42 6.43 C 8.25 6.42 8.05 6.42 7.85 6.42 C 7.65 6.42 7.33 6.49 7.06 6.79 C 6.79 7.09 6.02 7.81 6.02 9.27 C 6.02 10.73 7.09 12.15 7.24 12.35 C 7.39 12.55 9.33 15.55 12.31 16.84 C 13.02 17.15 13.58 17.33 14.01 17.47 C 14.72 17.69 15.37 17.66 15.88 17.58 C 16.45 17.5 17.64 16.86 17.89 16.17 C 18.14 15.48 18.14 14.88 18.06 14.76 C 17.99 14.64 17.79 14.57 17.47 14.38 Z");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fill(phonePath);
       ctx.restore();
 
       // Draw WhatsApp text (Black)
@@ -1183,19 +1310,32 @@ export function Inventory() {
             <p className="text-muted-foreground mt-0.5 text-[9px] md:text-xs font-medium hidden sm:block">Kelola stok laptop dan sparepart Anda</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-emerald-500/10 hover:text-emerald-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={handleExportExcel} title="Ekspor ke Excel">
-              <FileSpreadsheet className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Excel</span>
-            </Button>
-            <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-blue-500/10 hover:text-blue-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={handlePrintInventory} title="Cetak Laporan">
-              <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Cetak</span>
-            </Button>
-            <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-amber-500/10 hover:text-amber-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => {
-              // Initialize batch items with quantityToPrint = 0
-              setBatchItems(items.map(item => ({ ...item, quantityToPrint: 0 })));
-              setIsBatchBarcodeOpen(true);
-            }} title="Cetak Label Barcode/QR Massal">
-              <Printer className="h-3.5 w-3.5 text-amber-500" /> <span className="hidden sm:inline">Label Batch</span>
-            </Button>
+            <div className="relative">
+              <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} title="Menu Cetak & Export">
+                <Printer className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" /> <span className="hidden sm:inline">Cetak / Export</span> <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              </Button>
+              
+              {isExportMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsExportMenuOpen(false)} />
+                  <div className="absolute top-full mt-1 left-0 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg shadow-black/10 z-50 py-1.5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-foreground hover:bg-emerald-500/10 hover:text-emerald-600 transition-colors" onClick={() => { handleExportExcel(); setIsExportMenuOpen(false); }}>
+                      <FileSpreadsheet className="h-4 w-4" /> Excel Laporan
+                    </button>
+                    <button className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-foreground hover:bg-blue-500/10 hover:text-blue-600 transition-colors" onClick={() => { handlePrintInventory(); setIsExportMenuOpen(false); }}>
+                      <Printer className="h-4 w-4" /> Cetak Laporan PDF
+                    </button>
+                    <button className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-foreground hover:bg-amber-500/10 hover:text-amber-600 transition-colors" onClick={() => { 
+                      setBatchItems(items.map(item => ({ ...item, quantityToPrint: 0 })));
+                      setIsBatchBarcodeOpen(true);
+                      setIsExportMenuOpen(false);
+                    }}>
+                      <Printer className="h-4 w-4 text-amber-500" /> Label Barcode Massal
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold hover:bg-rose-500/10 hover:text-rose-600 border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setIsMarkdownOpen(true)} title="Markdown Liquidator (Stok Mati)">
               <TrendingDown className="h-3.5 w-3.5 text-rose-500" /> <span className="hidden md:inline">Markdown</span>
             </Button>
@@ -1441,6 +1581,14 @@ export function Inventory() {
                         Hidden
                       </span>
                     )}
+                    {item.category === "Laptop Bekas" && classifyLaptop(item.itemName, item.specs || "", item.sellingPrice).map((rec) => (
+                      <span 
+                        key={rec.id} 
+                        className={`px-1 py-0.5 rounded text-[8px] font-bold border whitespace-nowrap ${rec.color}`}
+                      >
+                        {rec.name}
+                      </span>
+                    ))}
                     </div>
                   </div>
                 </TableCell>

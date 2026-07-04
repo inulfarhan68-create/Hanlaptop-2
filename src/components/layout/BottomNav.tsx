@@ -12,7 +12,7 @@ import {
 import { useUserRole } from "@/hooks/useUserRole"
 
 const navItems = [
-  { title: "Home", href: "/", icon: Home },
+  { title: "Home", href: "/admin", icon: Home },
   { title: "Statistik", href: "/dashboard", icon: BarChart3 },
   { title: "Transaksi", href: "/transactions", icon: ShoppingCart }, // Center button
   { title: "Inventori", href: "/inventory", icon: Package },
