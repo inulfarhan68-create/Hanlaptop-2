@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react"
-import { laptopConditions, laptopDefects } from "@/lib/laptopSpecsData"
+import { 
+  laptopConditions, 
+  laptopDefects,
+  laptopProcessors,
+  laptopVGAs,
+  laptopRAMs,
+  laptopStorages
+} from "@/lib/laptopSpecsData"
 import { LAPTOP_MODELS } from "@/data/laptop-models"
 import { Link, useNavigate } from "react-router-dom"
 import { 
@@ -55,6 +62,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ModernSelect } from "@/components/ui/modern-select"
+import { Autocomplete } from "@/components/ui/autocomplete"
 import { toast } from "sonner"
 
 // Price calculation engine constants and helpers for reactive pricing
@@ -63,6 +71,15 @@ const RAM_VALUES: Record<string, number> = {
   "8GB": 400000,
   "16GB": 800000,
   "32GB": 1600000
+};
+
+const getRamKey = (ramStr: string): string => {
+  const r = (ramStr || "").toUpperCase();
+  if (r.includes("32")) return "32GB";
+  if (r.includes("16")) return "16GB";
+  if (r.includes("8")) return "8GB";
+  if (r.includes("4")) return "4GB";
+  return "8GB"; // default fallback
 };
 
 // Laptop Model Suggestions per Brand
@@ -259,8 +276,8 @@ export function calculateAdjustedPrice(params: {
   const procCurr = PROC_VALUES[getProcessorFamily(params.current.processorFamily)] || 2000000;
   const procAdj = procCurr - procBase;
 
-  const ramBase = RAM_VALUES[params.baseline.ram] || 400000;
-  const ramCurr = RAM_VALUES[params.current.ram] || 400000;
+  const ramBase = RAM_VALUES[getRamKey(params.baseline.ram)] || 400000;
+  const ramCurr = RAM_VALUES[getRamKey(params.current.ram)] || 400000;
   const ramAdj = ramCurr - ramBase;
 
   const storeBase = getStorageVal(params.baseline.storage);
@@ -1862,15 +1879,15 @@ export function LandingPage() {
           {/* STEP 1: IDENTIFIKASI LAPTOP */}
           {/* ============================================================ */}
           {jualStep === 1 && (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-fade-in">
-              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs animate-fade-in relative z-20">
+              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4 rounded-t-2xl">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
                     <Cpu className="w-4 h-4" strokeWidth={2} />
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900">Langkah 1: Identifikasi Laptop</h2>
-                    <p className="text-[11px] text-slate-500 font-medium">Pilih merek, ketik model, dan biarkan AI mendeteksi spesifikasi.</p>
+                    <p className="text-[11px] text-slate-500 font-medium">Pilih merek, ketik model, dan sesuaikan spesifikasinya (bisa dibantu AI).</p>
                   </div>
                 </div>
               </div>
@@ -1926,78 +1943,61 @@ export function LandingPage() {
                   </div>
                 </div>
 
-                {/* AI Detected Specs */}
-                {jualSpecDetectedByAi && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
-                        Spesifikasi Terdeteksi AI
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-medium">Bisa diubah manual</span>
-                    </div>
+                {/* Specs Section - ALWAYS VISIBLE */}
+                <div className="space-y-4 pt-2 border-t border-slate-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                      Spesifikasi Detail Laptop
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Silakan isi manual / sesuaikan</span>
+                  </div>
 
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Prosesor (Model & Seri)</label>
+                    <Autocomplete 
+                      options={laptopProcessors}
+                      value={jualProcessor}
+                      onChange={setJualProcessor}
+                      placeholder="Ketik/Pilih Processor (contoh: Intel Core i5-11400H)"
+                      inputClassName="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Kartu Grafis (VGA)</label>
+                    <Autocomplete 
+                      options={laptopVGAs}
+                      value={jualVga}
+                      onChange={setJualVga}
+                      placeholder="Ketik/Pilih VGA (contoh: NVIDIA GeForce RTX 3050 Ti)"
+                      inputClassName="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Prosesor (Model & Seri)</label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: Intel Core i5-11400H"
-                        value={jualProcessor}
-                        onChange={(e) => setJualProcessor(e.target.value)}
-                        className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                      <label className="text-xs font-bold text-slate-700">Kapasitas RAM</label>
+                      <Autocomplete 
+                        options={laptopRAMs}
+                        value={jualRam}
+                        onChange={setJualRam}
+                        placeholder="Pilih/Ketik RAM (contoh: 8GB DDR4)"
+                        inputClassName="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800"
                       />
                     </div>
-
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Kartu Grafis (VGA)</label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: NVIDIA GeForce RTX 3050 Ti"
-                        value={jualVga}
-                        onChange={(e) => setJualVga(e.target.value)}
-                        className="w-full h-11 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
+                      <label className="text-xs font-bold text-slate-700">Penyimpanan</label>
+                      <Autocomplete 
+                        options={laptopStorages}
+                        value={jualStorage}
+                        onChange={setJualStorage}
+                        placeholder="Pilih/Ketik Penyimpanan (contoh: 512GB SSD)"
+                        inputClassName="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800"
                       />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">Kapasitas RAM</label>
-                        <ModernSelect 
-                          value={jualRam}
-                          onChange={setJualRam}
-                          options={[
-                            {value: "4GB", label: "4GB"},
-                            {value: "8GB", label: "8GB"},
-                            {value: "16GB", label: "16GB"},
-                            {value: "32GB", label: "32GB"}
-                          ]}
-                          className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">Penyimpanan</label>
-                        <ModernSelect 
-                          value={jualStorage}
-                          onChange={setJualStorage}
-                          options={[
-                            {value: "128GB SSD", label: "128GB SSD"},
-                            {value: "256GB SSD", label: "256GB SSD"},
-                            {value: "512GB SSD", label: "512GB SSD"},
-                            {value: "1TB SSD", label: "1TB SSD"},
-                            {value: "2TB SSD", label: "2TB SSD"},
-                            {value: "500GB HDD", label: "500GB HDD"},
-                            {value: "1TB HDD", label: "1TB HDD"},
-                            {value: "128GB SSD + 1TB HDD", label: "128GB SSD + 1TB HDD"},
-                            {value: "256GB SSD + 1TB HDD", label: "256GB SSD + 1TB HDD"},
-                            {value: "512GB SSD + 1TB HDD", label: "512GB SSD + 1TB HDD"},
-                            {value: "1TB SSD + 1TB HDD", label: "1TB SSD + 1TB HDD"}
-                          ]}
-                          className="w-full h-11 bg-slate-50 border-slate-200 rounded-lg text-xs text-slate-800 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-colors"
-                        />
-                      </div>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Footer Button */}
                 <div className="pt-2 flex justify-end">
@@ -2035,8 +2035,8 @@ export function LandingPage() {
           {/* STEP 2: PENGECEKAN KONDISI & KELENGKAPAN */}
           {/* ============================================================ */}
           {jualStep === 2 && (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-fade-in">
-              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs animate-fade-in relative z-20">
+              <div className="bg-slate-50 border-b border-slate-200 px-5 py-4 rounded-t-2xl">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
                     <ShieldCheck className="w-4 h-4" strokeWidth={2} />
