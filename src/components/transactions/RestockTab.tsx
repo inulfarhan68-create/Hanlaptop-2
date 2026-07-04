@@ -114,18 +114,12 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Formatted specifications string
-      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: Standard | OS: Windows 11 | Kondisi: Sangat Baik`
-
-      // Recommended prices
-      const recCost = aiData.lowestMarketPrice ? Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000 : 0
-      const recSell = aiData.lowestMarketPrice ? Math.round(aiData.lowestMarketPrice / 50000) * 50000 : 0
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: Windows 11 | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Kondisi: Sangat Baik`
 
       setNewItemName(`${aiData.brand} ${aiData.model}`)
       setNewItemSpecs(specString)
-      if (recCost > 0) setRestockBuyPrice(recCost.toLocaleString('id-ID'))
-      if (recSell > 0) setNewItemSellPrice(recSell.toLocaleString('id-ID'))
 
-      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+      toast.success("Spesifikasi AI berhasil diterapkan ke form!")
     } catch (err: any) {
       toast.error(err.message)
     } finally {

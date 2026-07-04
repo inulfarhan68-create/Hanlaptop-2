@@ -49,20 +49,14 @@ export function Procurement() {
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Format specs for notes
-      const specString = `Specs: Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'}`
+      const specString = `Specs: Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'}`
 
       setItemName(`${aiData.brand} ${aiData.model}`)
-      
-      // Auto-fill cost from lowestMarketPrice (propose 70% of market value as procurement cost)
-      if (aiData.lowestMarketPrice) {
-        const recCost = Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000
-        setEstimatedCost(recCost.toString())
-      }
       
       // Append specs to notes
       setNotes(prev => prev ? `${prev}\n${specString}` : specString)
 
-      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+      toast.success("Spesifikasi AI berhasil diterapkan ke form!")
     } catch (err: any) {
       toast.error(err.message)
     } finally {

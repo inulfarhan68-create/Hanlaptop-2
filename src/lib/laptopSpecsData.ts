@@ -382,3 +382,14 @@ export const laptopDefects = [
   "Wifi / Bluetooth Lemah",
   "Fan Bising / Panas Berlebih"
 ];
+
+export const laptopConnectivity = [
+  "Wi-Fi 6E + Bluetooth 5.3",
+  "Wi-Fi 6 + Bluetooth 5.2",
+  "Wi-Fi 6 + Bluetooth 5.1",
+  "Wi-Fi 6 + Bluetooth 5.0",
+  "Wi-Fi 5 + Bluetooth 5.0",
+  "Wi-Fi 5 + Bluetooth 4.2",
+  "Wi-Fi 6E + Bluetooth 5.2",
+  "Wi-Fi 7 + Bluetooth 5.4"
+];

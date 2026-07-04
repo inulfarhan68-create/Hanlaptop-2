@@ -279,25 +279,17 @@ export function Inventory() {
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Formatted specifications string
-      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: Standard | OS: Windows 11 | Kondisi: Sangat Baik`
-
-      // Recommended Procured (Cost) and Selling Price
-      const recCost = aiData.lowestMarketPrice ? Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000 : 0
-      const recSell = aiData.lowestMarketPrice ? Math.round(aiData.lowestMarketPrice / 50000) * 50000 : 0
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: Windows 11 | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Kondisi: Sangat Baik`
 
       if (target === "add") {
         setAddName(`${aiData.brand} ${aiData.model}`)
         setAddSpecs(specString)
-        if (recCost > 0) setAddCost(recCost.toString())
-        if (recSell > 0) setAddSell(recSell.toString())
       } else {
         setEditName(`${aiData.brand} ${aiData.model}`)
         setEditSpecs(specString)
-        if (recCost > 0) setEditCost(recCost.toString())
-        if (recSell > 0) setEditSell(recSell.toString())
       }
 
-      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+      toast.success("Spesifikasi AI berhasil diterapkan ke form!")
     } catch (err: any) {
       toast.error(err.message)
     } finally {

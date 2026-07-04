@@ -9,7 +9,8 @@ import {
   laptopKeyboards,
   laptopOS,
   laptopConditions,
-  laptopDefects
+  laptopDefects,
+  laptopConnectivity
 } from "@/lib/laptopSpecsData";
 
 interface LaptopSpecFormProps {
@@ -27,7 +28,8 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
     keyboard: "",
     os: "",
     condition: "",
-    defect: ""
+    defect: "",
+    connectivity: ""
   });
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
         condStr = `Minus (${specs.defect})`;
     }
     const condPart = condStr ? ` | Kondisi: ${condStr}` : "";
-    const localSerialized = `Processor: ${specs.processor} | VGA: ${specs.vga} | RAM: ${specs.ram} | Storage: ${specs.storage} | Layar: ${specs.screen} | Keyboard: ${specs.keyboard} | OS: ${specs.os}${condPart}`;
+    const localSerialized = `Processor: ${specs.processor} | VGA: ${specs.vga} | RAM: ${specs.ram} | Storage: ${specs.storage} | Layar: ${specs.screen} | Keyboard: ${specs.keyboard} | OS: ${specs.os} | Konektivitas: ${specs.connectivity}${condPart}`;
 
     if (value === "") {
       setSpecs({
@@ -48,7 +50,8 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
         keyboard: "",
         os: "",
         condition: "",
-        defect: ""
+        defect: "",
+        connectivity: ""
       });
       return;
     }
@@ -64,7 +67,8 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
         keyboard: "",
         os: "",
         condition: "",
-        defect: ""
+        defect: "",
+        connectivity: ""
       };
       
       parts.forEach(part => {
@@ -75,6 +79,7 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
         else if (part.startsWith("Layar: ")) parsed.screen = part.replace("Layar: ", "");
         else if (part.startsWith("Keyboard: ")) parsed.keyboard = part.replace("Keyboard: ", "");
         else if (part.startsWith("OS: ")) parsed.os = part.replace("OS: ", "");
+        else if (part.startsWith("Konektivitas: ")) parsed.connectivity = part.replace("Konektivitas: ", "");
         else if (part.startsWith("Kondisi: ")) {
           const condStr = part.replace("Kondisi: ", "");
           if (condStr.startsWith("Minus (") && condStr.endsWith(")")) {
@@ -100,7 +105,7 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
         condStr = `Minus (${newSpecs.defect})`;
     }
     const condPart = condStr ? ` | Kondisi: ${condStr}` : "";
-    const serialized = `Processor: ${newSpecs.processor} | VGA: ${newSpecs.vga} | RAM: ${newSpecs.ram} | Storage: ${newSpecs.storage} | Layar: ${newSpecs.screen} | Keyboard: ${newSpecs.keyboard} | OS: ${newSpecs.os}${condPart}`;
+    const serialized = `Processor: ${newSpecs.processor} | VGA: ${newSpecs.vga} | RAM: ${newSpecs.ram} | Storage: ${newSpecs.storage} | Layar: ${newSpecs.screen} | Keyboard: ${newSpecs.keyboard} | OS: ${newSpecs.os} | Konektivitas: ${newSpecs.connectivity}${condPart}`;
     onChange(serialized);
   };
 
@@ -199,6 +204,18 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
             value={specs.condition}
             onChange={(v) => updateSpec("condition", v)}
             placeholder="Pilih Kondisi..."
+            inputClassName="h-8 text-[11px]"
+          />
+        </div>
+
+        {/* Konektivitas */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium leading-none">Konektivitas</label>
+          <Autocomplete 
+            options={laptopConnectivity}
+            value={specs.connectivity}
+            onChange={(v) => updateSpec("connectivity", v)}
+            placeholder="Wi-Fi, Bluetooth..."
             inputClassName="h-8 text-[11px]"
           />
         </div>
