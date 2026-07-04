@@ -1739,8 +1739,8 @@ export function LandingPage() {
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Kata Mereka Tentang Kami
               </h2>
-              <p className="text-slate-600 max-w-xl mx-auto text-sm font-normal">
-                Dokumentasi nyata serah terima unit transaksi dari ribuan konsumen setia yang puas dengan layanan Han Laptop.
+              <p className="text-slate-650 max-w-2xl mx-auto text-sm font-normal">
+                Senyum kebahagiaan dari ribuan pelanggan yang telah membuktikan langsung layanan jual-beli dan servis laptop terbaik, transparan, dan bergaransi di toko kami.
               </p>
             </div>
 
@@ -1748,14 +1748,14 @@ export function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto px-1">
               {[
                 {
-                  title: "Dokumentasi Transaksi & Serah Terima (Batch A)",
+                  title: "Senyum Kepuasan Sahabat Han Laptop",
                   img: "/customer-testimonials-1.jpg",
-                  count: "50+ Pelanggan"
+                  count: "100+ Transaksi"
                 },
                 {
-                  title: "Dokumentasi Transaksi & Serah Terima (Batch B)",
+                  title: "Bukti Nyata Ribuan Transaksi Sukses & Aman",
                   img: "/customer-testimonials-2.jpg",
-                  count: "50+ Pelanggan"
+                  count: "Layanan Terpercaya"
                 }
               ].map((collage, idx) => (
                 <div 
@@ -1763,19 +1763,19 @@ export function LandingPage() {
                   className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all group flex flex-col cursor-zoom-in"
                   onClick={() => setLightboxImage(collage.img)}
                 >
-                  <div className="relative h-60 sm:h-72 w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                  <div className="relative w-full overflow-hidden bg-slate-50 flex items-center justify-center border-b border-slate-100">
                     <img 
                       src={collage.img} 
                       alt={collage.title} 
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                      className="w-full h-auto object-contain group-hover:scale-101 transition-transform duration-500"
                     />
                     <div className="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase border border-white/10">
                       {collage.count}
                     </div>
                   </div>
-                  <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                  <div className="p-3 bg-slate-50 flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-800">{collage.title}</span>
-                    <span className="text-[10px] text-slate-400 font-semibold group-hover:text-slate-900 transition-colors">Zoom Foto 🔍</span>
+                    <span className="text-[10px] text-slate-450 font-semibold group-hover:text-slate-900 transition-colors">Zoom Foto 🔍</span>
                   </div>
                 </div>
               ))}
