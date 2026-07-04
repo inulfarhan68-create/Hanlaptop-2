@@ -1677,14 +1677,14 @@ export function LandingPage() {
                 {
                   title: "Servis Engsel Patah (Asus)",
                   img: "/before-after-engsel-1.jpg",
-                  badge: "Hinge Repair A",
+                  badge: "Hinge Repair",
                   desc: "Konstruksi dudukan engsel casing yang hancur disolder dan diperbaiki kembali agar kokoh dibuka-tutup."
                 },
                 {
-                  title: "Servis Engsel & Body (Acer)",
-                  img: "/before-after-engsel-2.jpg",
-                  badge: "Hinge Repair B",
-                  desc: "Perbaikan total dudukan baut engsel Acer yang jebol hingga casing tidak presisi, kembali rapat dan kuat."
+                  title: "Perawatan & Cleaning Laptop",
+                  img: "/before-after-cleaning.jpg",
+                  badge: "Cleaning & Repasta",
+                  desc: "Suhu panas dan lemot diatasi dengan cleaning fan total dari debu serta penggantian thermal paste premium baru."
                 }
               ].map((item, idx) => (
                 <div 
@@ -1700,13 +1700,13 @@ export function LandingPage() {
                       alt={item.title} 
                       className="w-full h-auto object-contain group-hover:scale-101 transition-transform duration-500"
                     />
-                    <div className="absolute top-2 left-2 bg-slate-950/85 backdrop-blur-xs text-white text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-white/10">
-                      {item.badge}
-                    </div>
                   </div>
-                  <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-slate-900 text-xs">{item.title}</h3>
+                  <div className="p-3 flex-1 flex flex-col justify-between space-y-2.5">
+                    <div className="space-y-1.5">
+                      <span className="inline-block text-[8px] font-extrabold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        {item.badge}
+                      </span>
+                      <h3 className="font-bold text-slate-900 text-xs mt-0.5">{item.title}</h3>
                       <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{item.desc}</p>
                     </div>
                     <button
@@ -1720,7 +1720,7 @@ export function LandingPage() {
                           window.scrollTo({ top: 500, behavior: "smooth" });
                         }
                       }}
-                      className="w-full h-8 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer mt-1"
+                      className="w-full h-8 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       Konsultasi Servis Ini →
                     </button>
