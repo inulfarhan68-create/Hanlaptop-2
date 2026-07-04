@@ -230,12 +230,33 @@ export function PublicCatalog() {
 
   const handleOpenLightbox = (item: any) => {
     setLightboxItem(item)
-    setSearchParams({ item: item.id })
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set("item", item.id)
+      return next
+    })
   }
 
   const handleCloseLightbox = () => {
     setLightboxItem(null)
-    setSearchParams({})
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete("item")
+      return next
+    })
+  }
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (val.trim()) {
+        next.set("q", val)
+      } else {
+        next.delete("q")
+      }
+      return next
+    }, { replace: true })
   }
 
   const handleCopyLink = (itemId: string) => {
@@ -426,7 +447,7 @@ export function PublicCatalog() {
                   placeholder="Cari laptop..." 
                   className="pl-9 pr-3 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-805 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 rounded-xl h-10 focus:bg-white dark:focus:bg-slate-900 focus:border-slate-350 dark:focus:border-slate-700 focus:ring-0 transition-all text-xs w-full"
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => handleSearchChange(e.target.value)}
                 />
               </div>
             </div>
