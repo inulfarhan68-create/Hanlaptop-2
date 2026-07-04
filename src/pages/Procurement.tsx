@@ -49,7 +49,7 @@ export function Procurement() {
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Format specs for notes
-      const specString = `Specs: Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Port: ${aiData.ports || '2x USB-C, 1x USB-A, HDMI, Audio Jack'}`
+      const specString = `Specs: Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: ${aiData.screen || '14" FHD (1920x1080)'} | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: ${aiData.os || 'Windows 11 Home'} | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Port: ${aiData.ports || '2x USB-C, 1x USB-A, HDMI, Audio Jack'}`
 
       setItemName(`${aiData.brand} ${aiData.model}`)
       

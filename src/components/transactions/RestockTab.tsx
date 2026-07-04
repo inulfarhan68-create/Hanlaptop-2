@@ -114,7 +114,7 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Formatted specifications string
-      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: Windows 11 | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Port: ${aiData.ports || '2x USB-C, 1x USB-A, HDMI, Audio Jack'} | Kondisi: Sangat Baik`
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: ${aiData.screen || '14" FHD (1920x1080)'} | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: ${aiData.os || 'Windows 11 Home'} | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Port: ${aiData.ports || '2x USB-C, 1x USB-A, HDMI, Audio Jack'} | Kondisi: Sangat Baik`
 
       setNewItemName(`${aiData.brand} ${aiData.model}`)
       setNewItemSpecs(specString)

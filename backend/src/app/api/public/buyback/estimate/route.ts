@@ -49,6 +49,8 @@ Return your response strictly as a JSON object with the following structure:
   "storage": "Typical default storage, one of: 128GB SSD, 256GB SSD, 512GB SSD, 1TB SSD, 2TB SSD, 1TB HDD, or double storage like 256GB SSD + 1TB HDD",
   "vga": "Full VGA card name including brand and series (e.g., NVIDIA GeForce RTX 3050 Ti, AMD Radeon RX 6600M, Intel Iris Xe Graphics, Integrated)",
   "keyboard": "Default keyboard type, MUST be one of: Non-Backlight, Single Backlight, RGB Backlight",
+  "screen": "Screen size and resolution. MUST be one of: 11.6\" HD (1366x768), 13.3\" FHD (1920x1080), 13.3\" WQXGA (2560x1600), 14\" HD (1366x768), 14\" FHD (1920x1080), 14\" WUXGA (1920x1200), 14\" 2.2K / 2.5K, 14\" 2.8K OLED, 15.6\" HD (1366x768), 15.6\" FHD (1920x1080), 15.6\" FHD 144Hz, 15.6\" QHD 165Hz, 16\" WUXGA (1920x1200), 16\" WQXGA (2560x1600), 16\" 3.2K OLED, 17.3\" FHD, 17.3\" QHD",
+  "os": "Operating system. MUST be one of: Windows 11 Home, Windows 11 Pro, Windows 10 Home, Windows 10 Pro, macOS",
   "connectivity": "Typical wireless connectivity info, e.g. Wi-Fi 6 + Bluetooth 5.1 or Wi-Fi 5 + Bluetooth 4.2",
   "ports": "Available physical ports list, e.g. 2x USB-C, 1x USB-A, HDMI, Audio Jack",
   "lowestMarketPrice": 7500000
