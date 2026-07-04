@@ -1689,16 +1689,16 @@ export function LandingPage() {
               ].map((item, idx) => (
                 <div 
                   key={idx}
-                  className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group"
+                  className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group h-full"
                 >
                   <div 
-                    className="relative overflow-hidden cursor-zoom-in bg-slate-50 border-b border-slate-100" 
+                    className="relative overflow-hidden cursor-zoom-in h-52 sm:h-60 w-full bg-slate-50 flex items-center justify-center border-b border-slate-100" 
                     onClick={() => setLightboxImage(item.img)}
                   >
                     <img 
                       src={item.img} 
                       alt={item.title} 
-                      className="w-full h-auto object-contain group-hover:scale-101 transition-transform duration-500"
+                      className="max-w-full max-h-full object-contain group-hover:scale-101 transition-transform duration-500"
                     />
                   </div>
                   <div className="p-3 flex-1 flex flex-col justify-between space-y-2.5">
