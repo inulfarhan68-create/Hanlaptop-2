@@ -1692,22 +1692,22 @@ export function LandingPage() {
                   className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group"
                 >
                   <div 
-                    className="relative overflow-hidden cursor-zoom-in aspect-video bg-slate-100 border-b border-slate-100" 
+                    className="relative overflow-hidden cursor-zoom-in bg-slate-50 border-b border-slate-100" 
                     onClick={() => setLightboxImage(item.img)}
                   >
                     <img 
                       src={item.img} 
                       alt={item.title} 
-                      className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                      className="w-full h-auto object-contain group-hover:scale-101 transition-transform duration-500"
                     />
-                    <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-white/10">
+                    <div className="absolute top-2 left-2 bg-slate-950/85 backdrop-blur-xs text-white text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-white/10">
                       {item.badge}
                     </div>
                   </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                     <div className="space-y-1">
-                      <h3 className="font-bold text-slate-900 text-xs sm:text-sm">{item.title}</h3>
-                      <p className="text-[11px] text-slate-500 font-normal leading-relaxed">{item.desc}</p>
+                      <h3 className="font-bold text-slate-900 text-xs">{item.title}</h3>
+                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{item.desc}</p>
                     </div>
                     <button
                       type="button"
@@ -1720,7 +1720,7 @@ export function LandingPage() {
                           window.scrollTo({ top: 500, behavior: "smooth" });
                         }
                       }}
-                      className="w-full h-9 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                      className="w-full h-8 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer mt-1"
                     >
                       Konsultasi Servis Ini →
                     </button>
