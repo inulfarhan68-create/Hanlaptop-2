@@ -279,7 +279,7 @@ export function Inventory() {
       if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
 
       // Formatted specifications string
-      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: Windows 11 | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Kondisi: Sangat Baik`
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: ${aiData.keyboard || 'Non-Backlight'} | OS: Windows 11 | Konektivitas: ${aiData.connectivity || 'Wi-Fi 6 + Bluetooth 5.1'} | Port: ${aiData.ports || '2x USB-C, 1x USB-A, HDMI, Audio Jack'} | Kondisi: Sangat Baik`
 
       if (target === "add") {
         setAddName(`${aiData.brand} ${aiData.model}`)

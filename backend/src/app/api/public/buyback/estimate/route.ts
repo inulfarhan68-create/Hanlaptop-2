@@ -50,6 +50,7 @@ Return your response strictly as a JSON object with the following structure:
   "vga": "Full VGA card name including brand and series (e.g., NVIDIA GeForce RTX 3050 Ti, AMD Radeon RX 6600M, Intel Iris Xe Graphics, Integrated)",
   "keyboard": "Default keyboard type, MUST be one of: Non-Backlight, Single Backlight, RGB Backlight",
   "connectivity": "Typical wireless connectivity info, e.g. Wi-Fi 6 + Bluetooth 5.1 or Wi-Fi 5 + Bluetooth 4.2",
+  "ports": "Available physical ports list, e.g. 2x USB-C, 1x USB-A, HDMI, Audio Jack",
   "lowestMarketPrice": 7500000
 }
 

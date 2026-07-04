@@ -391,3 +391,12 @@ export const laptopConnectivity = [
   "Wi-Fi 6E + Bluetooth 5.2",
   "Wi-Fi 7 + Bluetooth 5.4"
 ];
+
+export const laptopPorts = [
+  "2x USB-C, 1x USB-A, HDMI, Audio Jack",
+  "1x USB-C (Thunderbolt), 2x USB-A, HDMI, Audio Jack, SD Card",
+  "2x Thunderbolt 4, 1x USB-A, HDMI, Audio Jack",
+  "1x USB-C, 2x USB-A, HDMI, Audio Jack",
+  "2x USB-C, 2x USB-A, HDMI, Audio Jack",
+  "3x Thunderbolt 4, HDMI, SDXC Card, Audio Jack, MagSafe 3"
+];
