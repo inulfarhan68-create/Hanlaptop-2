@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PlusCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Trash2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { ModernSelect } from "@/components/ui/modern-select"
@@ -89,6 +89,49 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
   const [dpAmount, setDpAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [submitting, setSubmitting] = useState(false)
+
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const handleAiSpecsCheck = async () => {
+    if (!newItemName.trim()) {
+      toast.error("Masukkan nama / model laptop terlebih dahulu.")
+      return
+    }
+    setAiLoading(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback/estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: newItemName,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Gagal mendapatkan spesifikasi AI")
+
+      const aiData = data.data
+      if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
+
+      // Formatted specifications string
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: Standard | OS: Windows 11 | Kondisi: Sangat Baik`
+
+      // Recommended prices
+      const recCost = aiData.lowestMarketPrice ? Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000 : 0
+      const recSell = aiData.lowestMarketPrice ? Math.round(aiData.lowestMarketPrice / 50000) * 50000 : 0
+
+      setNewItemName(`${aiData.brand} ${aiData.model}`)
+      setNewItemSpecs(specString)
+      if (recCost > 0) setRestockBuyPrice(recCost.toLocaleString('id-ID'))
+      if (recSell > 0) setNewItemSellPrice(recSell.toLocaleString('id-ID'))
+
+      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -299,22 +342,37 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
               <div className="space-y-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Nama Barang Baru</label>
-                    <Autocomplete
-                      placeholder="e.g. Acer Aspire 3"
-                      value={newItemName}
-                      onChange={setNewItemName}
-                      options={newItemCategory === "Laptop Bekas" ? mergedLaptopModels : mergedInventoryItems}
-                      inputClassName="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">Kategori</label>
                     <ModernSelect
                       value={newItemCategory}
                       onChange={setNewItemCategory}
                       options={inventoryCategories.map(cat => ({ value: cat, label: cat }))}
                       placeholder="Pilih Kategori..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">Nama Barang Baru</label>
+                      {newItemCategory === "Laptop Bekas" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAiSpecsCheck}
+                          disabled={aiLoading || !newItemName.trim()}
+                          className="h-6 text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 gap-0.5 animate-pulse"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                          {aiLoading ? "Analisis..." : "Cek Spek AI ✨"}
+                        </Button>
+                      )}
+                    </div>
+                    <Autocomplete
+                      placeholder="e.g. Acer Aspire 3"
+                      value={newItemName}
+                      onChange={setNewItemName}
+                      options={newItemCategory === "Laptop Bekas" ? mergedLaptopModels : mergedInventoryItems}
+                      inputClassName="h-8 text-xs"
                     />
                   </div>
                 </div>

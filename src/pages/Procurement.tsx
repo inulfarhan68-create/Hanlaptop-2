@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, CheckCircle, XCircle, PackageCheck, AlertCircle, ShoppingBag, ArrowRight, ShieldCheck, User } from "lucide-react"
+import { Search, Plus, CheckCircle, XCircle, PackageCheck, AlertCircle, ShoppingBag, ArrowRight, ShieldCheck, User, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
@@ -24,6 +24,51 @@ export function Procurement() {
   const [estimatedCost, setEstimatedCost] = useState("")
   const [supplierName, setSupplierName] = useState("")
   const [notes, setNotes] = useState("")
+
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const handleAiSpecsCheck = async () => {
+    if (!itemName.trim()) {
+      toast.error("Masukkan nama barang / model laptop terlebih dahulu.")
+      return
+    }
+    setAiLoading(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback/estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: itemName,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Gagal mendapatkan spesifikasi AI")
+
+      const aiData = data.data
+      if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
+
+      // Format specs for notes
+      const specString = `Specs: Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'}`
+
+      setItemName(`${aiData.brand} ${aiData.model}`)
+      
+      // Auto-fill cost from lowestMarketPrice (propose 70% of market value as procurement cost)
+      if (aiData.lowestMarketPrice) {
+        const recCost = Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000
+        setEstimatedCost(recCost.toString())
+      }
+      
+      // Append specs to notes
+      setNotes(prev => prev ? `${prev}\n${specString}` : specString)
+
+      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(val || 0)
@@ -289,7 +334,20 @@ export function Procurement() {
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nama Barang <span className="text-destructive">*</span></label>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">Nama Barang <span className="text-destructive">*</span></label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAiSpecsCheck}
+                    disabled={aiLoading || !itemName.trim()}
+                    className="h-7 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {aiLoading ? "Menganalisis..." : "Cek Spek AI ✨"}
+                  </Button>
+                </div>
                 <Input 
                   value={itemName} 
                   onChange={(e) => setItemName(e.target.value)} 
