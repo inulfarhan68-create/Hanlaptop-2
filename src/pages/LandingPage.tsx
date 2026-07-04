@@ -1749,12 +1749,12 @@ export function LandingPage() {
               {[
                 {
                   title: "Senyum Kepuasan Sahabat Han Laptop",
-                  img: "/customer-testimonials-1.jpg",
+                  img: "/customer-testimonials-1.png",
                   count: "100+ Transaksi"
                 },
                 {
                   title: "Bukti Nyata Ribuan Transaksi Sukses & Aman",
-                  img: "/customer-testimonials-2.jpg",
+                  img: "/customer-testimonials-2.png",
                   count: "Layanan Terpercaya"
                 }
               ].map((collage, idx) => (
