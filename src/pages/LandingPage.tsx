@@ -1401,7 +1401,7 @@ export function LandingPage() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-center lg:text-left">Mengapa Memilih Han Laptop?</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Pilar 1 */}
-              <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
+              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
                     <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1410,13 +1410,13 @@ export function LandingPage() {
                     Beli Laptop Second Tanpa Rasa Khawatir
                   </h4>
                 </div>
-                <p className="text-slate-700 text-[11px] sm:text-xs leading-relaxed font-semibold text-justify">
+                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
                   Setiap laptop telah melalui pengecekan, pengujian, dan perawatan sebelum dijual. Pilih laptop yang sesuai kebutuhan dengan garansi (resmi atau toko) untuk memberikan rasa tenang saat membeli.
                 </p>
               </div>
               
               {/* Pilar 2 */}
-              <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
+              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1425,13 +1425,13 @@ export function LandingPage() {
                     Jual Laptop dengan Harga Terbaik
                   </h4>
                 </div>
-                <p className="text-slate-700 text-[11px] sm:text-xs leading-relaxed font-semibold text-justify">
-                  Tidak perlu bingung menentukan harga atau repot mencari pembeli. Kami membantu memberikan penawaran yang kompetitif sesuai kondisi laptop dengan proses yang cepat and transparan.
+                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
+                  Tidak perlu bingung menentukan harga atau repot mencari pembeli. Kami membantu memberikan penawaran yang kompetitif sesuai kondisi laptop dengan proses yang cepat dan transparan.
                 </p>
               </div>
 
               {/* Pilar 3 */}
-              <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
+              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
                     <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1440,13 +1440,13 @@ export function LandingPage() {
                     Servis dengan Proses yang Jelas
                   </h4>
                 </div>
-                <p className="text-slate-700 text-[11px] sm:text-xs leading-relaxed font-semibold text-justify">
+                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
                   Laptop bermasalah? Teknisi kami akan memeriksa, menjelaskan kerusakan, dan memberikan estimasi biaya serta waktu pengerjaan sebelum proses dimulai.
                 </p>
               </div>
 
               {/* Pilar 4 */}
-              <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
+              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
                     <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1455,7 +1455,7 @@ export function LandingPage() {
                     Upgrade Tanpa Ribet
                   </h4>
                 </div>
-                <p className="text-slate-700 text-[11px] sm:text-xs leading-relaxed font-semibold text-justify">
+                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
                   Ingin ganti laptop? Tukar tambah di Han Laptop membantu Anda menghemat waktu dan tenaga tanpa harus repot mencari pembeli sendiri.
                 </p>
               </div>
@@ -1587,63 +1587,57 @@ export function LandingPage() {
             </div>
           </section>
 
-          {/* HIGH-TRUST BLOCK: STATS & KEUNGGULAN */}
-          <section className="mt-10 sm:mt-12 bg-slate-900 text-white rounded-3xl overflow-hidden shadow-2xl">
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* Kolom Kiri: Statistik (Dark) */}
-              <div className="p-8 md:p-12 flex flex-col justify-center space-y-6 sm:space-y-8">
+          {/* HIGH-TRUST BLOCK: STATS & KEUNGGULAN (MODERN MINIMALIST) */}
+          <section className="mt-10 sm:mt-12 bg-slate-50 border border-slate-200/80 rounded-3xl overflow-hidden shadow-xs">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 p-8 sm:p-10">
+              {/* Kolom Kiri: Statistik (Minimalis) */}
+              <div className="md:col-span-5 flex flex-col justify-center">
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
+                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
                     Solusi Cerdas Hemat Uang & Tenaga
                   </h2>
-                  <p className="mt-4 text-slate-400 text-sm md:text-base leading-relaxed font-normal">
-                    Han Laptop hadir sebagai solusi satu atap tepercaya. Dapatkan laptop berspesifikasi tinggi dengan jaminan kualitas prima tanpa perlu membuang waktu dan energi ekstra.
+                  <p className="mt-3 text-slate-500 text-xs sm:text-sm leading-relaxed font-normal">
+                    Han Laptop hadir sebagai solusi satu atap tepercaya. Dapatkan laptop berkualitas tinggi dengan jaminan mutu terbaik tanpa membuang banyak waktu dan energi.
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                <div className="pt-6 mt-6 border-t border-slate-200 grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-3xl md:text-4xl font-black tracking-tighter text-white mb-1">1,500+</div>
-                    <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Laptop Terjual</div>
+                    <div className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 mb-0.5">1,500+</div>
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Laptop Terjual</div>
                   </div>
                   <div>
-                    <div className="text-3xl md:text-4xl font-black tracking-tighter text-white mb-1">4.9★</div>
-                    <div className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Rating Pelanggan</div>
+                    <div className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 mb-0.5">4.9★</div>
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Rating Kepuasan</div>
                   </div>
                 </div>
               </div>
 
-              {/* Kolom Kanan: 3 Keuntungan Spesifik (Light) */}
-              <div className="bg-white text-slate-900 p-8 md:p-12 flex flex-col justify-center">
-                <div className="space-y-5 sm:space-y-6">
+              {/* Kolom Kanan: 3 Keuntungan Spesifik (Clean & Simple) */}
+              <div className="md:col-span-7 flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-200 pt-6 md:pt-0 md:pl-8">
+                <div className="space-y-6">
                   
-                  <div className="flex items-start gap-4">
-                    <div className="bg-slate-100 p-3 rounded-full shrink-0">
-                      <ShieldCheck className="w-6 h-6 text-slate-900 stroke-[1.5]" />
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Uji QC 40+ Poin & Deep Cleaning</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Setiap unit dijamin lolos inspeksi fisik & fungsi menyeluruh, lengkap dengan perawatan pembersihan fan serta repasting thermal paste baru sebelum dipajang.</p>
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Inspeksi Fisik & Pembersihan Total</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Setiap unit melewati uji kelayakan menyeluruh serta pembersihan fan dan penggantian thermal paste baru agar performa optimal.</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-4">
-                    <div className="bg-slate-100 p-3 rounded-full shrink-0">
-                      <Award className="w-6 h-6 text-slate-900 stroke-[1.5]" />
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <Award className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Garansi Lengkap & Transparan</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Kami berikan jaminan penuh: 1 bulan garansi hardware, 6 bulan garansi software gratis, ditambah perlindungan sisa garansi resmi pabrikan yang masih aktif.</p>
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Garansi Lengkap & Transparan</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Kami berikan jaminan penuh: 1 bulan garansi hardware, 6 bulan garansi software gratis, ditambah perlindungan sisa garansi resmi pabrikan yang aktif.</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-4">
-                    <div className="bg-slate-100 p-3 rounded-full shrink-0">
-                      <Activity className="w-6 h-6 text-slate-900 stroke-[1.5]" />
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <Activity className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Servis & Upgrade Transparan</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">Layanan upgrade spesifikasi dan servis laptop dilakukan secara terbuka, mudah dipantau, dengan estimasi harga yang sangat kompetitif di pasaran.</p>
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Servis & Upgrade Transparan</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Layanan perbaikan dan peningkatan spesifikasi dilakukan secara terbuka, mudah dipantau, dengan harga yang kompetitif.</p>
                     </div>
                   </div>
 
@@ -1773,9 +1767,8 @@ export function LandingPage() {
                       {collage.count}
                     </div>
                   </div>
-                  <div className="p-3 bg-slate-50 flex items-center justify-between">
+                  <div className="p-3 bg-slate-50 text-center">
                     <span className="text-xs font-bold text-slate-800">{collage.title}</span>
-                    <span className="text-[10px] text-slate-450 font-semibold group-hover:text-slate-900 transition-colors">Zoom Foto 🔍</span>
                   </div>
                 </div>
               ))}
