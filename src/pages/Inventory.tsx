@@ -136,7 +136,7 @@ function classifyLaptop(itemName: string, specsStr: string, price: number) {
   if (isBasicCpu || price < 7000000 || ramGb <= 8 || (!hasDedicatedGpu && price < 9000000)) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar",
+      name: "Student & Office",
       color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }
@@ -144,7 +144,7 @@ function classifyLaptop(itemName: string, specsStr: string, price: number) {
   if (classifications.length === 0) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar",
+      name: "Student & Office",
       color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }

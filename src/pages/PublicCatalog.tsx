@@ -151,7 +151,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
   if (isBasicCpu || price < 7000000 || ramGb <= 8 || (!hasDedicatedGpu && price < 9000000)) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar & Kerja",
+      name: "Student & Office",
       color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
@@ -160,7 +160,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
   if (classifications.length === 0) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar & Kerja",
+      name: "Student & Office",
       color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
@@ -538,7 +538,7 @@ export function PublicCatalog() {
                 },
                 { 
                   id: "student_office", 
-                  name: "Pelajar & Kerja Harian", 
+                  name: "Student & Office", 
                   desc: "Untuk tugas, dokumen (Office), zoom, & browsing harian.",
                   icon: FileText, 
                   colorClass: "hover:border-emerald-350 dark:hover:border-emerald-800/60",
