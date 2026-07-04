@@ -308,17 +308,24 @@ export function PublicCatalog() {
   // Filter & Sort Logic
   const filteredItems = data.items
     .filter((item: any) => {
-      const matchesSearch = item.itemName.toLowerCase().includes(search.toLowerCase()) || 
-                            item.category.toLowerCase().includes(search.toLowerCase()) ||
-                            (item.barcode && item.barcode.toLowerCase().includes(search.toLowerCase()))
+      const query = search.toLowerCase()
+      const classifications = classifyLaptop(item.itemName, item.specs || "", item.sellingPrice)
+
+      const matchesSearch = item.itemName.toLowerCase().includes(query) || 
+                            item.category.toLowerCase().includes(query) ||
+                            (item.barcode && item.barcode.toLowerCase().includes(query)) ||
+                            (item.specs && item.specs.toLowerCase().includes(query)) ||
+                            classifications.some(c => 
+                              c.name.toLowerCase().includes(query) || 
+                              c.id.toLowerCase().includes(query)
+                            )
       
       const matchesCategory = selectedCategory === "Semua" || item.category === selectedCategory
       
       let matchesRecommendation = true
       if (selectedRecommendation !== "all") {
         if (item.category === "Laptop Bekas") {
-          const specs = classifyLaptop(item.itemName, item.specs || "", item.sellingPrice)
-          matchesRecommendation = specs.some(c => c.id === selectedRecommendation)
+          matchesRecommendation = classifications.some(c => c.id === selectedRecommendation)
         } else {
           matchesRecommendation = false
         }
