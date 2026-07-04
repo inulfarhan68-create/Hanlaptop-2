@@ -287,6 +287,23 @@ export const aiPricingLogs = sqliteTable("ai_pricing_logs", {
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 
+export const approvalRequests = sqliteTable("approval_requests", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
+    requesterId: text("requester_id").notNull().references(() => user.id, { onDelete: 'cascade' }),
+    actionType: text("action_type").notNull(), // e.g., 'VOID_TRANSACTION', 'HIGH_DISCOUNT'
+    referenceId: text("reference_id"), // ID of transaction, inventory, etc.
+    payload: text("payload").notNull(), // JSON string representing the exact change proposed
+    status: text("status").notNull().default("PENDING"), // 'PENDING', 'APPROVED', 'REJECTED'
+    approverId: text("approver_id").references(() => user.id, { onDelete: 'set null' }),
+    approvalNotes: text("approval_notes"),
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+    storeIdIdx: index("approval_requests_store_id_idx").on(table.storeId),
+    statusIdx: index("approval_requests_status_idx").on(table.status),
+}));
+
 export const serviceOrders = sqliteTable("service_orders", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
@@ -979,6 +996,21 @@ export const buybackLeadsRelations = relations(buybackLeads, ({ one }) => ({
     store: one(stores, {
         fields: [buybackLeads.storeId],
         references: [stores.id],
+    }),
+}));
+
+export const approvalRequestsRelations = relations(approvalRequests, ({ one }) => ({
+    store: one(stores, {
+        fields: [approvalRequests.storeId],
+        references: [stores.id],
+    }),
+    requester: one(user, {
+        fields: [approvalRequests.requesterId],
+        references: [user.id],
+    }),
+    approver: one(user, {
+        fields: [approvalRequests.approverId],
+        references: [user.id],
     }),
 }));
 

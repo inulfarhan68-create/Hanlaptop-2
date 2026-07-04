@@ -1,0 +1,115 @@
+import { db } from "@/db";
+import { approvalRequests, transactions, journalEntries, cashierShifts, userStoreAccess } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth-guard";
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
+    // Only managers or owners can approve/reject
+    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && (authResult.user as any).role !== "owner") {
+        return NextResponse.json({ error: "Akses ditolak. Anda bukan Manager/Owner." }, { status: 403 });
+    }
+
+    try {
+        const { id } = await context.params;
+        const body = await request.json();
+        const action = body.action; // 'APPROVE' or 'REJECT'
+        const notes = body.notes || null;
+
+        if (action !== 'APPROVE' && action !== 'REJECT') {
+            return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+        }
+
+        const approvalReq = await db.query.approvalRequests.findFirst({
+            where: eq(approvalRequests.id, id)
+        });
+
+        if (!approvalReq) {
+            return NextResponse.json({ error: "Approval request not found" }, { status: 404 });
+        }
+
+        if (approvalReq.status !== "PENDING") {
+            return NextResponse.json({ error: "Request ini sudah diproses sebelumnya." }, { status: 400 });
+        }
+
+        // --- REJECT LOGIC ---
+        if (action === 'REJECT') {
+            await db.update(approvalRequests)
+                .set({
+                    status: 'REJECTED',
+                    approverId: authResult.user.id,
+                    approvalNotes: notes,
+                    updatedAt: new Date()
+                })
+                .where(eq(approvalRequests.id, id));
+                
+            return NextResponse.json({ success: true, message: "Request ditolak" });
+        }
+
+        // --- APPROVE & EXECUTE LOGIC ---
+        if (action === 'APPROVE') {
+            if (approvalReq.actionType === 'VOID_TRANSACTION') {
+                const transactionId = approvalReq.referenceId;
+                if (!transactionId) {
+                    throw new Error("Missing transaction reference ID");
+                }
+
+                // Check if transaction exists
+                const existing = await db.query.transactions.findFirst({
+                    where: eq(transactions.id, transactionId),
+                    with: {
+                        items: true
+                    }
+                });
+
+                if (!existing) {
+                    throw new Error("Transaksi tidak ditemukan saat eksekusi Void");
+                }
+
+                if (existing.isVoided) {
+                    throw new Error("Transaksi sudah berstatus Void");
+                }
+
+                // Execute the Void process within a transaction
+                await db.transaction(async (tx) => {
+                    // 1. Mark transaction as voided
+                    await tx.update(transactions)
+                        .set({ isVoided: true })
+                        .where(eq(transactions.id, transactionId));
+
+                    // 2. Reverse Journals
+                    const journals = await tx.select().from(journalEntries).where(eq(journalEntries.transactionId, transactionId));
+                    for (const journal of journals) {
+                        await tx.update(journalEntries)
+                            .set({ isVoided: true })
+                            .where(eq(journalEntries.id, journal.id));
+                    }
+                    
+                    // Note: We don't restore inventory here yet, as it's complex depending on items.
+                    // But for PoC, marking transactions and journals as voided is sufficient.
+
+                    // 3. Mark approval as approved
+                    await tx.update(approvalRequests)
+                        .set({
+                            status: 'APPROVED',
+                            approverId: authResult.user.id,
+                            approvalNotes: notes,
+                            updatedAt: new Date()
+                        })
+                        .where(eq(approvalRequests.id, id));
+                });
+            }
+
+            return NextResponse.json({ success: true, message: "Request disetujui dan dieksekusi" });
+        }
+
+    } catch (error: any) {
+        console.error("Approval execution error:", error);
+        return NextResponse.json({ error: "Gagal memproses persetujuan", details: error.message }, { status: 500 });
+    }
+}

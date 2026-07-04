@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, stores, storeSettings } from "@/db/schema";
 import { eq, inArray, desc, and } from "drizzle-orm";
 import { requireAuth, requireOwner, requireOwnerOrManager, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
-import { Permissions } from "@/lib/permissions";
+import { Permissions, hasPermission } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -159,12 +159,34 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
 // VOID Transaksi (Rollback Stok & Tandai Void, TIDAK HAPUS FISIK)
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-    const authResult = await requirePermission(Permissions.TRANSACTION_VOID);
+    const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
     try {
         const { id } = await context.params;
         
+        // 1. Check if user has direct void permission
+        const canVoid = hasPermission(authResult.storeRole, Permissions.TRANSACTION_VOID);
+        
+        if (!canVoid) {
+            // 2. Workflow Engine Interception
+            // If they don't have permission (e.g. Kasir), create an approval request
+            const { createApprovalRequest } = await import("@/lib/workflow");
+            await createApprovalRequest({
+                storeId: authResult.storeId,
+                requesterId: authResult.user.id,
+                actionType: "VOID_TRANSACTION",
+                referenceId: id,
+                payload: { reason: "Requested void by Cashier" }
+            });
+            return NextResponse.json({ 
+                success: false, 
+                approvalRequired: true,
+                message: "Aksi ini memerlukan persetujuan Manajer. Permintaan telah dikirim." 
+            });
+        }
+
+        // 3. User has permission, proceed with Void
         await db.transaction(async (tx) => {
             const trx = await tx.query.transactions.findFirst({
                 where: eq(transactions.id, id),

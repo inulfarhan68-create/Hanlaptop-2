@@ -5,6 +5,7 @@ import { PeriodSelector, getInitialPeriod } from "@/components/PeriodSelector"
 import { OverviewTab } from "@/components/dashboard/OverviewTab"
 import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab"
 import { DashboardSkeleton } from "@/components/ui/skeleton"
+import { ApprovalBoard } from "@/components/ApprovalBoard"
 import useSWR from "swr"
 
 const formatCurrency = (value: number) => {
@@ -82,6 +83,9 @@ export function Dashboard() {
 
       {/* Scrollable Body Content */}
       <div className="flex-1 overflow-x-hidden space-y-2">
+        <div className="px-2">
+          <ApprovalBoard isOwner={isOwner} />
+        </div>
         {activeTab === "overview" && (
           <OverviewTab 
             data={data} 
