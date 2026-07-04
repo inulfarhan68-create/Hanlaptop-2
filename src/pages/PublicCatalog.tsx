@@ -113,7 +113,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
     classifications.push({
       id: "gaming_heavy",
       name: "Gaming & Render",
-      color: "bg-rose-50 dark:bg-rose-950/20 border-rose-250 dark:border-rose-900/30 text-rose-600 dark:text-rose-450"
+      color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
   
@@ -135,7 +135,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
     classifications.push({
       id: "creative_dev",
       name: "Desain & Coding",
-      color: "bg-purple-50 dark:bg-purple-950/20 border-purple-250 dark:border-purple-900/30 text-purple-600 dark:text-purple-450"
+      color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
   
@@ -152,7 +152,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
     classifications.push({
       id: "student_office",
       name: "Pelajar & Kerja",
-      color: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+      color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
   
@@ -161,7 +161,7 @@ export function classifyLaptop(itemName: string, specsStr: string, price: number
     classifications.push({
       id: "student_office",
       name: "Pelajar & Kerja",
-      color: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+      color: "bg-slate-900 text-slate-100 border-slate-950 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-850"
     });
   }
   

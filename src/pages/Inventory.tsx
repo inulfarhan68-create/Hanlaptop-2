@@ -97,8 +97,8 @@ function classifyLaptop(itemName: string, specsStr: string, price: number) {
   if (hasDedicatedGpu || (isHighPerformanceCpu && ramGb >= 16)) {
     classifications.push({
       id: "gaming_heavy",
-      name: "Gaming & Render",
-      color: "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-455 dark:border-rose-900/30"
+      name: "Gaming",
+      color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }
   
@@ -119,8 +119,8 @@ function classifyLaptop(itemName: string, specsStr: string, price: number) {
   if ((isCapableCpu && ramGb >= 8) || isAppleMac || price >= 6000000) {
     classifications.push({
       id: "creative_dev",
-      name: "Desain & Coding",
-      color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/20 dark:text-purple-455 dark:border-purple-900/30"
+      name: "Desain",
+      color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }
   
@@ -136,16 +136,16 @@ function classifyLaptop(itemName: string, specsStr: string, price: number) {
   if (isBasicCpu || price < 7000000 || ramGb <= 8 || (!hasDedicatedGpu && price < 9000000)) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar & Kerja",
-      color: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
+      name: "Pelajar",
+      color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }
   
   if (classifications.length === 0) {
     classifications.push({
       id: "student_office",
-      name: "Pelajar & Kerja",
-      color: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
+      name: "Pelajar",
+      color: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-450 dark:border-slate-800"
     });
   }
   
