@@ -30,17 +30,30 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
     defect: ""
   });
 
-  // Track if we've initialized from value
-  const [initialized, setInitialized] = useState(false);
-
   useEffect(() => {
-    if (!value && !initialized) {
-        setInitialized(true);
-        return;
+    let condStr = specs.condition;
+    if (specs.condition === "Minus" && specs.defect) {
+        condStr = `Minus (${specs.defect})`;
     }
-    
-    // Only parse if we have a string that looks like our format
-    if (value && !initialized && (value.includes("Processor: ") || value.includes(" | "))) {
+    const condPart = condStr ? ` | Kondisi: ${condStr}` : "";
+    const localSerialized = `Processor: ${specs.processor} | VGA: ${specs.vga} | RAM: ${specs.ram} | Storage: ${specs.storage} | Layar: ${specs.screen} | Keyboard: ${specs.keyboard} | OS: ${specs.os}${condPart}`;
+
+    if (value === "") {
+      setSpecs({
+        processor: "",
+        vga: "",
+        ram: "",
+        storage: "",
+        screen: "",
+        keyboard: "",
+        os: "",
+        condition: "",
+        defect: ""
+      });
+      return;
+    }
+
+    if (value && value !== localSerialized && (value.includes("Processor: ") || value.includes(" | "))) {
       const parts = value.split(" | ");
       const parsed = {
         processor: "",
@@ -74,22 +87,8 @@ export function LaptopSpecForm({ value, onChange }: LaptopSpecFormProps) {
       });
       
       setSpecs(parsed);
-      setInitialized(true);
-    } else if (value === "" && initialized) {
-        // Handle reset
-        setSpecs({
-            processor: "",
-            vga: "",
-            ram: "",
-            storage: "",
-            screen: "",
-            keyboard: "",
-            os: "",
-            condition: "",
-            defect: ""
-        });
     }
-  }, [value, initialized]);
+  }, [value]);
 
   const updateSpec = (key: keyof typeof specs, val: string) => {
     const newSpecs = { ...specs, [key]: val };

@@ -254,6 +254,56 @@ export function Inventory() {
   const [addBarcode, setAddBarcode] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCameraScannerFor, setShowCameraScannerFor] = useState<"add" | "edit" | null>(null)
+  
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const handleAiSpecsCheck = async (name: string, target: "add" | "edit") => {
+    if (!name.trim()) {
+      toast.error("Masukkan nama / model laptop terlebih dahulu.")
+      return
+    }
+    setAiLoading(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback/estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: name,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Gagal mendapatkan spesifikasi AI")
+
+      const aiData = data.data
+      if (!aiData) throw new Error("AI tidak mengembalikan hasil analisis wajar.")
+
+      // Formatted specifications string
+      const specString = `Processor: ${aiData.processor || ''} | VGA: ${aiData.vga || 'Integrated'} | RAM: ${aiData.ram || '8GB'} | Storage: ${aiData.storage || '256GB SSD'} | Layar: 14" FHD (1920x1080) | Keyboard: Standard | OS: Windows 11 | Kondisi: Sangat Baik`
+
+      // Recommended Procured (Cost) and Selling Price
+      const recCost = aiData.lowestMarketPrice ? Math.round((aiData.lowestMarketPrice * 0.7) / 50000) * 50000 : 0
+      const recSell = aiData.lowestMarketPrice ? Math.round(aiData.lowestMarketPrice / 50000) * 50000 : 0
+
+      if (target === "add") {
+        setAddName(`${aiData.brand} ${aiData.model}`)
+        setAddSpecs(specString)
+        if (recCost > 0) setAddCost(recCost.toString())
+        if (recSell > 0) setAddSell(recSell.toString())
+      } else {
+        setEditName(`${aiData.brand} ${aiData.model}`)
+        setEditSpecs(specString)
+        if (recCost > 0) setEditCost(recCost.toString())
+        if (recSell > 0) setEditSell(recSell.toString())
+      }
+
+      toast.success("Spesifikasi & estimasi harga AI berhasil diterapkan ke form!")
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   // ERP Modal State
   const [isERPOpen, setIsERPOpen] = useState(false)
@@ -1702,7 +1752,22 @@ export function Inventory() {
             <h3 className="text-lg font-bold mb-4">Tambah Barang Baru</h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nama Barang</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">Nama Barang</label>
+                  {addCategory === "Laptop Bekas" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAiSpecsCheck(addName, "add")}
+                      disabled={aiLoading || !addName.trim()}
+                      className="h-7 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 gap-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {aiLoading ? "Menganalisis..." : "Cek Spek AI ✨"}
+                    </Button>
+                  )}
+                </div>
                 <Autocomplete 
                   value={addName} 
                   onChange={setAddName} 
@@ -1774,7 +1839,22 @@ export function Inventory() {
             <h3 className="text-lg font-bold mb-4">Edit Barang</h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nama Barang</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">Nama Barang</label>
+                  {editCategory === "Laptop Bekas" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAiSpecsCheck(editName, "edit")}
+                      disabled={aiLoading || !editName.trim()}
+                      className="h-7 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 gap-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {aiLoading ? "Menganalisis..." : "Cek Spek AI ✨"}
+                    </Button>
+                  )}
+                </div>
                 <Autocomplete 
                   value={editName} 
                   onChange={setEditName} 
