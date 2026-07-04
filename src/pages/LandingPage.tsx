@@ -353,7 +353,7 @@ export function LandingPage() {
   const navigate = useNavigate()
   const [activeSection, _setActiveSection] = useState<string>("hero")
   const [activeHeroTab, setActiveHeroTab] = useState<"cari" | "jual" | "tukar" | "servis">("cari")
-  const [sliderPos, setSliderPos] = useState(50)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
   const setActiveSection = (section: string) => {
     if (section !== activeSection) {
@@ -1652,72 +1652,81 @@ export function LandingPage() {
             </div>
           </section>
 
-          {/* VISUAL BUKTI: BEFORE-AFTER SLIDER */}
-          <section className="mt-10 sm:mt-12 space-y-5 sm:space-y-6">
+          {/* VISUAL BUKTI: BEFORE-AFTER GALLERY */}
+          <section className="mt-12 sm:mt-16 space-y-6 sm:space-y-8">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight" >
-                Bukti Nyata, Bukan Sekadar Janji.
+              <span className="bg-slate-100 text-slate-800 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-200">
+                Hasil Nyata Servis Kami
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Galeri Hasil Kerja Teknisi Han Laptop
               </h2>
               <p className="text-slate-600 max-w-xl mx-auto text-sm font-normal">
-                Geser garis di bawah untuk melihat perbedaan kondisi laptop sebelum dan sesudah ditangani oleh teknisi ahli Han Laptop.
+                Lihat bukti nyata pengerjaan perbaikan berbagai tingkat kerusakan oleh teknisi profesional kami. Klik foto untuk melihat lebih dekat.
               </p>
             </div>
 
-            <div className="max-w-4xl mx-auto">
-              <div className="relative w-full h-[300px] sm:h-[450px] overflow-hidden rounded-3xl bg-slate-200 shadow-xl border border-slate-200">
-                
-                {/* AFTER IMAGE (Background / Kanan) */}
-                <div className="absolute inset-0 w-full h-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-slate-200 to-slate-100"></div>
-                  <Laptop className="w-48 h-48 text-emerald-500/20 absolute -right-10 -bottom-10" />
-                  <div className="z-10 text-center">
-                    <span className="bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-full text-xs uppercase tracking-widest shadow-md">
-                      Sesudah Diservis ✨
-                    </span>
-                    <p className="mt-4 font-bold text-slate-900 text-lg">Mulus, Bersih & Normal 100%</p>
-                  </div>
-                </div>
-                
-                {/* BEFORE IMAGE (Foreground / Kiri, dikontrol dengan clip-path) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {[
+                {
+                  title: "Servis Layar LCD Pecah",
+                  img: "/before-after-lcd.jpg",
+                  badge: "LCD Replacement",
+                  desc: "Layar pecah bergaris parah di Asus Zenbook diganti baru dengan layar berkualitas original, warna cerah presisi."
+                },
+                {
+                  title: "Servis Engsel Patah (Asus)",
+                  img: "/before-after-engsel-1.jpg",
+                  badge: "Hinge Repair A",
+                  desc: "Konstruksi dudukan engsel casing yang hancur disolder dan diperbaiki kembali agar kokoh dibuka-tutup."
+                },
+                {
+                  title: "Servis Engsel & Body (Acer)",
+                  img: "/before-after-engsel-2.jpg",
+                  badge: "Hinge Repair B",
+                  desc: "Perbaikan total dudukan baut engsel Acer yang jebol hingga casing tidak presisi, kembali rapat dan kuat."
+                }
+              ].map((item, idx) => (
                 <div 
-                  className="absolute inset-0 w-full h-full bg-slate-900 flex items-center justify-center overflow-hidden transition-all duration-75" 
-                  style={{ clipPath: `polygon(0 0, ${sliderPos}% 0, ${sliderPos}% 100%, 0 100%)` }}
+                  key={idx}
+                  className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group"
                 >
-                  <Laptop className="w-48 h-48 text-white/5 absolute -left-10 -bottom-10" />
-                  <div className="z-10 text-center">
-                    <span className="bg-rose-500 text-white font-bold px-4 py-1.5 rounded-full text-xs uppercase tracking-widest shadow-md">
-                      Sebelum Diservis ⚠️
-                    </span>
-                    <p className="mt-4 font-bold text-white text-lg">Kotor, Rusak & Mati Total</p>
-                  </div>
-                </div>
-
-                {/* SLIDER INPUT (Invisible overlay untuk interaksi) */}
-                <input 
-                  type="range" 
-                  min="0" max="100" 
-                  value={sliderPos}
-                  onChange={(e) => setSliderPos(Number(e.target.value))}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
-                />
-                
-                {/* SLIDER HANDLE VISUAL */}
-                <div 
-                  className="absolute top-0 bottom-0 w-1 bg-white pointer-events-none z-10 transition-all duration-75" 
-                  style={{ left: `${sliderPos}%` }}
-                >
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-[0_0_15px_rgba(0,0,0,0.3)] flex items-center justify-center border-4 border-slate-900">
-                    <div className="flex gap-1">
-                      <div className="w-0.5 h-3 bg-slate-300 rounded-full"></div>
-                      <div className="w-0.5 h-3 bg-slate-300 rounded-full"></div>
+                  <div 
+                    className="relative overflow-hidden cursor-zoom-in aspect-video bg-slate-100 border-b border-slate-100" 
+                    onClick={() => setLightboxImage(item.img)}
+                  >
+                    <img 
+                      src={item.img} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-white/10">
+                      {item.badge}
                     </div>
                   </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900 text-xs sm:text-sm">{item.title}</h3>
+                      <p className="text-[11px] text-slate-500 font-normal leading-relaxed">{item.desc}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveHeroTab("servis");
+                        const target = document.getElementById("servis-form-section") || document.querySelector("form[onSubmit*=handleServisDiagnosis]");
+                        if (target) {
+                          target.scrollIntoView({ behavior: "smooth" });
+                        } else {
+                          window.scrollTo({ top: 500, behavior: "smooth" });
+                        }
+                      }}
+                      className="w-full h-9 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                    >
+                      Konsultasi Servis Ini →
+                    </button>
+                  </div>
                 </div>
-
-              </div>
-              <p className="text-center text-[10px] text-slate-400 mt-4 font-semibold uppercase tracking-widest">
-                *Ilustrasi interaktif. Foto asli akan segera ditambahkan oleh tim teknisi.
-              </p>
+              ))}
             </div>
           </section>
 
