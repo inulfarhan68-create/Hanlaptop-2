@@ -151,11 +151,12 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             details: JSON.stringify({ itemName: current?.itemName ?? "unknown" }),
         });
 
-        // Hapus item dari database
-        await db.delete(inventory).where(eq(inventory.id, id));
+        // Soft delete item dari database
+        await db.update(inventory)
+            .set({ deletedAt: new Date() })
+            .where(eq(inventory.id, id));
 
-        // ── Blob cleanup: hapus foto dari Vercel Blob Storage ──
-        await deleteBlobIfExists(current?.imageUrl);
+        // ── Blob cleanup dihilangkan untuk soft delete (foto tetap disimpan) ──
 
         return NextResponse.json({ success: true });
     } catch (error) {

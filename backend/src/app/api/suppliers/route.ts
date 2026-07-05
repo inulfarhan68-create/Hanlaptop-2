@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { suppliers, activityLogs, transactions } from '@/db/schema';
 import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
 import { supplierSchema } from '@/lib/validators';
-import { eq, desc, like, or, sql, and } from 'drizzle-orm';
+import { eq, desc, like, or, sql, and, isNull } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +15,17 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
 
     try {
-        let conditions = [];
+        let conditions = [isNull(suppliers.deletedAt)];
         if (authResult.storeId !== "all") {
             conditions.push(eq(suppliers.storeId, authResult.storeId));
         }
 
         if (search) {
-            conditions.push(or(
+            const searchCondition = or(
                 like(suppliers.name, `%${search}%`),
                 like(suppliers.phone, `%${search}%`)
-            ));
+            );
+            if (searchCondition) conditions.push(searchCondition);
         }
 
         // Fetch suppliers with calculated transaction stats

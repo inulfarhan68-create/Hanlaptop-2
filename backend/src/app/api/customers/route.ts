@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { customers, transactions, activityLogs } from '@/db/schema';
 import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
 import { customerSchema } from '@/lib/validators';
-import { eq, desc, like, or, sql, and } from 'drizzle-orm';
+import { eq, desc, like, or, sql, and, isNull } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +15,17 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
 
     try {
-        let conditions = [];
+        let conditions = [isNull(customers.deletedAt)];
         if (authResult.storeId !== "all") {
             conditions.push(eq(customers.storeId, authResult.storeId));
         }
 
         if (search) {
-            conditions.push(or(
+            const searchCondition = or(
                 like(customers.name, `%${search}%`),
                 like(customers.phone, `%${search}%`)
-            ));
+            );
+            if (searchCondition) conditions.push(searchCondition);
         }
 
         // Fetch customers with their stats computed

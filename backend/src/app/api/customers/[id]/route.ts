@@ -66,7 +66,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     try {
         const { id } = await context.params;
 
-        const [deletedCustomer] = await db.delete(customers)
+        const [deletedCustomer] = await db.update(customers)
+            .set({ deletedAt: new Date() })
             .where(eq(customers.id, id))
             .returning();
 

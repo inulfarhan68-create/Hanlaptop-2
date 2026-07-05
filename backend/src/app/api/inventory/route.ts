@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
-import { eq, ilike, or, and, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql, isNull } from "drizzle-orm";
 import { requireAuth, requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { inventorySchema } from "@/lib/validators";
@@ -17,19 +17,18 @@ export async function GET(request: Request) {
 
     try {
         // Filter by storeId unless the owner wants to see 'all'
-        const conditions = [];
+        const conditions = [isNull(inventory.deletedAt)];
         if (authResult.storeId !== "all") {
             conditions.push(eq(inventory.storeId, authResult.storeId));
         }
 
         if (search) {
-            conditions.push(
-                or(
-                    ilike(inventory.itemName, `%${search}%`),
-                    ilike(inventory.category, `%${search}%`),
-                    ilike(inventory.barcode, `%${search}%`)
-                )
+            const searchCondition = or(
+                ilike(inventory.itemName, `%${search}%`),
+                ilike(inventory.category, `%${search}%`),
+                ilike(inventory.barcode, `%${search}%`)
             );
+            if (searchCondition) conditions.push(searchCondition);
         }
 
         const items = await db.select({
