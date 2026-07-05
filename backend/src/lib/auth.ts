@@ -22,6 +22,18 @@ if (!serverBaseURL) {
         : "https://hanlaptop.vercel.app/api/auth";
 }
 
+const authSecret = process.env.BETTER_AUTH_SECRET;
+if (!authSecret && process.env.NODE_ENV === 'production') {
+    const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+    const isVercel = !!process.env.VERCEL;
+    
+    if (isBuildPhase || !isVercel) {
+        console.warn("⚠️  [WARNING] BETTER_AUTH_SECRET environment variable is missing. This is allowed during build phase or local production mode, but will cause a crash in Vercel production runtime.");
+    } else {
+        throw new Error("FATAL: BETTER_AUTH_SECRET environment variable is required in production runtime.");
+    }
+}
+
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "sqlite",
@@ -32,7 +44,7 @@ export const auth = betterAuth({
             verification: schema.verification
         }
     }),
-    secret: process.env.BETTER_AUTH_SECRET || "SUPER_SECRET_KEY_HANLAPTOP_2026",
+    secret: authSecret || "dev-only-secret-not-for-production",
     baseURL: serverBaseURL,
     emailAndPassword: {
         enabled: true,

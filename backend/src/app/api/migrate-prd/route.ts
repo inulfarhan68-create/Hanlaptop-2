@@ -6,6 +6,14 @@ import { createClient } from "@libsql/client";
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+    // ── Security: Block in production ──
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+        return NextResponse.json(
+            { error: "Endpoint migrasi dinonaktifkan di production. Gunakan CI/CD pipeline." },
+            { status: 403 }
+        );
+    }
+
     const authResult = await requireOwnerOnly();
     if (authResult instanceof NextResponse) return authResult;
 

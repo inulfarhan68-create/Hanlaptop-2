@@ -90,10 +90,33 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
                             .where(eq(journalEntries.id, journal.id));
                     }
                     
-                    // Note: We don't restore inventory here yet, as it's complex depending on items.
-                    // But for PoC, marking transactions and journals as voided is sufficient.
+                    // 3. Revert Digital Passports
+                    const items = existing.items;
+                    for (const item of items) {
+                        if (item.serialNumbers) {
+                            let sns: string[] = [];
+                            try { sns = JSON.parse(item.serialNumbers); } catch (e) {}
+                            
+                            const { transitionDeviceStatus } = await import('@/lib/digital-passport');
+                            for (const sn of sns) {
+                                try {
+                                    await transitionDeviceStatus(
+                                        authResult.storeId,
+                                        sn,
+                                        'READY_FOR_SALE',
+                                        authResult.user.id,
+                                        transactionId,
+                                        `Void Transaction ${transactionId}`,
+                                        tx
+                                    );
+                                } catch(e) {
+                                    console.error(`Void: failed to revert passport for SN ${sn}`);
+                                }
+                            }
+                        }
+                    }
 
-                    // 3. Mark approval as approved
+                    // 4. Mark approval as approved
                     await tx.update(approvalRequests)
                         .set({
                             status: 'APPROVED',

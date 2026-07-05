@@ -5,17 +5,25 @@ import App from './App.tsx'
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register'
 
-// Global fetch override to inject store ID and credentials into all requests automatically
+// Scoped fetch interceptor — ONLY injects auth headers for our own API endpoints.
+// Third-party requests (CDN, analytics, etc.) pass through untouched.
 const originalFetch = window.fetch;
+const API_BASE = import.meta.env.VITE_API_URL || '';
 window.fetch = async (input, init = {}) => {
-  const storeId = localStorage.getItem('selectedStoreId') || 'all';
-  const newInit = { ...init };
-  newInit.credentials = 'include';
-  newInit.headers = {
-    ...newInit.headers,
-    'x-store-id': storeId
-  };
-  return originalFetch(input, newInit);
+  const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+  const isOwnApi = url.startsWith('/api/') || url.startsWith('/api') || (API_BASE && url.startsWith(API_BASE));
+
+  if (isOwnApi) {
+    const storeId = localStorage.getItem('selectedStoreId') || 'all';
+    const newInit = { ...init };
+    newInit.credentials = 'include';
+    newInit.headers = {
+      ...newInit.headers,
+      'x-store-id': storeId
+    };
+    return originalFetch(input, newInit);
+  }
+  return originalFetch(input, init);
 };
 
 // Register PWA service worker with auto-update triggers

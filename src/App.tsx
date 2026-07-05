@@ -1,10 +1,12 @@
 import { lazy, Suspense } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/ThemeProvider"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Layout } from "@/components/layout/Layout"
 import { PageLoading } from "@/components/PageLoading"
 import { Toaster } from "sonner"
 import { SWRConfig } from "swr"
+import { swrFetcher } from "@/lib/api"
 
 // Lazy load pages to optimize bundle size
 const Login = lazy(() => import("@/pages/Login").then(m => ({ default: m.Login })))
@@ -21,7 +23,7 @@ const Customers = lazy(() => import("@/pages/Customers").then(m => ({ default: m
 const Suppliers = lazy(() => import("@/pages/Suppliers").then(m => ({ default: m.Suppliers })))
 const Technicians = lazy(() => import("@/pages/Technicians").then(m => ({ default: m.Technicians })))
 const Services = lazy(() => import("@/pages/Services").then(m => ({ default: m.Services })))
-const WarrantyCheck = lazy(() => import("@/pages/WarrantyCheck").then(m => ({ default: m.WarrantyCheck })))
+
 const StockOpname = lazy(() => import("@/pages/StockOpname").then(m => ({ default: m.StockOpname })))
 const StockTransfer = lazy(() => import("@/pages/StockTransfer").then(m => ({ default: m.StockTransfer })))
 const NotFound = lazy(() => import("@/pages/NotFound").then(m => ({ default: m.NotFound })))
@@ -32,28 +34,15 @@ const CrmManagement = lazy(() => import("@/pages/CrmManagement").then(m => ({ de
 const Reconciliation = lazy(() => import("@/pages/Reconciliation").then(m => ({ default: m.Reconciliation })))
 const PublicCatalog = lazy(() => import("@/pages/PublicCatalog").then(m => ({ default: m.PublicCatalog })))
 const LandingPage = lazy(() => import("@/pages/LandingPage").then(m => ({ default: m.LandingPage })))
+const DigitalPassport = lazy(() => import("@/pages/DigitalPassport").then(m => ({ default: m.DigitalPassport })))
 
 function App() {
   return (
+    <ErrorBoundary>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <SWRConfig 
         value={{ 
-          fetcher: async (url: string) => {
-            const res = await fetch(url, {
-              credentials: 'include',
-              headers: {
-                'x-store-id': localStorage.getItem('selectedStoreId') || 'all'
-              }
-            });
-            if (!res.ok) {
-              const errorBody = await res.json().catch(() => ({ error: res.statusText }));
-              const error = new Error(errorBody.error || `HTTP ${res.status}`);
-              (error as any).status = res.status;
-              (error as any).info = errorBody;
-              throw error;
-            }
-            return res.json();
-          },
+          fetcher: swrFetcher,
           revalidateOnFocus: false, // MATIKAN auto-refresh saat pindah tab (Hemat Turso Reads)
           revalidateOnReconnect: true,
           dedupingInterval: 5000,
@@ -79,6 +68,7 @@ function App() {
                 <Route path="/admin" element={<Home />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/inventory" element={<Inventory />} />
+                <Route path="/passports" element={<DigitalPassport />} />
                 <Route path="/transactions" element={<Transactions />} />
                 <Route path="/piutang" element={<Piutang />} />
                 <Route path="/hutang" element={<Hutang />} />
@@ -86,7 +76,7 @@ function App() {
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/technicians" element={<Technicians />} />
                 <Route path="/services" element={<Services />} />
-                <Route path="/warranty" element={<WarrantyCheck />} />
+
                 <Route path="/opname" element={<StockOpname />} />
                 <Route path="/transfer" element={<StockTransfer />} />
                 <Route path="/reports" element={<Reports />} />
@@ -103,6 +93,7 @@ function App() {
       </SWRConfig>
       <Toaster position="top-center" richColors theme="system" className="mt-4 md:mt-4" />
     </ThemeProvider>
+    </ErrorBoundary>
   )
 }
 

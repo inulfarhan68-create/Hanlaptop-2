@@ -57,4 +57,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          // Heavy vendor libraries split into separate cacheable chunks
+          if (id.includes('node_modules/xlsx')) return 'vendor-xlsx';
+          if (id.includes('node_modules/recharts')) return 'vendor-charts';
+          if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/qrcode') || id.includes('node_modules/html5-qrcode')) return 'vendor-pdf-qr';
+          if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+          if (id.includes('node_modules/@radix-ui')) return 'vendor-radix';
+        },
+      },
+    },
+  },
 })

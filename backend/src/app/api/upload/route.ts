@@ -19,11 +19,50 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        // ── Security: File Size Limit (5MB) ──
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({ error: "Ukuran file terlalu besar. Maksimal 5MB." }, { status: 400 });
+        }
+
+        // ── Security: MIME Type Whitelist ──
+        const ALLOWED_MIME_TYPES = [
+            "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"
+        ];
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            return NextResponse.json({ error: `Tipe file '${file.type}' tidak diizinkan. Hanya gambar (JPEG, PNG, WebP, GIF, SVG).` }, { status: 400 });
+        }
+
+        // ── Security: Extension Whitelist ──
         const filename = file.name || "upload.png";
-        
-        // Generate a clean secure random filename
-        const ext = path.extname(filename) || ".png";
+        const ext = path.extname(filename).toLowerCase();
+        const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"];
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+            return NextResponse.json({ error: `Ekstensi file '${ext}' tidak diizinkan.` }, { status: 400 });
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+
+        // ── Security: Magic Byte Validation ──
+        // Check the first bytes of the file match expected image formats
+        const magicBytes: Record<string, number[][]> = {
+            ".jpg":  [[0xFF, 0xD8, 0xFF]],
+            ".jpeg": [[0xFF, 0xD8, 0xFF]],
+            ".png":  [[0x89, 0x50, 0x4E, 0x47]],
+            ".webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+            ".gif":  [[0x47, 0x49, 0x46, 0x38]], // GIF8
+        };
+        const expectedMagic = magicBytes[ext];
+        if (expectedMagic && buffer.length >= 4) {
+            const matchesMagic = expectedMagic.some(magic => 
+                magic.every((byte, i) => buffer[i] === byte)
+            );
+            if (!matchesMagic) {
+                return NextResponse.json({ error: "File content tidak sesuai dengan tipe yang diklaim. File mungkin corrupt atau palsu." }, { status: 400 });
+            }
+        }
+
+        // Generate a clean secure random filename (preserve validated extension)
         const randomName = `${crypto.randomUUID()}${ext}`;
 
         // 1. Production Mode: Upload to Vercel Blob if connected (supports OIDC & token modes)

@@ -35,6 +35,14 @@ import { resetDbSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+    // ── Security: Block in production ──
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+        return NextResponse.json(
+            { error: "Endpoint ini dinonaktifkan di lingkungan production demi keamanan data." },
+            { status: 403 }
+        );
+    }
+
     const rateLimitResponse = await checkRateLimit(request, 5, 60_000); // Very strict: 5 per minute
     if (rateLimitResponse) return rateLimitResponse;
 

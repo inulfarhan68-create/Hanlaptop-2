@@ -11,7 +11,6 @@ import { ShiftOpenModal } from "@/components/ShiftModal"
 
 // Import modular tab components
 import { SalesTab } from "@/components/transactions/SalesTab"
-import { ServiceTab } from "@/components/transactions/ServiceTab"
 import { RestockTab } from "@/components/transactions/RestockTab"
 import { ExpenseTab } from "@/components/transactions/ExpenseTab"
 import { HistoryTab } from "@/components/transactions/HistoryTab"
@@ -22,7 +21,6 @@ type TransactionMode = "Penjualan" | "Servis" | "Pembelian" | "Pengeluaran" | "M
 
 const tabConfig: { key: TransactionMode; label: string; desc: string; icon: any }[] = [
   { key: "Penjualan", label: "Penjualan", desc: "Penjualan barang fisik", icon: Package },
-  { key: "Servis", label: "Jasa Servis", desc: "Pendapatan jasa servis", icon: Briefcase },
   { key: "Tukar Tambah", label: "Tukar Tambah", desc: "Tukar Tambah & Buyback", icon: Package },
   { key: "Pembelian", label: "Beli Stok", desc: "Restock barang", icon: PlusCircle },
   { key: "Pengeluaran", label: "Pengeluaran", desc: "Biaya operasional", icon: CreditCard },
@@ -55,7 +53,7 @@ export function Transactions() {
   const filteredTabs = useMemo(() => {
     if (isInvestor) return [] as typeof tabConfig
     if (isKasir) {
-      return tabConfig.filter(t => t.key === "Penjualan" || t.key === "Servis" || t.key === "Tukar Tambah")
+      return tabConfig.filter(t => t.key === "Penjualan" || t.key === "Tukar Tambah")
     }
     return tabConfig
   }, [isKasir, isInvestor])
@@ -66,7 +64,7 @@ export function Transactions() {
     if (selectedStoreId === "all" || isInvestor) return "Riwayat";
     const searchParams = new URLSearchParams(location.search)
     const modeParam = searchParams.get("mode") as TransactionMode
-    const allowedKeys = isKasir ? ["Penjualan", "Servis", "Tukar Tambah"] : ["Penjualan", "Servis", "Tukar Tambah", "Pembelian", "Pengeluaran", "Modal"]
+    const allowedKeys = isKasir ? ["Penjualan", "Tukar Tambah"] : ["Penjualan", "Tukar Tambah", "Pembelian", "Pengeluaran", "Modal"]
     return (allowedKeys.includes(modeParam) || modeParam === "Riwayat") ? modeParam : "Penjualan"
   })
 
@@ -83,7 +81,7 @@ export function Transactions() {
     }
     const searchParams = new URLSearchParams(location.search)
     const modeParam = searchParams.get("mode") as TransactionMode
-    const allowedKeys = isKasir ? ["Penjualan", "Servis", "Tukar Tambah"] : ["Penjualan", "Servis", "Tukar Tambah", "Pembelian", "Pengeluaran", "Modal"]
+    const allowedKeys = isKasir ? ["Penjualan", "Tukar Tambah"] : ["Penjualan", "Tukar Tambah", "Pembelian", "Pengeluaran", "Modal"]
 
     if (modeParam && (allowedKeys.includes(modeParam) || modeParam === "Riwayat")) {
       if (mode !== modeParam) {
@@ -213,16 +211,6 @@ export function Transactions() {
               <div className={cn(mode !== "Penjualan" && "hidden")}>
                 <SalesTab 
                   active={mode === "Penjualan"}
-                  onPrint={setPrintData}
-                  editingTrx={editingTrx}
-                  onCancelEdit={() => setEditingTrx(null)}
-                  onSuccess={() => mutateShift()}
-                />
-              </div>
-
-              <div className={cn(mode !== "Servis" && "hidden")}>
-                <ServiceTab 
-                  active={mode === "Servis"}
                   onPrint={setPrintData}
                   editingTrx={editingTrx}
                   onCancelEdit={() => setEditingTrx(null)}

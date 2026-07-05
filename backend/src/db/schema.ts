@@ -1014,3 +1014,61 @@ export const approvalRequestsRelations = relations(approvalRequests, ({ one }) =
     }),
 }));
 
+export const devicePassports = sqliteTable("device_passports", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
+    serialNumber: text("serial_number").notNull(),
+    inventoryId: text("inventory_id").notNull().references(() => inventory.id, { onDelete: 'cascade' }),
+    status: text("status").notNull().default("PROCURED"), // PROCURED, INBOUND_QC, READY_FOR_SALE, RESERVED, SOLD, UNDER_SERVICE, TRADED_IN, WRITTEN_OFF
+    grade: text("grade").notNull().default("NEW"), // NEW, USED_A, USED_B, BROKEN
+    currentTransactionId: text("current_transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
+    originalCost: real("original_cost").notNull().default(0),
+    warrantyEndDate: integer("warranty_end_date", { mode: 'timestamp' }),
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+    snStoreIdx: uniqueIndex("device_passports_sn_store_idx").on(table.serialNumber, table.storeId),
+    inventoryIdx: index("device_passports_inventory_idx").on(table.inventoryId),
+    statusIdx: index("device_passports_status_idx").on(table.status),
+}));
+
+export const deviceLifecycleLogs = sqliteTable("device_lifecycle_logs", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    passportId: text("passport_id").notNull().references(() => devicePassports.id, { onDelete: 'cascade' }),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: 'set null' }),
+    referenceId: text("reference_id"), // Transaction ID, Service Order ID, etc.
+    notes: text("notes"),
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+    passportIdx: index("device_lifecycle_logs_passport_idx").on(table.passportId),
+    referenceIdx: index("device_lifecycle_logs_reference_idx").on(table.referenceId),
+}));
+
+export const devicePassportsRelations = relations(devicePassports, ({ one, many }) => ({
+    store: one(stores, {
+        fields: [devicePassports.storeId],
+        references: [stores.id],
+    }),
+    inventory: one(inventory, {
+        fields: [devicePassports.inventoryId],
+        references: [inventory.id],
+    }),
+    currentTransaction: one(transactions, {
+        fields: [devicePassports.currentTransactionId],
+        references: [transactions.id],
+    }),
+    logs: many(deviceLifecycleLogs),
+}));
+
+export const deviceLifecycleLogsRelations = relations(deviceLifecycleLogs, ({ one }) => ({
+    passport: one(devicePassports, {
+        fields: [deviceLifecycleLogs.passportId],
+        references: [devicePassports.id],
+    }),
+    actor: one(user, {
+        fields: [deviceLifecycleLogs.actorId],
+        references: [user.id],
+    }),
+}));
