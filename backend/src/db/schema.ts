@@ -5,6 +5,7 @@ export * from './schema/hr';
 export * from './schema/crm';
 export * from './schema/transactions';
 export * from './schema/accounting';
+export * from './schema/refurbish';
 
 import { organizations, stores, userStoreAccess, activityLogs, storeSettings } from './schema/store';
 import { user, session, account, verification } from './schema/users';
@@ -13,6 +14,7 @@ import { customers, suppliers, serviceOrders, buybackLeads, membershipPoints, cr
 import { technicians, technicianCommissions, cashierShifts, employees, employeeLoans, payrolls, attendances, purchaseRequisitions } from './schema/hr';
 import { transactions, transactionItems, journalEntries, aiPricingLogs, approvalRequests, stockTransfers, stockTransferItems, bankMutations, warrantyClaims, warrantyClaimParts, consignmentPayables, devicePassports, deviceLifecycleLogs } from './schema/transactions';
 import { chartOfAccounts, fiscalPeriods, fixedAssets, depreciationEntries, closingEntries } from './schema/accounting';
+import { deviceRefurbishments } from './schema/refurbish';
 import { relations } from 'drizzle-orm';
 
 // ── Drizzle Relations ──
@@ -336,6 +338,10 @@ export const qcInspectionsRelations = relations(qcInspections, ({ one }) => ({
         fields: [qcInspections.technicianId],
         references: [technicians.id],
     }),
+    passport: one(devicePassports, {
+        fields: [qcInspections.passportId],
+        references: [devicePassports.id],
+    }),
 }));
 
 export const warrantyClaimsRelations = relations(warrantyClaims, ({ one, many }) => ({
@@ -350,6 +356,10 @@ export const warrantyClaimsRelations = relations(warrantyClaims, ({ one, many })
     customer: one(customers, {
         fields: [warrantyClaims.customerId],
         references: [customers.id],
+    }),
+    passport: one(devicePassports, {
+        fields: [warrantyClaims.passportId],
+        references: [devicePassports.id],
     }),
     technician: one(technicians, {
         fields: [warrantyClaims.technicianId],
@@ -428,6 +438,7 @@ export const devicePassportsRelations = relations(devicePassports, ({ one, many 
         references: [transactions.id],
     }),
     logs: many(deviceLifecycleLogs),
+    refurbishments: many(deviceRefurbishments),
 }));
 
 export const deviceLifecycleLogsRelations = relations(deviceLifecycleLogs, ({ one }) => ({
@@ -438,6 +449,21 @@ export const deviceLifecycleLogsRelations = relations(deviceLifecycleLogs, ({ on
     actor: one(user, {
         fields: [deviceLifecycleLogs.actorId],
         references: [user.id],
+    }),
+}));
+
+export const deviceRefurbishmentsRelations = relations(deviceRefurbishments, ({ one }) => ({
+    passport: one(devicePassports, {
+        fields: [deviceRefurbishments.passportId],
+        references: [devicePassports.id],
+    }),
+    store: one(stores, {
+        fields: [deviceRefurbishments.storeId],
+        references: [stores.id],
+    }),
+    technician: one(technicians, {
+        fields: [deviceRefurbishments.technicianId],
+        references: [technicians.id],
     }),
 }));
 

@@ -32,21 +32,33 @@ export const inventory = sqliteTable("inventory", {
 export const qcInspections = sqliteTable("qc_inspections", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     inventoryId: text("inventory_id").notNull().references(() => inventory.id, { onDelete: 'cascade' }),
+    passportId: text("passport_id"), // References devicePassports.id (set dynamically)
     technicianId: text("technician_id").notNull().references(() => technicians.id, { onDelete: 'cascade' }),
     grade: text("grade").notNull(),
     screenScore: integer("screen_score").default(100),
     batteryHealth: integer("battery_health").default(100),
+    batteryCycle: integer("battery_cycle"),
     keyboardScore: integer("keyboard_score").default(100),
     usbPortsScore: integer("usb_ports_score").default(100),
     hingeScore: integer("hinge_score").default(100),
     wifiScore: integer("wifi_score").default(100),
     bodyScore: integer("body_score").default(100),
+    // Detailed component checks (PASS/FAIL/NOT_TESTED)
+    touchpadStatus: text("touchpad_status").default('NOT_TESTED'),
+    speakerStatus: text("speaker_status").default('NOT_TESTED'),
+    micStatus: text("mic_status").default('NOT_TESTED'),
+    bluetoothStatus: text("bluetooth_status").default('NOT_TESTED'),
+    webcamStatus: text("webcam_status").default('NOT_TESTED'),
+    hdmiStatus: text("hdmi_status").default('NOT_TESTED'),
+    chargingStatus: text("charging_status").default('NOT_TESTED'),
+    fingerprintStatus: text("fingerprint_status").default('NOT_TESTED'),
     maxSellingPrice: real("max_selling_price"),
     warrantyDays: integer("warranty_days"),
     notes: text("notes"),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     inventoryIdIdx: index("qc_inspections_inventory_id_idx").on(table.inventoryId),
+    passportIdIdx: index("qc_inspections_passport_id_idx").on(table.passportId),
 }));
 
 export const stockOpnames = sqliteTable("stock_opnames", {

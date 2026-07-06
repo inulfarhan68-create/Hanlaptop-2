@@ -143,6 +143,7 @@ export const warrantyClaims = sqliteTable("warranty_claims", {
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     transactionId: text("transaction_id").notNull().references(() => transactions.id, { onDelete: 'cascade' }),
     customerId: text("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
+    passportId: text("passport_id").references(() => devicePassports.id, { onDelete: 'set null' }), // Link to specific device
     technicianId: text("technician_id").references(() => technicians.id, { onDelete: 'set null' }),
     serviceOrderId: text("service_order_id").references(() => serviceOrders.id, { onDelete: 'set null' }),
     status: text("status").notNull().default('SUBMITTED'),
@@ -153,6 +154,7 @@ export const warrantyClaims = sqliteTable("warranty_claims", {
 }, (table) => ({
     storeIdIdx: index("warranty_claims_store_id_idx").on(table.storeId),
     transactionIdIdx: index("warranty_claims_transaction_id_idx").on(table.transactionId),
+    passportIdIdx: index("warranty_claims_passport_id_idx").on(table.passportId),
     technicianIdIdx: index("warranty_claims_technician_id_idx").on(table.technicianId),
 }));
 
@@ -191,6 +193,16 @@ export const devicePassports = sqliteTable("device_passports", {
     currentTransactionId: text("current_transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
     originalCost: real("original_cost").notNull().default(0),
     warrantyEndDate: integer("warranty_end_date", { mode: 'timestamp' }),
+    // Hardware identification fields
+    imei: text("imei"),
+    macAddress: text("mac_address"),
+    windowsKey: text("windows_key"),
+    batterySerial: text("battery_serial"),
+    motherboardSerial: text("motherboard_serial"),
+    // Device health tracking
+    batteryHealth: integer("battery_health"),
+    batteryCycle: integer("battery_cycle"),
+    healthScore: integer("health_score"),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
