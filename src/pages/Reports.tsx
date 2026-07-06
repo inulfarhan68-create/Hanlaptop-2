@@ -7,12 +7,19 @@ import { ExportDropdown } from "@/components/reports/ExportDropdown"
 import { PrintReportsPortal } from "@/components/reports/PrintReportsPortal"
 import { FinancialReportsTab } from "@/components/reports/FinancialReportsTab"
 import { GeneralJournalTab } from "@/components/reports/GeneralJournalTab"
-import { CashFlowTab } from "@/components/reports/CashFlowTab"
 import { SalesAnalysisTab } from "@/components/reports/SalesAnalysisTab"
 import { AgingInventoryTab } from "@/components/reports/AgingInventoryTab"
 import { CashierShiftsTab } from "@/components/reports/CashierShiftsTab"
 import { ProductProfitTab } from "@/components/reports/ProductProfitTab"
 import { TechnicianCommissionTab } from "@/components/reports/TechnicianCommissionTab"
+import { COATable } from "@/components/accounting/COATable"
+import { TrialBalanceTable } from "@/components/accounting/TrialBalanceTable"
+import { IncomeStatementReport } from "@/components/accounting/IncomeStatementReport"
+import { BalanceSheetReport } from "@/components/accounting/BalanceSheetReport"
+import { CashFlowReport } from "@/components/accounting/CashFlowReport"
+import { EquityChangesReport } from "@/components/accounting/EquityChangesReport"
+import { FixedAssetsTable } from "@/components/accounting/FixedAssetsTable"
+import { GeneralLedgerView } from "@/components/accounting/GeneralLedgerView"
 import useSWR from "swr"
 import * as XLSX from "xlsx"
 
@@ -21,10 +28,14 @@ const fmt = (v: number) =>
 
 export function Reports() {
   const { isOwner, isManager, isInvestor } = useUserRole()
-  const [activeTab, setActiveTab] = useState<"laporan" | "profitProduk" | "jurnal" | "aruskas" | "analitik" | "aging" | "shift" | "komisi">("laporan")
+  const [activeTab, setActiveTab] = useState<"laporan" | "profitProduk" | "jurnal" | "aruskas" | "analitik" | "aging" | "shift" | "komisi" | "coa" | "neracasaldo" | "labarugi" | "neraca" | "perubahanekuitas" | "asettetap" | "bukubesar">("laporan")
   const [period, setPeriod] = useState(getInitialPeriod)
   const [printType, setPrintType] = useState<"all" | "pnl" | "balance">("all")
   const [isPrinting, setIsPrinting] = useState(false)
+
+  // Extract year and month from period
+  const selectedYear = period.from ? new Date(period.from).getFullYear() : new Date().getFullYear()
+  const selectedMonth = period.from ? new Date(period.from).getMonth() + 1 : new Date().getMonth() + 1
 
   if (!isOwner && !isManager && !isInvestor) {
     return <Navigate to="/dashboard" replace />
@@ -35,8 +46,37 @@ export function Reports() {
   if (period.to) queryParams.append('to', period.to)
   const q = queryParams.toString() ? `?${queryParams.toString()}` : ""
 
+  const apiUrl = import.meta.env.VITE_API_URL || ''
+  const periodQuery = `year=${selectedYear}&month=${selectedMonth}`
+
   const { data: res, error: reportsError, isLoading: loading, isValidating: refreshing } = useSWR<any>(
-    (import.meta.env.VITE_API_URL || '') + `/api/reports${q}`, 
+    apiUrl + `/api/reports${q}`,
+    { keepPreviousData: true }
+  )
+
+  // New accounting API data
+  const { data: trialBalance } = useSWR(
+    (activeTab === "neracasaldo") ? apiUrl + `/api/accounting/trial-balance?${periodQuery}` : null,
+    { keepPreviousData: true }
+  )
+
+  const { data: incomeStatement } = useSWR(
+    (activeTab === "labarugi") ? apiUrl + `/api/accounting/income-statement?${periodQuery}` : null,
+    { keepPreviousData: true }
+  )
+
+  const { data: balanceSheet } = useSWR(
+    (activeTab === "neraca") ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
+    { keepPreviousData: true }
+  )
+
+  const { data: cashFlow } = useSWR(
+    (activeTab === "aruskas") ? apiUrl + `/api/accounting/cash-flow?${periodQuery}` : null,
+    { keepPreviousData: true }
+  )
+
+  const { data: equityChanges } = useSWR(
+    (activeTab === "perubahanekuitas") ? apiUrl + `/api/accounting/equity-changes?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
@@ -126,14 +166,20 @@ export function Reports() {
 
       {/* Tabs Navigation */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-2 px-1 print:hidden scrollbar-none">
-        <Button size="sm" variant={activeTab === "laporan" ? "default" : "outline"} onClick={() => setActiveTab("laporan")} className="rounded-full h-8 text-xs px-4">Laporan Keuangan</Button>
-        <Button size="sm" variant={activeTab === "profitProduk" ? "default" : "outline"} onClick={() => setActiveTab("profitProduk")} className="rounded-full h-8 text-xs px-4">Laba Rugi Produk</Button>
-        <Button size="sm" variant={activeTab === "jurnal" ? "default" : "outline"} onClick={() => setActiveTab("jurnal")} className="rounded-full h-8 text-xs px-4">Jurnal Umum</Button>
-        <Button size="sm" variant={activeTab === "aruskas" ? "default" : "outline"} onClick={() => setActiveTab("aruskas")} className="rounded-full h-8 text-xs px-4">Arus Kas</Button>
-        <Button size="sm" variant={activeTab === "analitik" ? "default" : "outline"} onClick={() => setActiveTab("analitik")} className="rounded-full h-8 text-xs px-4">Analisis Penjualan</Button>
-        <Button size="sm" variant={activeTab === "aging" ? "default" : "outline"} onClick={() => setActiveTab("aging")} className="rounded-full h-8 text-xs px-4">Umur Persediaan (Aging)</Button>
-        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-4">Shift Kasir</Button>
-        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-4">Komisi Teknisi</Button>
+        <Button size="sm" variant={activeTab === "laporan" ? "default" : "outline"} onClick={() => setActiveTab("laporan")} className="rounded-full h-8 text-xs px-3">Laporan Keuangan</Button>
+        <Button size="sm" variant={activeTab === "neracasaldo" ? "default" : "outline"} onClick={() => setActiveTab("neracasaldo")} className="rounded-full h-8 text-xs px-3">Neraca Saldo</Button>
+        <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3">Laba Rugi</Button>
+        <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3">Neraca</Button>
+        <Button size="sm" variant={activeTab === "aruskas" ? "default" : "outline"} onClick={() => setActiveTab("aruskas")} className="rounded-full h-8 text-xs px-3">Arus Kas</Button>
+        <Button size="sm" variant={activeTab === "perubahanekuitas" ? "default" : "outline"} onClick={() => setActiveTab("perubahanekuitas")} className="rounded-full h-8 text-xs px-3">Ekuitas</Button>
+        <Button size="sm" variant={activeTab === "asettetap" ? "default" : "outline"} onClick={() => setActiveTab("asettetap")} className="rounded-full h-8 text-xs px-3">Aset Tetap</Button>
+        <Button size="sm" variant={activeTab === "coa" ? "default" : "outline"} onClick={() => setActiveTab("coa")} className="rounded-full h-8 text-xs px-3">Bagan Akun</Button>
+        <Button size="sm" variant={activeTab === "jurnal" ? "default" : "outline"} onClick={() => setActiveTab("jurnal")} className="rounded-full h-8 text-xs px-3">Jurnal Umum</Button>
+        <Button size="sm" variant={activeTab === "profitProduk" ? "default" : "outline"} onClick={() => setActiveTab("profitProduk")} className="rounded-full h-8 text-xs px-3">Laba Rugi Produk</Button>
+        <Button size="sm" variant={activeTab === "analitik" ? "default" : "outline"} onClick={() => setActiveTab("analitik")} className="rounded-full h-8 text-xs px-3">Analisis</Button>
+        <Button size="sm" variant={activeTab === "aging" ? "default" : "outline"} onClick={() => setActiveTab("aging")} className="rounded-full h-8 text-xs px-3">Aging</Button>
+        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-3">Shift Kasir</Button>
+        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3">Komisi</Button>
       </div>
 
       {/* Scrollable Body Content */}
@@ -141,14 +187,32 @@ export function Reports() {
         {activeTab === "laporan" && (
           <FinancialReportsTab period={period} fmt={fmt} />
         )}
-        {activeTab === "profitProduk" && (
-          <ProductProfitTab period={period} fmt={fmt} />
+        {activeTab === "neracasaldo" && (
+          <TrialBalanceTable data={trialBalance} fmt={fmt} isLoading={!trialBalance} />
+        )}
+        {activeTab === "labarugi" && (
+          <IncomeStatementReport data={incomeStatement} fmt={fmt} isLoading={!incomeStatement} />
+        )}
+        {activeTab === "neraca" && (
+          <BalanceSheetReport data={balanceSheet} fmt={fmt} isLoading={!balanceSheet} />
+        )}
+        {activeTab === "aruskas" && (
+          <CashFlowReport data={cashFlow} fmt={fmt} isLoading={!cashFlow} />
+        )}
+        {activeTab === "perubahanekuitas" && (
+          <EquityChangesReport data={equityChanges} fmt={fmt} isLoading={!equityChanges} />
+        )}
+        {activeTab === "asettetap" && (
+          <FixedAssetsTable apiUrl={apiUrl} fmt={fmt} />
+        )}
+        {activeTab === "coa" && (
+          <COATable />
         )}
         {activeTab === "jurnal" && (
           <GeneralJournalTab period={period} fmt={fmt} />
         )}
-        {activeTab === "aruskas" && (
-          <CashFlowTab period={period} fmt={fmt} />
+        {activeTab === "profitProduk" && (
+          <ProductProfitTab period={period} fmt={fmt} />
         )}
         {activeTab === "analitik" && (
           <SalesAnalysisTab fmt={fmt} />

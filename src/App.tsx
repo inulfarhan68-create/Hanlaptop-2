@@ -85,6 +85,7 @@ function App() {
                 <Route path="/procurement" element={<Procurement />} />
                 <Route path="/crm" element={<CrmManagement />} />
                 <Route path="/reconciliation" element={<Reconciliation />} />
+                <Route path="/financial" element={<Navigate to="/reports" replace />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

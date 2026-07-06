@@ -19,10 +19,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        // ── Security: File Size Limit (5MB) ──
-        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        // ── Security: File Size Limit (10MB) ──
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
         if (file.size > MAX_FILE_SIZE) {
-            return NextResponse.json({ error: "Ukuran file terlalu besar. Maksimal 5MB." }, { status: 400 });
+            return NextResponse.json({ error: "Ukuran file terlalu besar. Maksimal 10MB." }, { status: 400 });
         }
 
         // ── Security: MIME Type Whitelist ──

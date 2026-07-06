@@ -51,6 +51,7 @@ export const journalEntries = sqliteTable("journal_entries", {
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     transactionId: text("transaction_id").notNull().references(() => transactions.id, { onDelete: 'cascade' }),
     accountName: text("account_name").notNull(),
+    accountCode: text("account_code"),              // References chart_of_accounts.code (nullable for backward compatibility)
     debit: real("debit").notNull().default(0),
     credit: real("credit").notNull().default(0),
     isVoided: integer("is_voided", { mode: 'boolean' }).notNull().default(false),
@@ -59,6 +60,7 @@ export const journalEntries = sqliteTable("journal_entries", {
     storeIdIdx: index("journal_entries_store_id_idx").on(table.storeId),
     transactionIdIdx: index("journal_entries_tx_id_idx").on(table.transactionId),
     createdAtIdx: index("journal_entries_created_at_idx").on(table.createdAt),
+    accountCodeIdx: index("journal_entries_account_code_idx").on(table.accountCode),
     debitCheck: check("debit_check", sql`${table.debit} >= 0`),
     creditCheck: check("credit_check", sql`${table.credit} >= 0`),
 }));

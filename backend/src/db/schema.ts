@@ -4,6 +4,7 @@ export * from './schema/inventory';
 export * from './schema/hr';
 export * from './schema/crm';
 export * from './schema/transactions';
+export * from './schema/accounting';
 
 import { organizations, stores, userStoreAccess, activityLogs, storeSettings } from './schema/store';
 import { user, session, account, verification } from './schema/users';
@@ -11,6 +12,7 @@ import { inventory, qcInspections, stockOpnames, stockOpnameItems } from './sche
 import { customers, suppliers, serviceOrders, buybackLeads, membershipPoints, crmReminders } from './schema/crm';
 import { technicians, technicianCommissions, cashierShifts, employees, employeeLoans, payrolls, attendances, purchaseRequisitions } from './schema/hr';
 import { transactions, transactionItems, journalEntries, aiPricingLogs, approvalRequests, stockTransfers, stockTransferItems, bankMutations, warrantyClaims, warrantyClaimParts, consignmentPayables, devicePassports, deviceLifecycleLogs } from './schema/transactions';
+import { chartOfAccounts, fiscalPeriods, fixedAssets, depreciationEntries, closingEntries } from './schema/accounting';
 import { relations } from 'drizzle-orm';
 
 // ── Drizzle Relations ──
@@ -30,6 +32,11 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
     technicians: many(technicians),
     transactions: many(transactions),
     serviceOrders: many(serviceOrders),
+    chartOfAccounts: many(chartOfAccounts),
+    fiscalPeriods: many(fiscalPeriods),
+    fixedAssets: many(fixedAssets),
+    depreciationEntries: many(depreciationEntries),
+    closingEntries: many(closingEntries),
 }));
 
 export const userStoreAccessRelations = relations(userStoreAccess, ({ one }) => ({
@@ -430,6 +437,74 @@ export const deviceLifecycleLogsRelations = relations(deviceLifecycleLogs, ({ on
     }),
     actor: one(user, {
         fields: [deviceLifecycleLogs.actorId],
+        references: [user.id],
+    }),
+}));
+
+// ── Accounting Relations ─────────────────────────────────────────────────────
+export const chartOfAccountsRelations = relations(chartOfAccounts, ({ one, many }) => ({
+    store: one(stores, {
+        fields: [chartOfAccounts.storeId],
+        references: [stores.id],
+    }),
+    parent: one(chartOfAccounts, {
+        fields: [chartOfAccounts.parentId],
+        references: [chartOfAccounts.id],
+        relationName: "accountHierarchy",
+    }),
+    children: many(chartOfAccounts, { relationName: "accountHierarchy" }),
+}));
+
+export const fiscalPeriodsRelations = relations(fiscalPeriods, ({ one, many }) => ({
+    store: one(stores, {
+        fields: [fiscalPeriods.storeId],
+        references: [stores.id],
+    }),
+    closedByUser: one(user, {
+        fields: [fiscalPeriods.closedBy],
+        references: [user.id],
+    }),
+    depreciationEntries: many(depreciationEntries),
+    closingEntry: one(closingEntries, {
+        fields: [fiscalPeriods.id],
+        references: [closingEntries.fiscalPeriodId],
+    }),
+}));
+
+export const fixedAssetsRelations = relations(fixedAssets, ({ one, many }) => ({
+    store: one(stores, {
+        fields: [fixedAssets.storeId],
+        references: [stores.id],
+    }),
+    depreciationEntries: many(depreciationEntries),
+}));
+
+export const depreciationEntriesRelations = relations(depreciationEntries, ({ one }) => ({
+    store: one(stores, {
+        fields: [depreciationEntries.storeId],
+        references: [stores.id],
+    }),
+    fixedAsset: one(fixedAssets, {
+        fields: [depreciationEntries.fixedAssetId],
+        references: [fixedAssets.id],
+    }),
+    fiscalPeriod: one(fiscalPeriods, {
+        fields: [depreciationEntries.fiscalPeriodId],
+        references: [fiscalPeriods.id],
+    }),
+}));
+
+export const closingEntriesRelations = relations(closingEntries, ({ one }) => ({
+    store: one(stores, {
+        fields: [closingEntries.storeId],
+        references: [stores.id],
+    }),
+    fiscalPeriod: one(fiscalPeriods, {
+        fields: [closingEntries.fiscalPeriodId],
+        references: [fiscalPeriods.id],
+    }),
+    closedByUser: one(user, {
+        fields: [closingEntries.closedBy],
         references: [user.id],
     }),
 }));

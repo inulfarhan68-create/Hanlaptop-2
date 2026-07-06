@@ -15,6 +15,14 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 4000000,
+        navigateFallbackDenylist: [/^\/api\//],
+        // Never cache API responses in the Service Worker
+        runtimeCaching: [
+          {
+            urlPattern: /^https?:\/\/.*\/api\/.*/i,
+            handler: 'NetworkOnly',
+          }
+        ],
       },
       manifest: {
         name: 'HanLaptop Store',

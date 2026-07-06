@@ -50,6 +50,11 @@ async function migrate() {
     await runSQL(`ALTER TABLE warranty_claims ADD COLUMN technician_id TEXT`);
     await runSQL(`ALTER TABLE warranty_claims ADD COLUMN service_order_id TEXT`);
     await runSQL(`CREATE INDEX IF NOT EXISTS warranty_claims_technician_id_idx ON warranty_claims(technician_id)`);
+    
+    // Add deleted_at columns for soft delete support
+    await runSQL(`ALTER TABLE inventory ADD COLUMN deleted_at INTEGER`);
+    await runSQL(`ALTER TABLE customers ADD COLUMN deleted_at INTEGER`);
+    await runSQL(`ALTER TABLE suppliers ADD COLUMN deleted_at INTEGER`);
 
     console.log("\n✅ Migration complete!");
     process.exit(0);

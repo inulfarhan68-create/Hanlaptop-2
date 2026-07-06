@@ -186,6 +186,7 @@ Berminat? Hubungi kami segera!`;
 };
 
 import useSWR from "swr"
+import { apiFetch } from "@/lib/api"
 
 export function Inventory() {
   const { data: inventoryData, error: inventoryError, isLoading: loading, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
@@ -265,7 +266,7 @@ export function Inventory() {
     }
     setAiLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/buyback/estimate`, {
+      const res = await apiFetch("/api/public/buyback/estimate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -748,7 +749,15 @@ export function Inventory() {
           } else if (lower.includes("sedang") || lower.includes("lecet") || lower.includes("minus") || lower.includes("kurang")) {
             grade = "Grade B";
           }
-          return { title: grade, subtitle: "Business Grade" };
+          
+          let subtitleGrade = "Office Grade";
+          if (erpItem) {
+            const classes = classifyLaptop(erpItem.itemName || "", erpItem.specs || "", erpItem.sellingPrice || 0);
+            if (classes.some((c: any) => c.id === "gaming_heavy")) subtitleGrade = "Gaming Grade";
+            else if (classes.some((c: any) => c.id === "creative_dev")) subtitleGrade = "Design Grade";
+          }
+
+          return { title: grade, subtitle: subtitleGrade };
         }
 
         return { title: s, subtitle: "" };
@@ -791,8 +800,8 @@ export function Inventory() {
         ctx.font = `700 ${specFontSize}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.title, itemX + badgeRadius * 2.2 + 8, itemY + 2);
 
-        // Muted Subtitle (Dark slate grey)
-        ctx.fillStyle = "#475569";
+        // Subtitle (Solid black)
+        ctx.fillStyle = "#000000";
         ctx.font = `600 ${Math.round(specFontSize * 0.8)}px 'Segoe UI', system-ui, sans-serif`;
         ctx.fillText(item.subtitle, itemX + badgeRadius * 2.2 + 8, itemY + specFontSize + 6);
       });
@@ -988,7 +997,7 @@ export function Inventory() {
         
         if (isWatermarkEnabled && canvasRef.current) {
           imageBlob = await new Promise<Blob | null>((resolve) => {
-            canvasRef.current?.toBlob((blob) => resolve(blob), "image/png");
+            canvasRef.current?.toBlob((blob) => resolve(blob), "image/jpeg", 0.9);
           });
         } else if (rawImageFile) {
           imageBlob = rawImageFile;
@@ -996,9 +1005,9 @@ export function Inventory() {
 
         if (imageBlob) {
           const uploadFormData = new FormData();
-          uploadFormData.append("file", imageBlob, "catalog-photo.png");
+          uploadFormData.append("file", imageBlob, "catalog-photo.jpg");
 
-          const uploadRes = await fetch((import.meta.env.VITE_API_URL || '') + "/api/upload", {
+          const uploadRes = await apiFetch("/api/upload", {
             method: "POST",
             body: uploadFormData
           });
@@ -1016,7 +1025,7 @@ export function Inventory() {
       }
 
       // Update isPublished, Consignment Supplier & Image
-      const res1 = await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${erpItem.id}`, {
+      const res1 = await apiFetch(`/api/inventory/${erpItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1036,7 +1045,7 @@ export function Inventory() {
       const shouldSaveQc = selectedTechnicianId && (isGradeChanged || isNotesChanged || isTechChanged || !erpItem.qcGrade);
       
       if (shouldSaveQc) {
-        const res2 = await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${erpItem.id}/qc`, {
+        const res2 = await apiFetch(`/api/inventory/${erpItem.id}/qc`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1081,7 +1090,7 @@ export function Inventory() {
 
   const executeDelete = async (id: string) => {
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/inventory/${id}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success("Item berhasil dihapus")
         fetchInventory()
@@ -1154,7 +1163,7 @@ export function Inventory() {
   const submitEdit = async () => {
     setIsSubmitting(true)
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${editId}`, {
+      const res = await apiFetch(`/api/inventory/${editId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1189,7 +1198,7 @@ export function Inventory() {
     }
     setIsSubmitting(true)
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL || '') + '/api/inventory', {
+      const res = await apiFetch('/api/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1236,7 +1245,7 @@ export function Inventory() {
       const promises = selectedItemIds.map(async (id) => {
         const item = items.find((i: any) => i.id === id);
         if (!item) return;
-        return fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${id}`, {
+        return apiFetch(`/api/inventory/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1290,7 +1299,7 @@ export function Inventory() {
     setIsBulkSubmitting(true);
     try {
       const promises = selectedItemIds.map(id => 
-        fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${id}`, { method: 'DELETE' })
+        apiFetch(`/api/inventory/${id}`, { method: 'DELETE' })
       );
       const results = await Promise.all(promises);
       const failedCount = results.filter(res => !res.ok).length;
@@ -2494,7 +2503,7 @@ export function Inventory() {
                             barcode: item.id.substring(0, 8).toUpperCase()
                           }));
                           
-                          fetch((import.meta.env.VITE_API_URL || '') + '/api/inventory/bulk-barcode', {
+                          apiFetch('/api/inventory/bulk-barcode', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
