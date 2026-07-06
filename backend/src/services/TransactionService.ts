@@ -143,17 +143,28 @@ export class TransactionService {
                         throw new Error(`Insufficient stock for item ID: ${item.inventoryId} due to concurrent checkout. Please try again.`);
                     }
 
+                    let validSNs: string[] = [];
+                    if (invItem.tracksSerialNumber) {
+                        if (item.serialNumbers && Array.isArray(item.serialNumbers)) {
+                            validSNs = item.serialNumbers.filter((sn: any) => typeof sn === 'string' && sn.trim() !== '');
+                        }
+                        
+                        if (validSNs.length !== item.quantity) {
+                            throw new Error(`Barang "${invItem.itemName}" melacak nomor seri, tetapi jumlah nomor seri yang diisi (${validSNs.length}) tidak sesuai dengan kuantitas penjualan (${item.quantity}).`);
+                        }
+                    }
+
                     await tx.insert(transactionItems).values({
                         transactionId: newTx.id,
                         inventoryId: item.inventoryId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
-                        serialNumbers: item.serialNumbers ? JSON.stringify(item.serialNumbers) : null
+                        serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
                     });
 
-                    if (item.serialNumbers && Array.isArray(item.serialNumbers)) {
+                    if (validSNs.length > 0) {
                         const { transitionDeviceStatus } = await import('@/lib/digital-passport');
-                        for (const sn of item.serialNumbers) {
+                        for (const sn of validSNs) {
                             try {
                                 await transitionDeviceStatus(
                                     storeId,
@@ -165,7 +176,11 @@ export class TransactionService {
                                     tx as any
                                 );
                             } catch (e: any) {
-                                throw new Error(`Failed to process Device Passport for SN ${sn}: ${e.message}`);
+                                if (e.message && e.message.includes('not found')) {
+                                    console.warn(`Device Passport not found for SN ${sn}. Skipping transition.`);
+                                } else {
+                                    throw new Error(`Failed to process Device Passport for SN ${sn}: ${e.message}`);
+                                }
                             }
                         }
                     }
@@ -240,14 +255,39 @@ export class TransactionService {
                                 })
                                 .where(eq(inventory.id, item.inventoryId as string));
                             
+                            let validSNs: string[] = [];
+                            if (invItem.tracksSerialNumber) {
+                                if (item.serialNumbers && Array.isArray(item.serialNumbers)) {
+                                    validSNs = item.serialNumbers.filter((sn: any) => typeof sn === 'string' && sn.trim() !== '');
+                                }
+                                // Auto-register device passports
+                                const { registerDevicePassport } = await import('@/lib/digital-passport');
+                                for (const sn of validSNs) {
+                                    try {
+                                        await registerDevicePassport(
+                                            storeId,
+                                            invItem.id,
+                                            sn,
+                                            'READY_FOR_SALE',
+                                            item.unitPrice, // cost price
+                                            userId
+                                        );
+                                    } catch (e: any) {
+                                        console.warn(`Failed to auto-register Device Passport for SN ${sn}: ${e.message}`);
+                                    }
+                                }
+                            }
+
                             await tx.insert(transactionItems).values({
                                 transactionId: newTx.id,
                                 inventoryId: item.inventoryId,
                                 quantity: item.quantity,
-                                unitPrice: item.unitPrice
+                                unitPrice: item.unitPrice,
+                                serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
                             });
                         }
                     } else {
+                        const tracksSN = item.tracksSerialNumber || false;
                         const [newInv] = await tx.insert(inventory).values({
                             storeId,
                             itemName: item.itemName as string,
@@ -255,14 +295,38 @@ export class TransactionService {
                             quantity: item.quantity,
                             costPrice: item.unitPrice,
                             sellingPrice: item.sellingPrice || 0,
-                            specs: item.specs || null
+                            specs: item.specs || null,
+                            tracksSerialNumber: tracksSN
                         }).returning();
+
+                        let validSNs: string[] = [];
+                        if (tracksSN) {
+                            if (item.serialNumbers && Array.isArray(item.serialNumbers)) {
+                                validSNs = item.serialNumbers.filter((sn: any) => typeof sn === 'string' && sn.trim() !== '');
+                            }
+                            const { registerDevicePassport } = await import('@/lib/digital-passport');
+                            for (const sn of validSNs) {
+                                try {
+                                    await registerDevicePassport(
+                                        storeId,
+                                        newInv.id,
+                                        sn,
+                                        'READY_FOR_SALE',
+                                        item.unitPrice,
+                                        userId
+                                    );
+                                } catch (e: any) {
+                                    console.warn(`Failed to auto-register Device Passport for SN ${sn}: ${e.message}`);
+                                }
+                            }
+                        }
 
                         await tx.insert(transactionItems).values({
                             transactionId: newTx.id,
                             inventoryId: newInv.id,
                             quantity: item.quantity,
-                            unitPrice: item.unitPrice
+                            unitPrice: item.unitPrice,
+                            serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
                         });
                     }
                 }

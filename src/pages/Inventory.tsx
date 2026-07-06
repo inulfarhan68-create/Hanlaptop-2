@@ -254,6 +254,7 @@ export function Inventory() {
   const [addSell, setAddSell] = useState("")
   const [addSpecs, setAddSpecs] = useState("")
   const [addBarcode, setAddBarcode] = useState("")
+  const [addTracksSN, setAddTracksSN] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCameraScannerFor, setShowCameraScannerFor] = useState<"add" | "edit" | null>(null)
   
@@ -1082,6 +1083,7 @@ export function Inventory() {
   const [editSell, setEditSell] = useState("")
   const [editSpecs, setEditSpecs] = useState("")
   const [editBarcode, setEditBarcode] = useState("")
+  const [editTracksSN, setEditTracksSN] = useState(false)
 
   const fetchInventory = async () => {
     mutateInventory()
@@ -1157,6 +1159,7 @@ export function Inventory() {
     setEditSell(item.sellingPrice.toString())
     setEditSpecs(item.specs || "")
     setEditBarcode(item.barcode || "")
+    setEditTracksSN(item.tracksSerialNumber || false)
     setIsEditOpen(true)
   }
 
@@ -1174,7 +1177,8 @@ export function Inventory() {
           quantity: parseInt(editQty),
           minStock: parseInt(editMinStock || "2"),
           specs: editCategory === "Laptop Bekas" ? editSpecs : undefined,
-          barcode: editBarcode || undefined
+          barcode: editBarcode || undefined,
+          tracksSerialNumber: editTracksSN
         })
       })
       if (res.ok) {
@@ -1209,13 +1213,15 @@ export function Inventory() {
           costPrice: parseFloat(addCost), 
           sellingPrice: parseFloat(addSell), 
           specs: addCategory === "Laptop Bekas" ? addSpecs : undefined,
-          barcode: addBarcode || undefined
+          barcode: addBarcode || undefined,
+          tracksSerialNumber: addTracksSN
         })
       })
       if (res.ok) {
         toast.success("Barang berhasil ditambahkan")
         setIsAddOpen(false)
         setAddName(""); setAddCategory(""); setAddQty(""); setAddMinStock("2"); setAddCost(""); setAddSell(""); setAddSpecs(""); setAddBarcode("");
+        setAddTracksSN(false);
         fetchInventory()
       } else {
         toast.error("Gagal menambahkan barang")
@@ -1618,6 +1624,11 @@ export function Inventory() {
                         Titip Jual
                       </span>
                     )}
+                    {item.tracksSerialNumber && (
+                      <span className="bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap">
+                        Lacak SN
+                      </span>
+                    )}
                     {item.qcGrade && (
                       <span className={`px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap border ${
                         item.qcGrade === 'A' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' :
@@ -1831,6 +1842,16 @@ export function Inventory() {
                 <label className="text-sm font-medium">Harga Jual (Rp)</label>
                 <Input type="number" value={addSell} onChange={e => setAddSell(e.target.value)} placeholder="0" />
               </div>
+              <div className="flex items-center space-x-2 py-1">
+                <input 
+                  type="checkbox" 
+                  id="addTracksSN" 
+                  checked={addTracksSN} 
+                  onChange={e => setAddTracksSN(e.target.checked)} 
+                  className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4"
+                />
+                <label htmlFor="addTracksSN" className="text-sm font-medium select-none cursor-pointer">Lacak Nomor Seri (SN) untuk barang ini</label>
+              </div>
               <div className="flex gap-3 justify-end mt-6 pt-4">
                 <Button variant="outline" onClick={() => setIsAddOpen(false)}>Batal</Button>
                 <Button onClick={submitAdd} disabled={isSubmitting}>
@@ -1943,6 +1964,16 @@ export function Inventory() {
                   <Input type="number" value={editCost} onChange={e => setEditCost(e.target.value)} />
                 </div>
               )}
+              <div className="flex items-center space-x-2 py-1">
+                <input 
+                  type="checkbox" 
+                  id="editTracksSN" 
+                  checked={editTracksSN} 
+                  onChange={e => setEditTracksSN(e.target.checked)} 
+                  className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4"
+                />
+                <label htmlFor="editTracksSN" className="text-sm font-medium select-none cursor-pointer">Lacak Nomor Seri (SN) untuk barang ini</label>
+              </div>
               <div className="flex gap-3 justify-end mt-6 pt-4">
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>Batal</Button>
                 <Button onClick={submitEdit} disabled={isSubmitting}>

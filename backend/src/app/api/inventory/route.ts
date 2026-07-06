@@ -48,6 +48,7 @@ export async function GET(request: Request) {
             consignmentCommissionRate: inventory.consignmentCommissionRate,
             supplierId: inventory.supplierId,
             imageUrl: inventory.imageUrl,
+            tracksSerialNumber: inventory.tracksSerialNumber,
             createdAt: inventory.createdAt,
             qcGrade: sql<string | null>`(SELECT grade FROM qc_inspections WHERE qc_inspections.inventory_id = ${inventory.id} ORDER BY created_at DESC LIMIT 1)`,
             qcNotes: sql<string | null>`(SELECT notes FROM qc_inspections WHERE qc_inspections.inventory_id = ${inventory.id} ORDER BY created_at DESC LIMIT 1)`,
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
         if (!parsed.success) {
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
         }
-        const { itemName, category, quantity, minStock, costPrice, sellingPrice, specs, barcode } = parsed.data;
+        const { itemName, category, quantity, minStock, costPrice, sellingPrice, specs, barcode, tracksSerialNumber } = parsed.data;
 
         const [newItem] = await db.insert(inventory).values({
             storeId: authResult.storeId,
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
             sellingPrice: sellingPrice || 0,
             specs,
             barcode: barcode || null,
+            tracksSerialNumber: tracksSerialNumber || false,
             createdAt: new Date()
         }).returning();
 

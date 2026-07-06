@@ -49,7 +49,8 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
         price: item.sellingPrice,
         stock: item.quantity,
         category: item.category,
-        barcode: item.barcode
+        barcode: item.barcode,
+        tracksSerialNumber: item.tracksSerialNumber
       }))
     : []
 
@@ -69,6 +70,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
     discountType?: "nominal" | "percent"; 
     discountValue?: number; 
     category?: string;
+    tracksSerialNumber?: boolean;
     serialNumbers?: string[];
   }[]>([])
 
@@ -178,6 +180,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
             price: it.unitPrice,
             qty: it.quantity,
             category: it.inventoryItem?.category,
+            tracksSerialNumber: it.inventoryItem?.tracksSerialNumber,
             serialNumbers
           }
         }))
@@ -199,10 +202,27 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
               return prev;
             }
             toast.success(`Ditambahkan ke keranjang: ${matchedItem.name}`);
-            return prev.map(item => item.id === matchedItem.id ? { ...item, qty: item.qty + 1, serialNumbers: item.serialNumbers ? [...item.serialNumbers, ""] : [""] } : item);
+            return prev.map(item => item.id === matchedItem.id 
+              ? { 
+                  ...item, 
+                  qty: item.qty + 1, 
+                  serialNumbers: matchedItem.tracksSerialNumber 
+                    ? (item.serialNumbers ? [...item.serialNumbers, ""] : [""]) 
+                    : [] 
+                } 
+              : item
+            );
           }
           toast.success(`Ditambahkan ke keranjang: ${matchedItem.name}`);
-          return [...prev, { id: matchedItem.id, name: matchedItem.name, price: matchedItem.price, qty: 1, category: matchedItem.category, serialNumbers: [""] }];
+          return [...prev, { 
+            id: matchedItem.id, 
+            name: matchedItem.name, 
+            price: matchedItem.price, 
+            qty: 1, 
+            category: matchedItem.category, 
+            tracksSerialNumber: matchedItem.tracksSerialNumber,
+            serialNumbers: matchedItem.tracksSerialNumber ? [""] : [] 
+          }];
         });
       }
     } else {
@@ -242,12 +262,31 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [barcodeBuffer, lastKeystrokeTimeState, inventoryItems, active]);
 
-  const addToCart = (product: { id: string; name: string; price: number; category?: string }) => {
+  const addToCart = (product: { id: string; name: string; price: number; category?: string; tracksSerialNumber?: boolean }) => {
+    const isTracksSN = product.tracksSerialNumber || false;
     const existing = cart.find((item) => item.id === product.id)
     if (existing) {
-      setCart(cart.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1, serialNumbers: item.serialNumbers ? [...item.serialNumbers, ""] : [""] } : item)))
+      setCart(cart.map((item) => (
+        item.id === product.id 
+          ? { 
+              ...item, 
+              qty: item.qty + 1, 
+              serialNumbers: isTracksSN 
+                ? (item.serialNumbers ? [...item.serialNumbers, ""] : [""]) 
+                : [] 
+            } 
+          : item
+      )))
     } else {
-      setCart([...cart, { id: product.id, name: product.name, price: product.price, qty: 1, category: product.category, serialNumbers: [""] }])
+      setCart([...cart, { 
+        id: product.id, 
+        name: product.name, 
+        price: product.price, 
+        qty: 1, 
+        category: product.category, 
+        tracksSerialNumber: isTracksSN,
+        serialNumbers: isTracksSN ? [""] : [] 
+      }])
     }
   }
 
@@ -427,7 +466,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           {item.name}
-                          {item.category === 'Laptop Bekas' && (
+                          {item.tracksSerialNumber && (
                             <div className="mt-2 space-y-1">
                               {Array.from({ length: item.qty }).map((_, i) => (
                                 <Input 
@@ -512,7 +551,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                   <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-xs truncate mb-1">{item.name}</p>
-                      {item.category === 'Laptop Bekas' && (
+                      {item.tracksSerialNumber && (
                         <div className="mb-1 space-y-1">
                           {Array.from({ length: item.qty }).map((_, i) => (
                             <Input 

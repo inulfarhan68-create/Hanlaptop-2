@@ -20,6 +20,7 @@ export const inventory = sqliteTable("inventory", {
     consignmentCommissionRate: real("consignment_commission_rate").default(10),
     supplierId: text("supplier_id"),
     imageUrl: text("image_url"),
+    tracksSerialNumber: integer('tracks_serial_number', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
     deletedAt: integer('deleted_at', { mode: 'timestamp' }), // SOFT DELETE
 }, (table) => ({

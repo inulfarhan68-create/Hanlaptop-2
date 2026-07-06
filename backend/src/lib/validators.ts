@@ -13,6 +13,7 @@ export const inventorySchema = z.object({
     isPublished: z.boolean().optional().default(false),
     condition: z.enum(['NEW', 'USED_A', 'USED_B', 'USED_C', 'BROKEN', 'IN_INSPECTION']).optional().default('NEW'),
     isConsignment: z.boolean().optional().default(false),
+    tracksSerialNumber: z.boolean().optional().default(false),
     supplierId: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),
 });
@@ -28,6 +29,7 @@ export const transactionItemSchema = z.object({
     category: z.string().optional(),
     sellingPrice: z.number().nonnegative().optional(),
     specs: z.string().nullable().optional(),
+    tracksSerialNumber: z.boolean().optional().default(false),
 });
 
 // 3. Transaction Validation Schema

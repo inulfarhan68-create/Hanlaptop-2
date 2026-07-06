@@ -74,6 +74,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             "isConsignment",
             "supplierId",
             "condition",
+            "tracksSerialNumber",
             "imageUrl",
         ];
         for (const field of allowedFields) {
