@@ -127,7 +127,7 @@ export async function PATCH(request: Request) {
             const [closedPeriod] = await db.update(fiscalPeriods)
                 .set({
                     status: 'CLOSED',
-                    closedBy: authResult.userId,
+                    closedBy: authResult.user.id,
                     closedAt: new Date(),
                     notes: notes || null,
                     updatedAt: new Date(),
@@ -140,7 +140,7 @@ export async function PATCH(request: Request) {
                 storeId: authResult.storeId,
                 fiscalPeriodId: periodId,
                 closingType: period.month ? 'monthly' : 'yearly',
-                closedBy: authResult.userId,
+                closedBy: authResult.user.id,
                 netIncome: 0, // Would calculate from income statement
                 incomeSummaryAccount: '3300',
                 retainedEarningsAccount: '3200',

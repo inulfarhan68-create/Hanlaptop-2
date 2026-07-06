@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { fixedAssets, depreciationEntries, fiscalPeriods, journalEntries, chartOfAccounts } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requireReportAccess, requireOwner } from "@/lib/auth-guard";
 import { calculateMonthlyDepreciation } from "@/services/AccountingService";
 

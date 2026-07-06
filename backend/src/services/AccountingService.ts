@@ -36,8 +36,8 @@ export interface JournalEntryWithBalance {
     credit: number;
     createdAt: Date;
     runningBalance: number;
-    transactionType?: string;
-    invoiceNumber?: string;
+    transactionType?: string | null;
+    invoiceNumber?: string | null;
 }
 
 export interface TrialBalanceRow {
@@ -799,7 +799,7 @@ export async function calculateAccumulatedDepreciation(
     .innerJoin(fiscalPeriods, eq(depreciationEntries.fiscalPeriodId, fiscalPeriods.id))
     .where(and(
         eq(depreciationEntries.fixedAssetId, fixedAssetId),
-        lte(fiscalPeriods.year * 100 + (fiscalPeriods.month || 0), asOfDate.getFullYear() * 100 + asOfDate.getMonth() + 1)
+        sql`${fiscalPeriods.year} * 100 + COALESCE(${fiscalPeriods.month}, 0) <= ${asOfDate.getFullYear() * 100 + asOfDate.getMonth() + 1}`
     ));
 
     return Number(result[0]?.total) || 0;
