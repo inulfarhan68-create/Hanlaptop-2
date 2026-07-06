@@ -56,6 +56,34 @@ async function migrate() {
     await runSQL(`ALTER TABLE customers ADD COLUMN deleted_at INTEGER`);
     await runSQL(`ALTER TABLE suppliers ADD COLUMN deleted_at INTEGER`);
 
+    // Add serial_numbers to transaction_items for device tracking
+    await runSQL(`ALTER TABLE transaction_items ADD COLUMN serial_numbers TEXT`);
+
+    // Add device lifecycle columns
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN imei TEXT`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN mac_address TEXT`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN windows_key TEXT`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN battery_serial TEXT`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN motherboard_serial TEXT`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN battery_health INTEGER`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN battery_cycle INTEGER`);
+    await runSQL(`ALTER TABLE device_passports ADD COLUMN health_score INTEGER`);
+
+    // Add passport_id to warranty_claims
+    await runSQL(`ALTER TABLE warranty_claims ADD COLUMN passport_id TEXT`);
+
+    // Add detailed QC fields
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN battery_cycle INTEGER`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN touchpad_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN speaker_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN mic_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN bluetooth_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN webcam_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN hdmi_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN charging_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN fingerprint_status TEXT DEFAULT 'NOT_TESTED'`);
+    await runSQL(`ALTER TABLE qc_inspections ADD COLUMN passport_id TEXT`);
+
     console.log("\n✅ Migration complete!");
     process.exit(0);
 }
