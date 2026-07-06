@@ -283,7 +283,8 @@ export class TransactionService {
                                             sn,
                                             'READY_FOR_SALE',
                                             item.unitPrice, // cost price
-                                            userId
+                                            userId,
+                                            tx
                                         );
                                     } catch (e: any) {
                                         console.warn(`Failed to auto-register Device Passport for SN ${sn}: ${e.message}`);
@@ -332,7 +333,8 @@ export class TransactionService {
                                         sn,
                                         'READY_FOR_SALE',
                                         item.unitPrice,
-                                        userId
+                                        userId,
+                                        tx
                                     );
                                 } catch (e: any) {
                                     console.warn(`Failed to auto-register Device Passport for SN ${sn}: ${e.message}`);

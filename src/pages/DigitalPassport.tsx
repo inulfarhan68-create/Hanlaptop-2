@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useSWR from 'swr';
-import { Search, History, ShieldAlert, CheckCircle2, AlertTriangle, Crosshair, Wrench, Package, RefreshCw, XCircle, ShieldCheck, HelpCircle, ArrowRight, NotebookText, Clock } from 'lucide-react';
+import { Search, History, ShieldAlert, CheckCircle2, AlertTriangle, Crosshair, Wrench, Package, RefreshCw, XCircle, ShieldCheck, HelpCircle, ArrowRight, NotebookText, Clock, Monitor, Wifi, Key, Battery, Cpu, Plus, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,23 @@ import { toast } from 'sonner';
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { DeviceLifecycleTimeline } from '@/components/accounting/DeviceLifecycleTimeline';
+import { HardwareIdForm } from '@/components/HardwareIdForm';
+import { RefurbishmentForm } from '@/components/RefurbishmentForm';
 
 export function DigitalPassport() {
   const [activeTab, setActiveTab] = useState<"check" | "claims">("check");
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSn, setActiveSn] = useState('');
-  
+
   // For seeding new SN
   const [showSeeding, setShowSeeding] = useState(false);
   const [inventoryId, setInventoryId] = useState('');
-  
+
+  // UI state for forms
+  const [showHardwareIdForm, setShowHardwareIdForm] = useState(false);
+  const [showRefurbishForm, setShowRefurbishForm] = useState(false);
+
   const navigate = useNavigate();
 
   // Fetch passport data
@@ -35,6 +42,14 @@ export function DigitalPassport() {
   const { data: claims, mutate: mutateClaims } = useSWR(
     activeTab === "claims" ? `${import.meta.env.VITE_API_URL || ''}/api/warranty-claims` : null
   );
+
+  // Fetch lifecycle data (timeline)
+  const { data: lifecycleData, mutate: mutateLifecycle } = useSWR(
+    passport?.id ? `${import.meta.env.VITE_API_URL || ''}/api/inventory/passports/${passport.id}/lifecycle` : null
+  );
+
+  // Fetch technicians for refurbishment form
+  const { data: technicians } = useSWR(`${import.meta.env.VITE_API_URL || ''}/api/technicians`);
 
   // Fetch inventory for autocomplete during seeding
   const { data: inventoryItems } = useSWR(showSeeding ? `${import.meta.env.VITE_API_URL || ''}/api/inventory` : null);
@@ -91,7 +106,7 @@ export function DigitalPassport() {
         body: JSON.stringify({
           status: 'COMPLETED',
           resolutionNotes: 'Diselesaikan via sistem',
-          partsUsed: [] 
+          partsUsed: []
         })
       });
       if (res.ok) {
@@ -102,6 +117,29 @@ export function DigitalPassport() {
       }
     } catch (err) {
       toast.error("Terjadi kesalahan");
+    }
+  };
+
+  const handleSaveHardwareId = async (data: any) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${apiUrl}/api/inventory/passports/${passport.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal menyimpan Hardware ID');
+      }
+
+      toast.success('Hardware ID berhasil disimpan!');
+      setShowHardwareIdForm(false);
+      mutatePassport();
+      mutateLifecycle();
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -285,8 +323,8 @@ export function DigitalPassport() {
                             <p className="text-sm font-medium">{new Date(warrantyData[0].tx?.transactionDate).toLocaleDateString('id-ID')}</p>
                           </div>
                           
-                          <Button 
-                            className="w-full justify-between mt-2" 
+                          <Button
+                            className="w-full justify-between mt-2"
                             onClick={() => handleClaimWarranty(warrantyData[0])}
                           >
                             <span className="flex items-center gap-2"><NotebookText className="h-4 w-4"/> Buat Klaim</span>
@@ -295,21 +333,156 @@ export function DigitalPassport() {
                         </CardContent>
                       </Card>
                     )}
+
+                    {/* Hardware ID Card */}
+                    {(passport.macAddress || passport.windowsKey || passport.batterySerial || passport.motherboardSerial) ? (
+                      <Card className="border-purple-200">
+                        <CardHeader className="pb-3 bg-purple-50/50 dark:bg-purple-950/20">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Monitor className="h-4 w-4 text-purple-500" />
+                            Hardware ID
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-3">
+                          {passport.macAddress && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Wifi className="h-3 w-3" /> MAC Address</span>
+                              <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{passport.macAddress}</code>
+                            </div>
+                          )}
+                          {passport.windowsKey && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Key className="h-3 w-3" /> Windows Key</span>
+                              <Badge variant="secondary" className="text-xs">Registered</Badge>
+                            </div>
+                          )}
+                          {passport.batterySerial && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Battery className="h-3 w-3" /> Battery Serial</span>
+                              <code className="font-mono text-xs">{passport.batterySerial}</code>
+                            </div>
+                          )}
+                          {passport.motherboardSerial && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Cpu className="h-3 w-3" /> Motherboard</span>
+                              <code className="font-mono text-xs">{passport.motherboardSerial}</code>
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => setShowHardwareIdForm(!showHardwareIdForm)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            {showHardwareIdForm ? 'Sembunyikan' : 'Edit Hardware ID'}
+                          </Button>
+                          {showHardwareIdForm && (
+                            <HardwareIdForm
+                              passportId={passport.id}
+                              initialData={{
+                                macAddress: passport.macAddress,
+                                windowsKey: passport.windowsKey,
+                                batterySerial: passport.batterySerial,
+                                motherboardSerial: passport.motherboardSerial,
+                              }}
+                              onSave={handleSaveHardwareId}
+                              onClose={() => setShowHardwareIdForm(false)}
+                            />
+                          )}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="border-dashed border-purple-300">
+                        <CardContent className="pt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={() => setShowHardwareIdForm(!showHardwareIdForm)}
+                          >
+                            <Plus className="h-4 w-4" />
+                            Tambah Hardware ID
+                          </Button>
+                          {showHardwareIdForm && (
+                            <div className="mt-3">
+                              <HardwareIdForm
+                                passportId={passport.id}
+                                onSave={handleSaveHardwareId}
+                                onClose={() => setShowHardwareIdForm(false)}
+                              />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Refurbishment Section */}
+                    <Card className="border-blue-200">
+                      <CardHeader className="pb-3 bg-blue-50/50 dark:bg-blue-950/20">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-blue-500" />
+                          Refurbishment & Upgrade
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 space-y-3">
+                        <RefurbishmentForm
+                          passportId={passport.id}
+                          serialNumber={passport.serialNumber}
+                          technicians={technicians || []}
+                          onSuccess={() => {
+                            mutateLifecycle();
+                            mutatePassport();
+                          }}
+                        />
+                        {/* Show recent refurbishments if available */}
+                        {lifecycleData?.refurbishments?.length > 0 && (
+                          <div className="border-t pt-3 mt-3">
+                            <p className="text-xs text-muted-foreground mb-2">Riwayat Refurbishment:</p>
+                            <div className="space-y-2">
+                              {lifecycleData.refurbishments.slice(0, 3).map((r: any) => (
+                                <div key={r.id} className="text-xs p-2 bg-muted rounded flex justify-between">
+                                  <span>{r.description}</span>
+                                  <span className="text-muted-foreground">
+                                    {new Date(r.createdAt).toLocaleDateString('id-ID')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
 
-                  {/* Timeline Events */}
+                  {/* Timeline Events - NEW ENHANCED VERSION */}
                   <Card className="md:col-span-2">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <History className="h-5 w-5" />
-                        Riwayat Perjalanan (Lifecycle)
+                      <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <History className="h-5 w-5" />
+                          Riwayat Perjalanan (Lifecycle)
+                        </span>
+                        {lifecycleData?.device?.healthScore && (
+                          <Badge variant={lifecycleData.device.healthScore >= 80 ? "default" : "secondary"}>
+                            Health: {lifecycleData.device.healthScore}%
+                          </Badge>
+                        )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="relative border-l border-muted-foreground/20 ml-3 space-y-8 pb-4">
-                        {passport.logs?.map((log: any) => {
-                          const scTo = statusConfig[log.toStatus] || { color: 'bg-slate-500', icon: History, label: log.toStatus };
-                          const Icon = scTo.icon;
+                      {/* Use enhanced timeline if available */}
+                      {lifecycleData?.timeline ? (
+                        <DeviceLifecycleTimeline
+                          events={lifecycleData.timeline}
+                          healthScore={lifecycleData.device?.healthScore}
+                        />
+                      ) : (
+                        // Fallback to simple timeline
+                        <div className="relative border-l border-muted-foreground/20 ml-3 space-y-8 pb-4">
+                          {passport.logs?.map((log: any) => {
+                            const scTo = statusConfig[log.toStatus] || { color: 'bg-slate-500', icon: History, label: log.toStatus };
+                            const Icon = scTo.icon;
                           
                           return (
                             <div key={log.id} className="relative pl-8">
@@ -344,6 +517,7 @@ export function DigitalPassport() {
                           <div className="pl-8 text-muted-foreground italic">Belum ada riwayat tercatat.</div>
                         )}
                       </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

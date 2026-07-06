@@ -67,10 +67,13 @@ export async function registerDevicePassport(
     serialNumber: string,
     initialStatus: PassportStatus = 'READY_FOR_SALE',
     originalCost: number = 0,
-    actorId?: string
+    actorId?: string,
+    txClient?: any // Optional transaction client
 ) {
+    const client = txClient || db;
+
     // Check if already exists
-    const existing = await db.query.devicePassports.findFirst({
+    const existing = await client.query.devicePassports.findFirst({
         where: and(
             eq(devicePassports.serialNumber, serialNumber),
             eq(devicePassports.storeId, storeId)
@@ -81,7 +84,7 @@ export async function registerDevicePassport(
         throw new Error(`Device Passport for SN ${serialNumber} already exists.`);
     }
 
-    const [passport] = await db.insert(devicePassports).values({
+    const [passport] = await client.insert(devicePassports).values({
         storeId,
         inventoryId,
         serialNumber,
@@ -89,7 +92,7 @@ export async function registerDevicePassport(
         originalCost,
     }).returning();
 
-    await db.insert(deviceLifecycleLogs).values({
+    await client.insert(deviceLifecycleLogs).values({
         passportId: passport.id,
         toStatus: initialStatus,
         actorId: actorId || null,

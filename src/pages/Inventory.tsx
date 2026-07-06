@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Filter, Edit, Trash2, Printer, Download, FileSpreadsheet, Settings, ChevronDown } from "lucide-react"
@@ -186,9 +187,11 @@ Berminat? Hubungi kami segera!`;
 };
 
 import useSWR from "swr"
+import { useNavigate } from "react-router-dom"
 import { apiFetch } from "@/lib/api"
 
 export function Inventory() {
+  const navigate = useNavigate()
   const { data: inventoryData, error: inventoryError, isLoading: loading, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
   const items = Array.isArray(inventoryData) ? inventoryData : []
   const { isOwner, isManager, isInvestor, isKasir } = useUserRole()
@@ -234,6 +237,9 @@ export function Inventory() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [viewDetailItem, setViewDetailItem] = useState<any>(null)
+  const { data: itemPassports, isLoading: passportsLoading } = useSWR<any[]>(
+    viewDetailItem?.id ? `${import.meta.env.VITE_API_URL || ''}/api/inventory/passports?inventoryId=${viewDetailItem.id}` : null
+  )
   
   // Batch Barcode State
   const [isBatchBarcodeOpen, setIsBatchBarcodeOpen] = useState(false)
@@ -2025,6 +2031,44 @@ export function Inventory() {
                   <p className="text-sm font-medium">{viewDetailItem.quantity} unit</p>
                 </div>
               </div>
+
+              {/* Serial Numbers (Passports) */}
+              {viewDetailItem.tracksSerialNumber && (
+                <div className="space-y-2 pt-2.5 border-t mt-2">
+                  <label className="text-xs font-bold text-indigo-650 dark:text-indigo-400 block flex justify-between items-center">
+                    <span>Serial Number Unit ({itemPassports?.length || 0} unit)</span>
+                    {passportsLoading && <span className="text-[10px] text-muted-foreground animate-pulse">Memuat...</span>}
+                  </label>
+                  {itemPassports && itemPassports.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-1 pt-0.5">
+                      {itemPassports.map((passport: any, pIdx: number) => {
+                        const isSold = passport.status === 'SOLD'
+                        return (
+                          <span 
+                            key={pIdx} 
+                            onClick={() => {
+                              setViewDetailItem(null);
+                              navigate(`/passports?sn=${encodeURIComponent(passport.serialNumber)}`);
+                            }}
+                            className={cn(
+                              "text-[10px] font-mono border px-2 py-0.5 rounded cursor-pointer transition-all hover:scale-105",
+                              isSold 
+                                ? "bg-red-50 text-red-650 border-red-155 dark:bg-red-950/20 dark:text-red-400 dark:border-red-950" 
+                                : "bg-emerald-50 text-emerald-650 border-emerald-155 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-950"
+                            )}
+                            title={`Status: ${passport.status}. Klik untuk lihat riwayat lengkap.`}
+                          >
+                            {passport.serialNumber}
+                            {isSold && <span className="text-[9px] ml-1 opacity-75 font-sans">(Terjual)</span>}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : !passportsLoading ? (
+                    <p className="text-xs text-muted-foreground italic">Belum ada unit serial number terdaftar.</p>
+                  ) : null}
+                </div>
+              )}
 
               <div className="flex flex-col gap-2 pt-4 border-t mt-4">
                 <Button 

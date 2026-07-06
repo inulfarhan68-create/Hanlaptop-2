@@ -302,6 +302,17 @@ export const qcInspectionSchema = z.object({
     hingeScore: z.number().int().min(0).max(100).default(100), // Engsel
     wifiScore: z.number().int().min(0).max(100).default(100), // Wi-Fi
     bodyScore: z.number().int().min(0).max(100).default(100), // Fisik body / cosmetics
+    // Battery cycle count
+    batteryCycle: z.number().int().min(0).optional().default(0),
+    // Component status checks (PASS/FAIL/NOT_TESTED)
+    touchpadStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    speakerStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    micStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    bluetoothStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    webcamStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    hdmiStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    chargingStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
+    fingerprintStatus: z.enum(['PASS', 'FAIL', 'NOT_TESTED']).default('NOT_TESTED'),
     // Grade is auto-calculated but can be overridden
     grade: z.enum(['A', 'B', 'C', 'REJECT'], { message: "Grade tidak valid" }).optional(),
     notes: z.string().nullable().optional(),

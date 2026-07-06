@@ -119,7 +119,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
             const autoGrade = calculateGrade(scores);
             const finalGrade = parsed.grade || autoGrade; // Allow manual override
-            
+
             const maxSellingPrice = getMaxSellingPrice(finalGrade, item.costPrice);
             const warrantyDays = getWarrantyDays(finalGrade);
 
@@ -130,11 +130,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 grade: finalGrade,
                 screenScore: scores.screenScore,
                 batteryHealth: scores.batteryHealth,
+                batteryCycle: parsed.batteryCycle || 0,
                 keyboardScore: scores.keyboardScore,
                 usbPortsScore: scores.usbPortsScore,
                 hingeScore: scores.hingeScore,
                 wifiScore: scores.wifiScore,
                 bodyScore: scores.bodyScore,
+                // Component status checks
+                touchpadStatus: parsed.touchpadStatus || 'NOT_TESTED',
+                speakerStatus: parsed.speakerStatus || 'NOT_TESTED',
+                micStatus: parsed.micStatus || 'NOT_TESTED',
+                bluetoothStatus: parsed.bluetoothStatus || 'NOT_TESTED',
+                webcamStatus: parsed.webcamStatus || 'NOT_TESTED',
+                hdmiStatus: parsed.hdmiStatus || 'NOT_TESTED',
+                chargingStatus: parsed.chargingStatus || 'NOT_TESTED',
+                fingerprintStatus: parsed.fingerprintStatus || 'NOT_TESTED',
                 maxSellingPrice,
                 warrantyDays,
                 notes: parsed.notes,

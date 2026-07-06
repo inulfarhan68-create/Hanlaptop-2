@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const inventoryId = searchParams.get("inventoryId");
 
     try {
         let conditions = [];
@@ -22,6 +23,10 @@ export async function GET(request: Request) {
         
         if (status) {
             conditions.push(eq(devicePassports.status, status as any));
+        }
+
+        if (inventoryId) {
+            conditions.push(eq(devicePassports.inventoryId, inventoryId));
         }
 
         const passports = await db.query.devicePassports.findMany({
