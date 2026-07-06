@@ -70,9 +70,10 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <TrendingUp className="h-5 w-5 text-emerald-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Operasi</h3>
                         </div>
-                                                    <TableBody>
-                                {operating.items?.map((item: any, index: number) => (
-                                    <TableRow key={index}>
+                        <Table>
+                            <TableBody>
+                                {operating.items?.map((item: any, idx: number) => (
+                                    <TableRow key={idx}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
                                         <TableCell className={`text-right py-1 ${item.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                             {item.amount >= 0 ? '+' : ''}{fmt(item.amount)}
@@ -102,9 +103,10 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <ArrowDownRight className="h-5 w-5 text-blue-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Investasi</h3>
                         </div>
-                                                    <TableBody>
-                                {investing.items?.map((item: any, index: number) => (
-                                    <TableRow key={index}>
+                        <Table>
+                            <TableBody>
+                                {investing.items?.map((item: any, idx: number) => (
+                                    <TableRow key={idx}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
                                         <TableCell className={`text-right py-1 ${item.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                             {item.amount >= 0 ? '+' : ''}{fmt(item.amount)}
@@ -134,9 +136,10 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <ArrowUpRight className="h-5 w-5 text-purple-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Pendanaan</h3>
                         </div>
-                                                    <TableBody>
-                                {financing.items?.map((item: any, index: number) => (
-                                    <TableRow key={index}>
+                        <Table>
+                            <TableBody>
+                                {financing.items?.map((item: any, idx: number) => (
+                                    <TableRow key={idx}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
                                         <TableCell className={`text-right py-1 ${item.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                             {item.amount >= 0 ? '+' : ''}{fmt(item.amount)}
