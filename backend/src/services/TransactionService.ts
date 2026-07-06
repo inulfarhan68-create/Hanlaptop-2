@@ -154,12 +154,19 @@ export class TransactionService {
                         }
                     }
 
+                    // Process serial numbers - ensure it's always a proper JSON string or null
+                    let serialNumbersToStore: string | null = null;
+                    if (validSNs.length > 0) {
+                        // validSNs is already filtered array of strings
+                        serialNumbersToStore = JSON.stringify(validSNs);
+                    }
+
                     await tx.insert(transactionItems).values({
                         transactionId: newTx.id,
                         inventoryId: item.inventoryId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
-                        serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
+                        serialNumbers: serialNumbersToStore
                     });
 
                     if (validSNs.length > 0) {
@@ -278,12 +285,18 @@ export class TransactionService {
                                 }
                             }
 
+                            // Process serial numbers - ensure it's always a proper JSON string or null
+                            let serialNumbersToStore: string | null = null;
+                            if (validSNs.length > 0) {
+                                serialNumbersToStore = JSON.stringify(validSNs);
+                            }
+
                             await tx.insert(transactionItems).values({
                                 transactionId: newTx.id,
                                 inventoryId: item.inventoryId,
                                 quantity: item.quantity,
                                 unitPrice: item.unitPrice,
-                                serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
+                                serialNumbers: serialNumbersToStore
                             });
                         }
                     } else {
@@ -321,12 +334,18 @@ export class TransactionService {
                             }
                         }
 
+                        // Process serial numbers - ensure it's always a proper JSON string or null
+                        let serialNumbersToStore: string | null = null;
+                        if (validSNs.length > 0) {
+                            serialNumbersToStore = JSON.stringify(validSNs);
+                        }
+
                         await tx.insert(transactionItems).values({
                             transactionId: newTx.id,
                             inventoryId: newInv.id,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,
-                            serialNumbers: validSNs.length > 0 ? JSON.stringify(validSNs) : null
+                            serialNumbers: serialNumbersToStore
                         });
                     }
                 }

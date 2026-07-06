@@ -66,7 +66,8 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
         price: item.sellingPrice,
         stock: item.quantity,
         category: item.category,
-        barcode: item.barcode
+        barcode: item.barcode,
+        tracksSerialNumber: item.tracksSerialNumber
       }))
     : []
 
@@ -83,7 +84,9 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
   const [newItemCategory, setNewItemCategory] = useState("")
   const [newItemSellPrice, setNewItemSellPrice] = useState("")
   const [newItemSpecs, setNewItemSpecs] = useState("")
-  const [restockList, setRestockList] = useState<{ id?: string; name: string; category?: string; qty: number; buyPrice: number; sellPrice?: number; isNew: boolean; specs?: string }[]>([])
+  const [newItemTracksSN, setNewItemTracksSN] = useState(false)
+  const [tempSerialNumbers, setTempSerialNumbers] = useState<string[]>([])
+  const [restockList, setRestockList] = useState<{ id?: string; name: string; category?: string; qty: number; buyPrice: number; sellPrice?: number; isNew: boolean; specs?: string; tracksSN?: boolean; serialNumbers?: string[] }[]>([])
   
   const [paymentMethod, setPaymentMethod] = useState("Cash")
   const [dpAmount, setDpAmount] = useState("")
@@ -91,6 +94,38 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
   const [submitting, setSubmitting] = useState(false)
 
   const [aiLoading, setAiLoading] = useState(false)
+
+  // Auto-set serial number tracking for new Laptop Bekas
+  useEffect(() => {
+    if (newItemCategory === "Laptop Bekas") {
+      setNewItemTracksSN(true)
+    } else {
+      setNewItemTracksSN(false)
+    }
+  }, [newItemCategory])
+
+  // Resize temp serial numbers list when qty or tracksSN changes
+  useEffect(() => {
+    const qty = parseInt(restockQty) || 0
+    const selectedItem = inventoryItems.find(p => p.id === restockItemId)
+    const isTracksSN = restockMode === "existing"
+      ? !!selectedItem?.tracksSerialNumber
+      : newItemTracksSN
+
+    if (isTracksSN && qty > 0) {
+      setTempSerialNumbers(prev => {
+        const next = [...prev]
+        if (next.length < qty) {
+          while (next.length < qty) next.push("")
+        } else if (next.length > qty) {
+          next.splice(qty)
+        }
+        return next
+      })
+    } else {
+      setTempSerialNumbers([])
+    }
+  }, [restockQty, restockMode, restockItemId, newItemTracksSN, inventoryData])
 
   const handleAiSpecsCheck = async () => {
     if (!newItemName.trim()) {
@@ -212,20 +247,56 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
   }, [editingTrx, active])
 
   const addToRestockList = () => {
-    if (restockMode === "existing") {
-      const item = inventoryItems.find(p => p.id === restockItemId)
-      if (!item || !restockQty || !restockBuyPrice) return
-      setRestockList([...restockList, { id: item.id, name: item.name, qty: parseInt(restockQty), buyPrice: parseCurrencyString(restockBuyPrice), isNew: false, sellPrice: item.price }])
+    const qty = parseInt(restockQty) || 0
+    if (qty <= 0) {
+      toast.error("Jumlah (Qty) harus minimal 1")
+      return
+    }
+
+    const isExisting = restockMode === "existing"
+    const selectedItem = inventoryItems.find(p => p.id === restockItemId)
+    const tracksSN = isExisting
+      ? !!selectedItem?.tracksSerialNumber
+      : newItemTracksSN
+
+    if (tracksSN) {
+      const emptySN = tempSerialNumbers.some(sn => !sn.trim())
+      if (emptySN) {
+        toast.error("Semua Serial Number unit wajib diisi!")
+        return
+      }
+      const snSet = new Set(tempSerialNumbers.map(s => s.trim().toUpperCase()))
+      if (snSet.size !== tempSerialNumbers.length) {
+        toast.error("Serial Number unit tidak boleh ada yang duplikat!")
+        return
+      }
+    }
+
+    if (isExisting) {
+      if (!selectedItem || !restockBuyPrice) return
+      setRestockList([...restockList, { 
+        id: selectedItem.id, 
+        name: selectedItem.name, 
+        category: selectedItem.category, 
+        qty, 
+        buyPrice: parseCurrencyString(restockBuyPrice), 
+        isNew: false, 
+        sellPrice: selectedItem.price,
+        tracksSN: true,
+        serialNumbers: tracksSN ? tempSerialNumbers.map(s => s.trim()) : undefined
+      }])
     } else {
-      if (!newItemName || !newItemCategory || !restockQty || !restockBuyPrice) return
+      if (!newItemName || !newItemCategory || !restockBuyPrice) return
       setRestockList([...restockList, { 
         name: newItemName, 
         category: newItemCategory,
-        qty: parseInt(restockQty), 
+        qty, 
         buyPrice: parseCurrencyString(restockBuyPrice), 
         isNew: true, 
         sellPrice: parseCurrencyString(newItemSellPrice),
-        specs: newItemCategory === "Laptop Bekas" ? newItemSpecs : undefined
+        specs: newItemCategory === "Laptop Bekas" ? newItemSpecs : undefined,
+        tracksSN,
+        serialNumbers: tracksSN ? tempSerialNumbers.map(s => s.trim()) : undefined
       }])
     }
     setRestockItemId("");
@@ -235,6 +306,8 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
     setNewItemSpecs("")
     setRestockQty("")
     setRestockBuyPrice("")
+    setNewItemTracksSN(false)
+    setTempSerialNumbers([])
   }
 
   const removeFromRestockList = (index: number) => setRestockList(restockList.filter((_, i) => i !== index))
@@ -275,7 +348,9 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
             quantity: c.qty, 
             unitPrice: c.buyPrice,
             sellingPrice: c.sellPrice,
-            specs: c.specs
+            specs: c.specs,
+            tracksSerialNumber: c.tracksSN,
+            serialNumbers: c.serialNumbers
           }))
         })
       })
@@ -382,6 +457,19 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
                   </div>
                 </div>
 
+                <div className="flex items-center space-x-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="tracksSerialNumber"
+                    checked={newItemTracksSN}
+                    onChange={e => setNewItemTracksSN(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="tracksSerialNumber" className="text-[11px] font-medium text-muted-foreground cursor-pointer">
+                    Lacak Serial Number untuk unit ini (Sangat disarankan untuk Laptop)
+                  </label>
+                </div>
+
                 {newItemCategory === "Laptop Bekas" && (
                   <div className="pt-2 border-t">
                     <LaptopSpecForm value={newItemSpecs} onChange={setNewItemSpecs} />
@@ -401,6 +489,33 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
                 </Button>
               </div>
             </div>
+
+            {tempSerialNumbers.length > 0 && (
+              <div className="border-t pt-2.5 mt-2 space-y-2 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                    Input Serial Number Unit ({tempSerialNumbers.length} unit):
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {tempSerialNumbers.map((sn, idx) => (
+                    <div key={idx} className="space-y-0.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground">Unit #{idx + 1}</label>
+                      <Input
+                        value={sn}
+                        onChange={e => {
+                          const next = [...tempSerialNumbers];
+                          next[idx] = e.target.value;
+                          setTempSerialNumbers(next);
+                        }}
+                        placeholder={`Masukkan SN Unit ${idx + 1}...`}
+                        className="h-8 text-xs font-mono border-indigo-200 focus-visible:ring-indigo-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -427,7 +542,16 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
                   restockList.map((item, idx) => (
                     <TableRow key={idx}>
                       <TableCell className="text-xs font-medium">
-                        {item.name}
+                        <div>{item.name}</div>
+                        {item.serialNumbers && item.serialNumbers.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1 max-w-[250px]">
+                            {item.serialNumbers.map((sn, sIdx) => (
+                              <span key={sIdx} className="text-[9px] font-mono bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-950 px-1.5 py-0.5 rounded">
+                                SN: {sn}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs">
                         {item.isNew ? (
