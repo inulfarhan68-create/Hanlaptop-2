@@ -34,9 +34,9 @@ export function DashboardKPIs({ year, month, apiUrl, fmt }: DashboardKPIsProps) 
 
     const netIncome = incomeStatement?.netIncome || 0
     const totalRevenue = incomeStatement?.sections
-        ?.find(s => s.name === 'Pendapatan')?.total || 0
+        ?.find((s: any) => s.name === 'Pendapatan')?.total || 0
     const totalExpenses = incomeStatement?.sections
-        ?.reduce((sum, s) => sum + s.total, 0) || 0
+        ?.reduce((sum: number, s: any) => sum + (s.total || 0), 0) || 0
     const totalAssets = balanceSheet?.assets?.total || 0
     const totalLiabilities = balanceSheet?.liabilities?.total || 0
     const totalEquity = balanceSheet?.equity?.total || 0

@@ -111,7 +111,7 @@ export function GeneralLedgerView({ year, month, apiUrl, fmt }: GeneralLedgerVie
                                         </TableCell>
                                     </TableRow>
                                     {/* Journal Entries */}
-                                    {ledgerData.entries?.map((entry: any, index: number) => (
+                                    {ledgerData.entries?.map((entry: any) => (
                                         <TableRow key={entry.id}>
                                             <TableCell className="text-xs">
                                                 {new Date(entry.createdAt).toLocaleDateString('id-ID')}

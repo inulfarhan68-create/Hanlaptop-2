@@ -87,8 +87,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                         {/* Current Assets */}
                         <div className="mb-4">
                             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Aset Lancar</h4>
-                            <Table size="sm">
-                                <TableBody>
+                                                            <TableBody>
                                     {assets.current.map((account: any) => (
                                         <TableRow key={account.code}>
                                             <TableCell className="text-xs py-1">{account.name}</TableCell>
@@ -104,8 +103,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                         {/* Fixed Assets */}
                         <div className="mb-4">
                             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Aset Tetap</h4>
-                            <Table size="sm">
-                                <TableBody>
+                                                            <TableBody>
                                     {assets.fixed.map((account: any) => (
                                         <TableRow key={account.code}>
                                             <TableCell className="text-xs py-1">{account.name}</TableCell>
@@ -134,8 +132,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                         {/* Current Liabilities */}
                         <div className="mb-4">
                             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Utang Lancar</h4>
-                            <Table size="sm">
-                                <TableBody>
+                                                            <TableBody>
                                     {liabilities.current.map((account: any) => (
                                         <TableRow key={account.code}>
                                             <TableCell className="text-xs py-1">{account.name}</TableCell>
@@ -151,8 +148,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                         {/* Long Term Liabilities */}
                         <div className="mb-4">
                             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Utang Jangka Panjang</h4>
-                            <Table size="sm">
-                                <TableBody>
+                                                            <TableBody>
                                     {liabilities.longTerm.map((account: any) => (
                                         <TableRow key={account.code}>
                                             <TableCell className="text-xs py-1">{account.name}</TableCell>
@@ -175,8 +171,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
 
                         {/* EQUITY */}
                         <h3 className="text-lg font-bold text-green-600 mt-6 mb-3">EKUITAS</h3>
-                        <Table size="sm">
-                            <TableBody>
+                                                    <TableBody>
                                 {equity.accounts.map((account: any) => (
                                     <TableRow key={account.code}>
                                         <TableCell className="text-xs py-1">{account.name}</TableCell>

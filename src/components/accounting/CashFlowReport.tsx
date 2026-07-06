@@ -70,8 +70,7 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <TrendingUp className="h-5 w-5 text-emerald-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Operasi</h3>
                         </div>
-                        <Table size="sm">
-                            <TableBody>
+                                                    <TableBody>
                                 {operating.items?.map((item: any, index: number) => (
                                     <TableRow key={index}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
@@ -103,8 +102,7 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <ArrowDownRight className="h-5 w-5 text-blue-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Investasi</h3>
                         </div>
-                        <Table size="sm">
-                            <TableBody>
+                                                    <TableBody>
                                 {investing.items?.map((item: any, index: number) => (
                                     <TableRow key={index}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
@@ -136,8 +134,7 @@ export function CashFlowReport({ data, fmt, isLoading }: CashFlowReportProps) {
                             <ArrowUpRight className="h-5 w-5 text-purple-600" />
                             <h3 className="font-semibold text-sm">Arus Kas Pendanaan</h3>
                         </div>
-                        <Table size="sm">
-                            <TableBody>
+                                                    <TableBody>
                                 {financing.items?.map((item: any, index: number) => (
                                     <TableRow key={index}>
                                         <TableCell className="text-xs py-1">{item.description}</TableCell>
