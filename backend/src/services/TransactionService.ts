@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables } from "@/db/schema";
-import { desc, eq, and, gte, like, sql } from "drizzle-orm";
+import { desc, eq, and, gte, like, sql, isNull } from "drizzle-orm";
 
 interface CreateTransactionParams {
     storeId: string;
@@ -247,8 +247,14 @@ export class TransactionService {
                 for (const item of items) {
                     if (item.inventoryId) {
                         const invItem = await tx.query.inventory.findFirst({
-                            where: eq(inventory.id, item.inventoryId as string)
+                            where: and(
+                                eq(inventory.id, item.inventoryId as string),
+                                isNull(inventory.deletedAt) // Exclude soft-deleted items
+                            )
                         });
+                        if (!invItem) {
+                            throw new Error(`Barang inventori dengan ID "${item.inventoryId}" tidak ditemukan atau sudah dihapus. Harap segarkan halaman browser Anda.`);
+                        }
                         if (invItem) {
                             const newTotalCost = (invItem.quantity * invItem.costPrice) + (item.quantity * item.unitPrice);
                             const newQty = invItem.quantity + item.quantity;
