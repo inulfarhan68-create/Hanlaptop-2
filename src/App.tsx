@@ -21,7 +21,7 @@ const Piutang = lazy(() => import("@/pages/Piutang").then(m => ({ default: m.Piu
 const Hutang = lazy(() => import("@/pages/Hutang").then(m => ({ default: m.Hutang })))
 const Customers = lazy(() => import("@/pages/Customers").then(m => ({ default: m.Customers })))
 const Suppliers = lazy(() => import("@/pages/Suppliers").then(m => ({ default: m.Suppliers })))
-const Technicians = lazy(() => import("@/pages/Technicians").then(m => ({ default: m.Technicians })))
+
 const Services = lazy(() => import("@/pages/Services").then(m => ({ default: m.Services })))
 
 const StockOpname = lazy(() => import("@/pages/StockOpname").then(m => ({ default: m.StockOpname })))
@@ -74,7 +74,7 @@ function App() {
                 <Route path="/hutang" element={<Hutang />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/suppliers" element={<Suppliers />} />
-                <Route path="/technicians" element={<Technicians />} />
+                <Route path="/technicians" element={<Navigate to="/payroll?tab=teknisi" replace />} />
                 <Route path="/services" element={<Services />} />
 
                 <Route path="/opname" element={<StockOpname />} />

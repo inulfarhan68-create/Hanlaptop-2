@@ -111,11 +111,10 @@ export function Settings() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`snap-center shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold transition-all duration-300 ${
-                  isActive
+                className={`snap-center shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold transition-all duration-300 ${isActive
                     ? "bg-primary text-primary-foreground shadow-md"
                     : "bg-card border border-border text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 <tab.icon className="h-4 w-4" />
                 <span>{tab.label}</span>
@@ -132,15 +131,13 @@ export function Settings() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-3 w-full text-left px-3.5 py-3 rounded-xl transition-all duration-300 group cursor-pointer ${
-                  isActive
+                className={`flex items-center gap-3 w-full text-left px-3.5 py-3 rounded-xl transition-all duration-300 group cursor-pointer ${isActive
                     ? "bg-primary text-primary-foreground shadow-md font-bold"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
+                  }`}
               >
-                <div className={`p-1.5 rounded-lg shrink-0 ${
-                  isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground group-hover:text-foreground group-hover:bg-muted/80"
-                }`}>
+                <div className={`p-1.5 rounded-lg shrink-0 ${isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground group-hover:text-foreground group-hover:bg-muted/80"
+                  }`}>
                   <tab.icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="flex-1 min-w-0 leading-tight">

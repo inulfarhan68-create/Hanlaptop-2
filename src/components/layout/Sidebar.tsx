@@ -76,8 +76,7 @@ const sidebarGroups = [
     items: [
       { title: "Pelanggan", href: "/customers", icon: Users },
       { title: "Supplier", href: "/suppliers", icon: Truck },
-      { title: "Teknisi", href: "/technicians", icon: UserCog },
-      { title: "Karyawan & Gaji", href: "/payroll", icon: Wallet },
+      { title: "Karyawan & Staf", href: "/payroll", icon: Wallet },
     ]
   },
   {
