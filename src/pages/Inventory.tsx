@@ -23,6 +23,7 @@ import { MarkdownTab } from "@/components/inventory/MarkdownTab"
 import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
 import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
 import { AIPricingWidget } from "@/components/AIPricingWidget"
+import { QCDetailForm } from "@/components/QCDetailForm"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
@@ -320,6 +321,25 @@ export function Inventory() {
   const [qcGrade, setQcGrade] = useState("B")
   const [qcNotes, setQcNotes] = useState("")
   const [selectedTechnicianId, setSelectedTechnicianId] = useState("")
+
+  // Detailed QC state (for component scores)
+  const [screenScore, setScreenScore] = useState(100)
+  const [batteryHealth, setBatteryHealth] = useState(100)
+  const [keyboardScore, setKeyboardScore] = useState(100)
+  const [usbPortsScore, setUsbPortsScore] = useState(100)
+  const [hingeScore, setHingeScore] = useState(100)
+  const [wifiScore, setWifiScore] = useState(100)
+  const [bodyScore, setBodyScore] = useState(100)
+  const [batteryCycle, setBatteryCycle] = useState(0)
+  const [touchpadStatus, setTouchpadStatus] = useState('NOT_TESTED')
+  const [speakerStatus, setSpeakerStatus] = useState('NOT_TESTED')
+  const [micStatus, setMicStatus] = useState('NOT_TESTED')
+  const [bluetoothStatus, setBluetoothStatus] = useState('NOT_TESTED')
+  const [webcamStatus, setWebcamStatus] = useState('NOT_TESTED')
+  const [hdmiStatus, setHdmiStatus] = useState('NOT_TESTED')
+  const [chargingStatus, setChargingStatus] = useState('NOT_TESTED')
+  const [fingerprintStatus, setFingerprintStatus] = useState('NOT_TESTED')
+  const [showDetailedQC, setShowDetailedQC] = useState(false)
   
   // Markdown state
   const [isMarkdownOpen, setIsMarkdownOpen] = useState(false)
@@ -340,6 +360,24 @@ export function Inventory() {
     setQcGrade(item.qcGrade || "B")
     setQcNotes(item.qcNotes || "")
     setSelectedTechnicianId(item.qcTechnicianId || "")
+    // Reset detailed QC state
+    setScreenScore(item.screenScore || 100)
+    setBatteryHealth(item.batteryHealth || 100)
+    setKeyboardScore(item.keyboardScore || 100)
+    setUsbPortsScore(item.usbPortsScore || 100)
+    setHingeScore(item.hingeScore || 100)
+    setWifiScore(item.wifiScore || 100)
+    setBodyScore(item.bodyScore || 100)
+    setBatteryCycle(item.batteryCycle || 0)
+    setTouchpadStatus(item.touchpadStatus || 'NOT_TESTED')
+    setSpeakerStatus(item.speakerStatus || 'NOT_TESTED')
+    setMicStatus(item.micStatus || 'NOT_TESTED')
+    setBluetoothStatus(item.bluetoothStatus || 'NOT_TESTED')
+    setWebcamStatus(item.webcamStatus || 'NOT_TESTED')
+    setHdmiStatus(item.hdmiStatus || 'NOT_TESTED')
+    setChargingStatus(item.chargingStatus || 'NOT_TESTED')
+    setFingerprintStatus(item.fingerprintStatus || 'NOT_TESTED')
+    setShowDetailedQC(false)
     setErpImageUrl(item.imageUrl || "")
     setRawImageFile(null)
     setIsWatermarkEnabled(false)
@@ -1049,8 +1087,8 @@ export function Inventory() {
       }
 
       // Submit QC Grade only if a technician is selected AND there are changes to save
-      const shouldSaveQc = selectedTechnicianId && (isGradeChanged || isNotesChanged || isTechChanged || !erpItem.qcGrade);
-      
+      const shouldSaveQc = selectedTechnicianId && (isGradeChanged || isNotesChanged || isTechChanged || !erpItem.qcGrade || showDetailedQC);
+
       if (shouldSaveQc) {
         const res2 = await apiFetch(`/api/inventory/${erpItem.id}/qc`, {
           method: 'POST',
@@ -1058,7 +1096,25 @@ export function Inventory() {
           body: JSON.stringify({
             grade: qcGrade,
             notes: qcNotes,
-            technicianId: selectedTechnicianId
+            technicianId: selectedTechnicianId,
+            // Detailed component scores
+            screenScore,
+            batteryHealth,
+            keyboardScore,
+            usbPortsScore,
+            hingeScore,
+            wifiScore,
+            bodyScore,
+            batteryCycle,
+            // Component status
+            touchpadStatus,
+            speakerStatus,
+            micStatus,
+            bluetoothStatus,
+            webcamStatus,
+            hdmiStatus,
+            chargingStatus,
+            fingerprintStatus,
           })
         });
 
@@ -1631,9 +1687,12 @@ export function Inventory() {
                       </span>
                     )}
                     {item.tracksSerialNumber && (
-                      <span className="bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap">
-                        Lacak SN
-                      </span>
+                      <button
+                        onClick={() => navigate('/passports')}
+                        className="bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap hover:bg-blue-200 dark:hover:bg-blue-800 cursor-pointer transition-colors"
+                      >
+                        🔍 Lacak SN
+                      </button>
                     )}
                     {item.qcGrade && (
                       <span className={`px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap border ${
@@ -2882,6 +2941,39 @@ export function Inventory() {
                         onChange={(e) => setQcNotes(e.target.value)}
                       />
                     </div>
+
+                    {/* Toggle Detailed QC */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDetailedQC(!showDetailedQC)}
+                      className="w-full"
+                    >
+                      {showDetailedQC ? '▲ Sembunyikan Detail Komponen' : '▼ Inspeksi Detail Komponen'}
+                    </Button>
+
+                    {/* Detailed QC Form */}
+                    {showDetailedQC && (
+                      <QCDetailForm
+                        screenScore={screenScore} setScreenScore={setScreenScore}
+                        batteryHealth={batteryHealth} setBatteryHealth={setBatteryHealth}
+                        keyboardScore={keyboardScore} setKeyboardScore={setKeyboardScore}
+                        usbPortsScore={usbPortsScore} setUsbPortsScore={setUsbPortsScore}
+                        hingeScore={hingeScore} setHingeScore={setHingeScore}
+                        wifiScore={wifiScore} setWifiScore={setWifiScore}
+                        bodyScore={bodyScore} setBodyScore={setBodyScore}
+                        batteryCycle={batteryCycle} setBatteryCycle={setBatteryCycle}
+                        touchpadStatus={touchpadStatus} setTouchpadStatus={setTouchpadStatus}
+                        speakerStatus={speakerStatus} setSpeakerStatus={setSpeakerStatus}
+                        micStatus={micStatus} setMicStatus={setMicStatus}
+                        bluetoothStatus={bluetoothStatus} setBluetoothStatus={setBluetoothStatus}
+                        webcamStatus={webcamStatus} setWebcamStatus={setWebcamStatus}
+                        hdmiStatus={hdmiStatus} setHdmiStatus={setHdmiStatus}
+                        chargingStatus={chargingStatus} setChargingStatus={setChargingStatus}
+                        fingerprintStatus={fingerprintStatus} setFingerprintStatus={setFingerprintStatus}
+                      />
+                    )}
                   </div>
                 </div>
               )}

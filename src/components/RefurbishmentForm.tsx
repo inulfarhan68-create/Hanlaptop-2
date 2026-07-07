@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import useSWR from 'swr';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Wrench, Cpu, HardDrive, Sparkles, RefreshCw, Settings, Plus, Trash2 } from 'lucide-react';
+import { Wrench, Cpu, HardDrive, Sparkles, RefreshCw, Settings, Plus, Trash2, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -17,12 +18,12 @@ interface RefurbishmentFormProps {
 }
 
 const ACTIVITY_TYPES = [
-    { value: 'CLEANING', label: '🧹 Deep Cleaning', icon: Sparkles, desc: 'Pembersihan total termasuk thermal paste' },
-    { value: 'REPASTA', label: '🔥 Repasta Thermal', icon: RefreshCw, desc: 'Ganti thermal paste CPU/GPU' },
-    { value: 'UPGRADE_RAM', label: '📦 Upgrade RAM', icon: Cpu, desc: 'Tambah atau ganti modul RAM' },
-    { value: 'UPGRADE_SSD', label: '💾 Upgrade SSD', icon: HardDrive, desc: 'Tambah atau ganti SSD' },
-    { value: 'REPLACE_COMPONENT', label: '🔧 Ganti Komponen', icon: Settings, desc: 'Ganti LCD, keyboard, baterai, dll' },
-    { value: 'OTHER', label: '⚙️ Lainnya', icon: Wrench, desc: 'Service atau perbaikan lain' },
+    { value: 'CLEANING', label: '🧹 Deep Cleaning', icon: Sparkles, desc: 'Pembersihan total termasuk thermal paste', hasSparepart: false },
+    { value: 'REPASTA', label: '🔥 Repasta Thermal', icon: RefreshCw, desc: 'Ganti thermal paste CPU/GPU', hasSparepart: true, sparepartCategory: 'Thermal Paste' },
+    { value: 'UPGRADE_RAM', label: '📦 Upgrade RAM', icon: Cpu, desc: 'Tambah atau ganti modul RAM', hasSparepart: true, sparepartCategory: 'RAM' },
+    { value: 'UPGRADE_SSD', label: '💾 Upgrade SSD', icon: HardDrive, desc: 'Tambah atau ganti SSD', hasSparepart: true, sparepartCategory: 'SSD' },
+    { value: 'REPLACE_COMPONENT', label: '🔧 Ganti Komponen', icon: Settings, desc: 'Ganti LCD, keyboard, baterai, dll', hasSparepart: true, sparepartCategory: 'Sparepart' },
+    { value: 'OTHER', label: '⚙️ Lainnya', icon: Wrench, desc: 'Service atau perbaikan lain', hasSparepart: false },
 ];
 
 export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuccess, onClose: _onClose }: RefurbishmentFormProps) {
@@ -37,12 +38,44 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showForm, setShowForm] = useState(false);
 
+    // Sparepart selection
+    const [useSparepart, setUseSparepart] = useState(false);
+    const [sparepartId, setSparepartId] = useState('');
+    const [sparepartQty, setSparepartQty] = useState(1);
+
+    // Fetch sparepart inventory (categories: Thermal Paste, RAM, SSD, Sparepart)
+    const { data: sparepartInventory } = useSWR(
+        showForm ? `${import.meta.env.VITE_API_URL || ''}/api/inventory?category=Aksesoris` : null
+    );
+
+    // Filter sparepart based on activity type
+    const selectedActivity = ACTIVITY_TYPES.find(a => a.value === activityType);
+    const filteredSpareparts = sparepartInventory?.filter((item: any) => {
+        if (!selectedActivity?.sparepartCategory) return false;
+        const cat = selectedActivity.sparepartCategory.toLowerCase();
+        if (cat === 'thermal paste') return item.itemName.toLowerCase().includes('thermal') || item.category === 'Aksesoris';
+        if (cat === 'ram') return item.itemName.toLowerCase().includes('ram') || item.category === 'RAM';
+        if (cat === 'ssd') return item.itemName.toLowerCase().includes('ssd') || item.category === 'SSD';
+        return item.category === 'Aksesoris' || item.category === 'Sparepart';
+    }) || [];
+
+    const selectedSparepart = filteredSpareparts.find((s: any) => s.id === sparepartId);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!activityType || !description) {
             toast.error('Pilih jenis aktivitas dan isi deskripsi');
             return;
+        }
+
+        if (useSparepart && sparepartId && cost > 0) {
+            // Verify stock
+            const sparepart = selectedSparepart;
+            if (sparepart && sparepart.quantity < sparepartQty) {
+                toast.error(`Stok tidak cukup! Tersedia: ${sparepart.quantity} unit`);
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -60,7 +93,11 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                     oldSpec: oldSpec || null,
                     newSpec: newSpec || null,
                     notes: notes || null,
-                    technicianId: technicianId || null
+                    technicianId: technicianId || null,
+                    // Sparepart data
+                    sparepartInventoryId: useSparepart && sparepartId ? sparepartId : null,
+                    sparepartQty: useSparepart ? sparepartQty : 0,
+                    createJournalEntry: true
                 })
             });
 
@@ -70,7 +107,13 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                 throw new Error(data.error || 'Gagal menyimpan refurbishment');
             }
 
-            toast.success('Refurbishment berhasil dicatat!');
+            // Show success with details
+            if (data.sparepartUsed) {
+                toast.success(`✅ Refurbishment berhasil! Sparepart "${data.sparepartUsed.name}" x${data.sparepartUsed.qty} deducted.`);
+            } else {
+                toast.success('✅ Refurbishment berhasil dicatat!');
+            }
+
             setShowForm(false);
             resetForm();
             onSuccess?.();
@@ -90,6 +133,9 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
         setNewSpec('');
         setNotes('');
         setTechnicianId('');
+        setUseSparepart(false);
+        setSparepartId('');
+        setSparepartQty(1);
     };
 
     if (!showForm) {
@@ -115,9 +161,9 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                             <Wrench className="h-4 w-4" />
                             Catat Refurbishment/Upgrade
                         </CardTitle>
-                        <CardDescription className="text-xs">
+                        <p className="text-xs text-muted-foreground">
                             SN: {serialNumber}
-                        </CardDescription>
+                        </p>
                     </div>
                     <Button
                         variant="ghost"
@@ -141,7 +187,10 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                                 <button
                                     key={type.value}
                                     type="button"
-                                    onClick={() => setActivityType(type.value)}
+                                    onClick={() => {
+                                        setActivityType(type.value);
+                                        setComponentReplaced(type.label.replace(/[^\w\s]/g, '').trim());
+                                    }}
                                     className={cn(
                                         "p-3 rounded-lg border text-left transition-all",
                                         activityType === type.value
@@ -172,30 +221,102 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                         />
                     </div>
 
-                    {/* Upgrade Details (for RAM/SSD upgrades) */}
-                    {(activityType === 'UPGRADE_RAM' || activityType === 'UPGRADE_SSD' || activityType === 'REPLACE_COMPONENT') && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-xs font-medium">Komponen</label>
-                                <Input
-                                    placeholder="RAM / SSD / LCD / dll"
-                                    value={componentReplaced}
-                                    onChange={(e) => setComponentReplaced(e.target.value)}
+                    {/* Sparepart Section */}
+                    {selectedActivity?.hasSparepart && (
+                        <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="useSparepart"
+                                    checked={useSparepart}
+                                    onChange={(e) => setUseSparepart(e.target.checked)}
+                                    className="w-4 h-4"
                                 />
+                                <label htmlFor="useSparepart" className="text-xs font-medium flex items-center gap-1">
+                                    <Package className="h-3 w-3" />
+                                    Gunakan Sparepart dari Inventori
+                                </label>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-medium">Biaya (Rp)</label>
-                                <Input
-                                    type="number"
-                                    placeholder="0"
-                                    value={cost || ''}
-                                    onChange={(e) => setCost(parseInt(e.target.value) || 0)}
-                                />
-                            </div>
+
+                            {useSparepart && (
+                                <div className="space-y-2">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium">Pilih Sparepart</label>
+                                        <select
+                                            className="w-full text-sm rounded-lg border bg-background px-3 py-2"
+                                            value={sparepartId}
+                                            onChange={(e) => setSparepartId(e.target.value)}
+                                        >
+                                            <option value="">-- Pilih Sparepart --</option>
+                                            {filteredSpareparts.map((sp: any) => (
+                                                <option key={sp.id} value={sp.id}>
+                                                    {sp.itemName} (Stok: {sp.quantity}) - Rp {sp.costPrice?.toLocaleString('id-ID') || 0}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {filteredSpareparts.length === 0 && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Tidak ada sparepart tersedia di inventori
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {sparepartId && selectedSparepart && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-medium">Jumlah</label>
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={selectedSparepart.quantity}
+                                                        value={sparepartQty}
+                                                        onChange={(e) => setSparepartQty(parseInt(e.target.value) || 1)}
+                                                    />
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        Stok: {selectedSparepart.quantity}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-medium">Biaya Service (Rp)</label>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="Biaya jasa teknisi"
+                                                        value={cost || ''}
+                                                        onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {selectedSparepart && (
+                                                <div className="flex justify-between items-center text-xs bg-white dark:bg-black/20 p-2 rounded border">
+                                                    <span className="text-muted-foreground">Total Biaya:</span>
+                                                    <span className="font-bold">
+                                                        Rp {((selectedSparepart.costPrice * sparepartQty) + (cost || 0)).toLocaleString('id-ID')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Specs Change */}
+                    {/* Manual cost entry (for activities without sparepart) */}
+                    {!selectedActivity?.hasSparepart && cost >= 0 && (
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium">Biaya (Rp)</label>
+                            <Input
+                                type="number"
+                                placeholder="0"
+                                value={cost || ''}
+                                onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+                            />
+                        </div>
+                    )}
+
+                    {/* Specs Change (for upgrades) */}
                     {(activityType === 'UPGRADE_RAM' || activityType === 'UPGRADE_SSD') && (
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
@@ -234,18 +355,6 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                         />
                     </div>
 
-                    {/* Notes */}
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Catatan Tambahan</label>
-                        <textarea
-                            className="w-full text-sm rounded-lg border bg-background px-3 py-2 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            rows={2}
-                            placeholder="Catatan tambahan (opsional)"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                        />
-                    </div>
-
                     {/* Submit */}
                     <div className="flex gap-2 pt-2">
                         <Button
@@ -253,7 +362,7 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                             disabled={isSubmitting || !activityType || !description}
                             className="flex-1"
                         >
-                            {isSubmitting ? 'Menyimpan...' : 'Simpan Refurbishment'}
+                            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
                         </Button>
                         <Button
                             type="button"
@@ -269,60 +378,5 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
                 </form>
             </CardContent>
         </Card>
-    );
-}
-
-// Quick upgrade buttons for common actions
-export function QuickUpgradeButtons({ passportId, serialNumber, onUpgrade }: {
-    passportId: string;
-    serialNumber: string;
-    onUpgrade: () => void;
-}) {
-    const quickActions = [
-        { type: 'CLEANING', label: 'Cleaning', icon: Sparkles },
-        { type: 'REPASTA', label: 'Repasta', icon: RefreshCw },
-        { type: 'UPGRADE_SSD', label: 'Upgrade SSD', icon: HardDrive },
-        { type: 'UPGRADE_RAM', label: 'Upgrade RAM', icon: Cpu },
-    ];
-
-    const handleQuickAction = async (type: string) => {
-        try {
-            const apiUrl = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiUrl}/api/inventory/passports/${passportId}/refurbish`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    activityType: type,
-                    description: `${type === 'CLEANING' ? 'Deep Cleaning' : type === 'REPASTA' ? 'Repasta Thermal' : type === 'UPGRADE_SSD' ? 'Upgrade SSD' : 'Upgrade RAM'} - ${serialNumber}`
-                })
-            });
-
-            if (!res.ok) throw new Error('Failed');
-
-            toast.success(`${type === 'CLEANING' ? 'Cleaning' : type === 'REPASTA' ? 'Repasta' : 'Upgrade'} berhasil dicatat!`);
-            onUpgrade();
-        } catch {
-            toast.error('Gagal mencatat');
-        }
-    };
-
-    return (
-        <div className="flex gap-2 flex-wrap">
-            {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                    <Button
-                        key={action.type}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickAction(action.type)}
-                        className="gap-1 text-xs"
-                    >
-                        <Icon className="h-3 w-3" />
-                        {action.label}
-                    </Button>
-                );
-            })}
-        </div>
     );
 }

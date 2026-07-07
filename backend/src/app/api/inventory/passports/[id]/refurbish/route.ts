@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { deviceRefurbishments, devicePassports, deviceLifecycleLogs } from "@/db/schema";
+import { deviceRefurbishments, devicePassports, deviceLifecycleLogs, inventory, journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
 
@@ -20,6 +20,7 @@ type ActivityType = typeof VALID_ACTIVITY_TYPES[number];
 
 // POST /api/inventory/passports/[id]/refurbish
 // Record a refurbishment activity for a device
+// Can optionally deduct sparepart inventory and create journal entry for expense
 export async function POST(
     request: Request,
     context: { params: Promise<{ id: string }> }
@@ -40,7 +41,12 @@ export async function POST(
             oldSpec,
             newSpec,
             notes,
-            technicianId
+            technicianId,
+            // Optional: sparepart inventory deduction
+            sparepartInventoryId,
+            sparepartQty = 1,
+            // Optional: create journal entry for expense
+            createJournalEntry = true
         } = body;
 
         // Validate required fields
@@ -74,43 +80,112 @@ export async function POST(
             );
         }
 
-        // Create refurbishment record
-        const [refurbishment] = await db.insert(deviceRefurbishments).values({
-            passportId: id,
-            storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
-            technicianId: technicianId || null,
-            activityType: activityType as string,
-            description,
-            cost: cost || 0,
-            componentReplaced: componentReplaced || null,
-            oldSpec: oldSpec || null,
-            newSpec: newSpec || null,
-            notes: notes || null
-        }).returning();
+        // Start transaction
+        return await db.transaction(async (tx) => {
+            // 1. Deduct sparepart inventory if specified
+            let sparepartUsed = null;
+            if (sparepartInventoryId && sparepartQty > 0) {
+                const sparepart = await tx.query.inventory.findFirst({
+                    where: eq(inventory.id, sparepartInventoryId)
+                });
 
-        // Create lifecycle log entry
-        const activityLabels: Record<string, string> = {
-            'CLEANING': 'Deep Cleaning',
-            'REPASTA': 'Thermal Repasta',
-            'UPGRADE_RAM': 'RAM Upgrade',
-            'UPGRADE_SSD': 'SSD Upgrade',
-            'REPLACE_COMPONENT': 'Component Replacement',
-            'OTHER': 'Other Service'
-        };
+                if (!sparepart) {
+                    throw new Error("Sparepart inventory not found");
+                }
 
-        await db.insert(deviceLifecycleLogs).values({
-            passportId: id,
-            fromStatus: passport.status,
-            toStatus: passport.status, // Status doesn't change on refurbishment
-            actorId: (authResult.user as any)?.id || null,
-            referenceId: refurbishment.id,
-            notes: `${activityLabels[activityType]}: ${description}${cost ? ` (Cost: Rp ${cost.toLocaleString('id-ID')})` : ''}`
-        });
+                if (sparepart.quantity < sparepartQty) {
+                    throw new Error(`Insufficient stock for sparepart: ${sparepart.itemName}. Available: ${sparepart.quantity}`);
+                }
 
-        return NextResponse.json({
-            success: true,
-            refurbishment,
-            message: "Refurbishment activity recorded successfully"
+                // Deduct sparepart
+                await tx.update(inventory)
+                    .set({ quantity: sparepart.quantity - sparepartQty })
+                    .where(eq(inventory.id, sparepartInventoryId));
+
+                sparepartUsed = {
+                    inventoryId: sparepartInventoryId,
+                    name: sparepart.itemName,
+                    qty: sparepartQty,
+                    unitCost: sparepart.costPrice
+                };
+            }
+
+            // 2. Create refurbishment record
+            const [refurbishment] = await tx.insert(deviceRefurbishments).values({
+                passportId: id,
+                storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                technicianId: technicianId || null,
+                activityType: activityType as string,
+                description,
+                cost: cost || 0,
+                componentReplaced: componentReplaced || null,
+                oldSpec: oldSpec || null,
+                newSpec: newSpec || null,
+                notes: notes || null
+            }).returning();
+
+            // 3. Create lifecycle log entry
+            const activityLabels: Record<string, string> = {
+                'CLEANING': 'Deep Cleaning',
+                'REPASTA': 'Thermal Repasta',
+                'UPGRADE_RAM': 'RAM Upgrade',
+                'UPGRADE_SSD': 'SSD Upgrade',
+                'REPLACE_COMPONENT': 'Component Replacement',
+                'OTHER': 'Other Service'
+            };
+
+            const logNotes = `${activityLabels[activityType]}: ${description}${cost ? ` (Biaya: Rp ${cost.toLocaleString('id-ID')})` : ''}${sparepartUsed ? ` [Sparepart: ${sparepartUsed.name} x${sparepartUsed.qty}]` : ''}`;
+
+            await tx.insert(deviceLifecycleLogs).values({
+                passportId: id,
+                fromStatus: passport.status,
+                toStatus: passport.status, // Status doesn't change on refurbishment
+                actorId: (authResult.user as any)?.id || null,
+                referenceId: refurbishment.id,
+                notes: logNotes
+            });
+
+            // 4. Create journal entries for expense if cost > 0 and flag is true
+            let journalEntriesCreated = null;
+            if (createJournalEntry && cost > 0) {
+                const journalEntriesToCreate = [];
+
+                // Debit: Beban Perbaikan/Service
+                journalEntriesToCreate.push({
+                    storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                    transactionId: refurbishment.id,
+                    accountCode: '7100', // Beban Perbaikan
+                    accountName: "Beban Perbaikan & Perawatan",
+                    debit: cost,
+                    credit: 0,
+                    notes: `${activityLabels[activityType]}: ${description}`
+                });
+
+                // Credit: Persediaan Sparepart (if sparepart used) or Kas
+                journalEntriesToCreate.push({
+                    storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                    transactionId: refurbishment.id,
+                    accountCode: sparepartUsed ? '1500' : '1110', // Persediaan or Kas
+                    accountName: sparepartUsed ? "Persediaan Sparepart" : "Kas",
+                    debit: 0,
+                    credit: cost,
+                    notes: sparepartUsed
+                        ? `Sparepart: ${sparepartUsed.name} x${sparepartUsed.qty}`
+                        : `Biaya ${activityLabels[activityType]}`
+                });
+
+                journalEntriesCreated = await tx.insert(journalEntries).values(journalEntriesToCreate).returning();
+            }
+
+            return NextResponse.json({
+                success: true,
+                refurbishment,
+                sparepartUsed,
+                journalEntry: journalEntriesCreated?.[0] || null,
+                message: sparepartUsed
+                    ? `Refurbishment recorded. Sparepart ${sparepartUsed.name} deducted.`
+                    : "Refurbishment activity recorded successfully"
+            });
         });
 
     } catch (error: any) {
