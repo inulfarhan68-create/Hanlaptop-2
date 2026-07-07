@@ -72,14 +72,12 @@ const sidebarGroups = [
     ]
   },
   {
-    group: "Pengadaan & HR",
+    group: "Kontak & Staf",
     items: [
-      { title: "Procurement", href: "/procurement", icon: ShoppingBag },
       { title: "Pelanggan", href: "/customers", icon: Users },
       { title: "Supplier", href: "/suppliers", icon: Truck },
       { title: "Teknisi", href: "/technicians", icon: UserCog },
       { title: "Karyawan & Gaji", href: "/payroll", icon: Wallet },
-      { title: "CRM & Marketing", href: "/crm", icon: Percent },
     ]
   },
   {
@@ -95,6 +93,12 @@ const sidebarGroups = [
       { title: "Pengaturan", href: "/settings", icon: SettingsIcon },
     ]
   }
+];
+
+// Hidden by default - can be enabled via Settings
+const hiddenSidebarItems = [
+  { title: "Procurement", href: "/procurement", icon: ShoppingBag, description: "Pengadaan & persetujuan pembelian" },
+  { title: "CRM & Marketing", href: "/crm", icon: Percent, description: "Leads & kampanye marketing" },
 ];
 
 export function Sidebar() {

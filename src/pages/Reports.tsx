@@ -2,10 +2,10 @@ import { useState } from "react"
 import { Navigate } from "react-router-dom"
 import { useUserRole } from "@/hooks/useUserRole"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { PeriodSelector, getInitialPeriod } from "@/components/PeriodSelector"
 import { ExportDropdown } from "@/components/reports/ExportDropdown"
 import { PrintReportsPortal } from "@/components/reports/PrintReportsPortal"
-import { FinancialReportsTab } from "@/components/reports/FinancialReportsTab"
 import { GeneralJournalTab } from "@/components/reports/GeneralJournalTab"
 import { SalesAnalysisTab } from "@/components/reports/SalesAnalysisTab"
 import { AgingInventoryTab } from "@/components/reports/AgingInventoryTab"
@@ -17,9 +17,7 @@ import { TrialBalanceTable } from "@/components/accounting/TrialBalanceTable"
 import { IncomeStatementReport } from "@/components/accounting/IncomeStatementReport"
 import { BalanceSheetReport } from "@/components/accounting/BalanceSheetReport"
 import { CashFlowReport } from "@/components/accounting/CashFlowReport"
-import { EquityChangesReport } from "@/components/accounting/EquityChangesReport"
 import { FixedAssetsTable } from "@/components/accounting/FixedAssetsTable"
-import { GeneralLedgerView } from "@/components/accounting/GeneralLedgerView"
 import useSWR from "swr"
 import * as XLSX from "xlsx"
 
@@ -28,7 +26,10 @@ const fmt = (v: number) =>
 
 export function Reports() {
   const { isOwner, isManager, isInvestor } = useUserRole()
-  const [activeTab, setActiveTab] = useState<"laporan" | "profitProduk" | "jurnal" | "aruskas" | "analitik" | "aging" | "shift" | "komisi" | "coa" | "neracasaldo" | "labarugi" | "neraca" | "perubahanekuitas" | "asettetap" | "bukubesar">("laporan")
+  // Simplified tabs: 6 main tabs + 1 sub-tab for Akuntansi
+  const [activeTab, setActiveTab] = useState<"labarugi" | "neraca" | "produk" | "shift" | "komisi" | "akuntansi">("labarugi")
+  // Sub-tab for Akuntansi section
+  const [activeSubTab, setActiveSubTab] = useState<"jurnal" | "neracasaldo" | "coa" | "asettetap">("jurnal")
   const [period, setPeriod] = useState(getInitialPeriod)
   const [printType, setPrintType] = useState<"all" | "pnl" | "balance">("all")
   const [isPrinting, setIsPrinting] = useState(false)
@@ -54,29 +55,29 @@ export function Reports() {
     { keepPreviousData: true }
   )
 
-  // New accounting API data
+  // New accounting API data - fetch all needed data upfront (lazy loading based on active tab content)
   const { data: trialBalance } = useSWR(
-    (activeTab === "neracasaldo") ? apiUrl + `/api/accounting/trial-balance?${periodQuery}` : null,
+    (activeTab === "akuntansi" && activeSubTab === "neracasaldo") ? apiUrl + `/api/accounting/trial-balance?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: incomeStatement } = useSWR(
-    (activeTab === "labarugi") ? apiUrl + `/api/accounting/income-statement?${periodQuery}` : null,
+    activeTab === "labarugi" ? apiUrl + `/api/accounting/income-statement?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: balanceSheet } = useSWR(
-    (activeTab === "neraca") ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
+    activeTab === "neraca" ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: cashFlow } = useSWR(
-    (activeTab === "aruskas") ? apiUrl + `/api/accounting/cash-flow?${periodQuery}` : null,
+    activeTab === "neraca" ? apiUrl + `/api/accounting/cash-flow?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: equityChanges } = useSWR(
-    (activeTab === "perubahanekuitas") ? apiUrl + `/api/accounting/equity-changes?${periodQuery}` : null,
+    apiUrl + `/api/accounting/equity-changes?${periodQuery}`,
     { keepPreviousData: true }
   )
 
@@ -164,67 +165,87 @@ export function Reports() {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - Simplified to 6 essential tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-2 px-1 print:hidden scrollbar-none">
-        <Button size="sm" variant={activeTab === "laporan" ? "default" : "outline"} onClick={() => setActiveTab("laporan")} className="rounded-full h-8 text-xs px-3">Laporan Keuangan</Button>
-        <Button size="sm" variant={activeTab === "neracasaldo" ? "default" : "outline"} onClick={() => setActiveTab("neracasaldo")} className="rounded-full h-8 text-xs px-3">Neraca Saldo</Button>
-        <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3">Laba Rugi</Button>
-        <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3">Neraca</Button>
-        <Button size="sm" variant={activeTab === "aruskas" ? "default" : "outline"} onClick={() => setActiveTab("aruskas")} className="rounded-full h-8 text-xs px-3">Arus Kas</Button>
-        <Button size="sm" variant={activeTab === "perubahanekuitas" ? "default" : "outline"} onClick={() => setActiveTab("perubahanekuitas")} className="rounded-full h-8 text-xs px-3">Ekuitas</Button>
-        <Button size="sm" variant={activeTab === "asettetap" ? "default" : "outline"} onClick={() => setActiveTab("asettetap")} className="rounded-full h-8 text-xs px-3">Aset Tetap</Button>
-        <Button size="sm" variant={activeTab === "coa" ? "default" : "outline"} onClick={() => setActiveTab("coa")} className="rounded-full h-8 text-xs px-3">Bagan Akun</Button>
-        <Button size="sm" variant={activeTab === "jurnal" ? "default" : "outline"} onClick={() => setActiveTab("jurnal")} className="rounded-full h-8 text-xs px-3">Jurnal Umum</Button>
-        <Button size="sm" variant={activeTab === "profitProduk" ? "default" : "outline"} onClick={() => setActiveTab("profitProduk")} className="rounded-full h-8 text-xs px-3">Laba Rugi Produk</Button>
-        <Button size="sm" variant={activeTab === "analitik" ? "default" : "outline"} onClick={() => setActiveTab("analitik")} className="rounded-full h-8 text-xs px-3">Analisis</Button>
-        <Button size="sm" variant={activeTab === "aging" ? "default" : "outline"} onClick={() => setActiveTab("aging")} className="rounded-full h-8 text-xs px-3">Aging</Button>
-        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-3">Shift Kasir</Button>
-        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3">Komisi</Button>
+        <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3">📈 Laba Rugi</Button>
+        <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3">📊 Neraca & Kas</Button>
+        <Button size="sm" variant={activeTab === "produk" ? "default" : "outline"} onClick={() => setActiveTab("produk")} className="rounded-full h-8 text-xs px-3">💻 Produk</Button>
+        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-3">💰 Kasir</Button>
+        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3">🔧 Teknisi</Button>
+        <Button size="sm" variant={activeTab === "akuntansi" ? "default" : "outline"} onClick={() => setActiveTab("akuntansi")} className="rounded-full h-8 text-xs px-3">📒 Akuntansi</Button>
       </div>
 
-      {/* Scrollable Body Content */}
+      {/* Scrollable Body Content - Simplified tabs */}
       <div className="flex-1 overflow-x-hidden space-y-2 print:p-0 print:m-0 print:space-y-2">
-        {activeTab === "laporan" && (
-          <FinancialReportsTab period={period} fmt={fmt} />
-        )}
-        {activeTab === "neracasaldo" && (
-          <TrialBalanceTable data={trialBalance} fmt={fmt} isLoading={!trialBalance} />
-        )}
         {activeTab === "labarugi" && (
           <IncomeStatementReport data={incomeStatement} fmt={fmt} isLoading={!incomeStatement} />
         )}
         {activeTab === "neraca" && (
-          <BalanceSheetReport data={balanceSheet} fmt={fmt} isLoading={!balanceSheet} />
+          <>
+            <BalanceSheetReport data={balanceSheet} fmt={fmt} isLoading={!balanceSheet} />
+            <CashFlowReport data={cashFlow} fmt={fmt} isLoading={!cashFlow} />
+          </>
         )}
-        {activeTab === "aruskas" && (
-          <CashFlowReport data={cashFlow} fmt={fmt} isLoading={!cashFlow} />
-        )}
-        {activeTab === "perubahanekuitas" && (
-          <EquityChangesReport data={equityChanges} fmt={fmt} isLoading={!equityChanges} />
-        )}
-        {activeTab === "asettetap" && (
-          <FixedAssetsTable apiUrl={apiUrl} fmt={fmt} />
-        )}
-        {activeTab === "coa" && (
-          <COATable />
-        )}
-        {activeTab === "jurnal" && (
-          <GeneralJournalTab period={period} fmt={fmt} />
-        )}
-        {activeTab === "profitProduk" && (
-          <ProductProfitTab period={period} fmt={fmt} />
-        )}
-        {activeTab === "analitik" && (
-          <SalesAnalysisTab fmt={fmt} />
-        )}
-        {activeTab === "aging" && (
-          <AgingInventoryTab fmt={fmt} />
+        {activeTab === "produk" && (
+          <>
+            <ProductProfitTab period={period} fmt={fmt} />
+            <AgingInventoryTab fmt={fmt} />
+          </>
         )}
         {activeTab === "shift" && (
           <CashierShiftsTab fmt={fmt} />
         )}
         {activeTab === "komisi" && (
           <TechnicianCommissionTab period={period} fmt={fmt} />
+        )}
+        {activeTab === "akuntansi" && (
+          <div className="space-y-4">
+            {/* Sub-tabs for accounting features */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex gap-2 overflow-x-auto">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveSubTab("jurnal")}
+                    className={activeSubTab === "jurnal" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    Jurnal Umum
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveSubTab("neracasaldo")}
+                    className={activeSubTab === "neracasaldo" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    Neraca Saldo
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveSubTab("coa")}
+                    className={activeSubTab === "coa" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    Bagan Akun
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveSubTab("asettetap")}
+                    className={activeSubTab === "asettetap" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    Aset Tetap
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {activeSubTab === "jurnal" && <GeneralJournalTab period={period} fmt={fmt} />}
+                {activeSubTab === "neracasaldo" && <TrialBalanceTable data={trialBalance} fmt={fmt} isLoading={!trialBalance} />}
+                {activeSubTab === "coa" && <COATable />}
+                {activeSubTab === "asettetap" && <FixedAssetsTable apiUrl={apiUrl} fmt={fmt} />}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
