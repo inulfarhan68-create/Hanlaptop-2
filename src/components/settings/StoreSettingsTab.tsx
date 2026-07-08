@@ -393,22 +393,31 @@ export function StoreSettingsTab() {
       .replace(/{keluhan}/g, "Keyboard mati & laptop mati total")
       .replace(/{link}/g, "https://hanlaptop.com/nota/TRX-001")
 
+    const parseWaFormatting = (lineText: string) => {
+      if (!lineText) return "\u00a0"; // Equivalent to &nbsp;
+
+      // Tokenize formatting using regex: *bold*, _italic_, ~strikethrough~
+      const parts = lineText.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~)/g);
+      return parts.map((part, index) => {
+        if (part.startsWith("*") && part.endsWith("*")) {
+          return <strong key={index}>{part.slice(1, -1)}</strong>;
+        }
+        if (part.startsWith("_") && part.endsWith("_")) {
+          return <em key={index}>{part.slice(1, -1)}</em>;
+        }
+        if (part.startsWith("~") && part.endsWith("~")) {
+          return <del key={index}>{part.slice(1, -1)}</del>;
+        }
+        return part;
+      });
+    };
+
     const lines = replaced.split("\n")
-    return lines.map((line, idx) => {
-      let html = line
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-
-      // WhatsApp format replacements
-      html = html.replace(/\*(.*?)\*/g, "<strong>$1</strong>")
-      html = html.replace(/_(.*?)_/g, "<em>$1</em>")
-      html = html.replace(/~(.*?)~/g, "<del>$1</del>")
-
-      return (
-        <div key={idx} dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />
-      )
-    })
+    return lines.map((line, idx) => (
+      <div key={idx}>
+        {parseWaFormatting(line)}
+      </div>
+    ))
   }
 
   if (loading) {

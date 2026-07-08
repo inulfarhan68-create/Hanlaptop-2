@@ -26,6 +26,16 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 };
 
+const escapeHtml = (str: any): string => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 export const printBarcodeSticker = (item: any, store: StoreProfile) => {
     // Create a unique iframe ID
     const iframeId = `print-iframe-${Date.now()}`;
@@ -67,7 +77,7 @@ export const printBarcodeSticker = (item: any, store: StoreProfile) => {
     <html lang="id">
     <head>
         <meta charset="UTF-8">
-        <title>Print Barcode - ${itemName}</title>
+        <title>Print Barcode - ${escapeHtml(itemName)}</title>
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
         <style>
             @page {
@@ -140,17 +150,17 @@ export const printBarcodeSticker = (item: any, store: StoreProfile) => {
         </style>
     </head>
     <body>
-        <div class="store-name">${storeName}</div>
-        <div class="item-name">${itemName}</div>
+        <div class="store-name">${escapeHtml(storeName)}</div>
+        <div class="item-name">${escapeHtml(itemName)}</div>
         <div class="barcode-container">
             <svg id="barcode"></svg>
         </div>
-        <div class="item-price">${formatCurrency(itemPrice)}</div>
+        <div class="item-price">${escapeHtml(formatCurrency(itemPrice))}</div>
 
         <script>
             window.onload = function() {
                 try {
-                    JsBarcode("#barcode", "${itemBarcode}", {
+                    JsBarcode("#barcode", ${JSON.stringify(itemBarcode)}, {
                         format: "CODE128",
                         width: 1.3,
                         height: 35,
@@ -166,7 +176,7 @@ export const printBarcodeSticker = (item: any, store: StoreProfile) => {
                     window.focus();
                     window.print();
                     // Send message to parent to clean up the iframe
-                    window.parent.postMessage({ type: 'CLOSE_PRINT_IFRAME', id: '${iframeId}' }, '*');
+                    window.parent.postMessage({ type: 'CLOSE_PRINT_IFRAME', id: ${JSON.stringify(iframeId)} }, '*');
                 }, 500);
             }
         </script>
@@ -239,13 +249,13 @@ export const printBarcodeStickerBatch = (items: BatchPrintItem[], config: BatchP
         const barcodeId = `barcode-${idx}`;
         const qrcodeId = `qrcode-${idx}`;
         const specSummary = config.showSpecs && st.specs 
-            ? `<div class="item-specs">${st.specs}</div>` 
+            ? `<div class="item-specs">${escapeHtml(st.specs)}</div>` 
             : "";
 
         stickerElementsHtml += `
         <div class="sticker">
-            <div class="store-name">${storeName}</div>
-            <div class="item-name">${st.name}</div>
+            <div class="store-name">${escapeHtml(storeName)}</div>
+            <div class="item-name">${escapeHtml(st.name)}</div>
             ${specSummary}
             <div class="code-container">
                 ${config.format === "barcode" 
@@ -253,7 +263,7 @@ export const printBarcodeStickerBatch = (items: BatchPrintItem[], config: BatchP
                     : `<div id="${qrcodeId}" class="qrcode-wrapper"></div>`
                 }
             </div>
-            <div class="item-price">${formatCurrency(st.price)}</div>
+            <div class="item-price">${escapeHtml(formatCurrency(st.price))}</div>
         </div>
         `;
     });
@@ -383,9 +393,9 @@ export const printBarcodeStickerBatch = (items: BatchPrintItem[], config: BatchP
 
         <script>
             window.onload = function() {
-                var stickers = ${JSON.stringify(stickerList)};
-                var format = "${config.format}";
-                var is58 = ${is58};
+                var stickers = ${JSON.stringify(stickerList).replace(/</g, '\\u003c')};
+                var format = ${JSON.stringify(config.format)};
+                var is58 = ${!!is58};
 
                 stickers.forEach(function(st, idx) {
                     var barcodeVal = st.barcode || "00000000";
@@ -421,7 +431,7 @@ export const printBarcodeStickerBatch = (items: BatchPrintItem[], config: BatchP
                     window.focus();
                     window.print();
                     // Send message to parent to clean up
-                    window.parent.postMessage({ type: 'CLOSE_PRINT_IFRAME', id: '${iframeId}' }, '*');
+                    window.parent.postMessage({ type: 'CLOSE_PRINT_IFRAME', id: ${JSON.stringify(iframeId)} }, '*');
                 }, 500);
             }
         </script>

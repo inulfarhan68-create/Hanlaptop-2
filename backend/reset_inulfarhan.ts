@@ -12,8 +12,17 @@ async function main() {
     const { auth } = await import('./src/lib/auth');
 
     try {
-        console.log("Looking for user inulfarhan68@gmail.com...");
-        const targetEmail = 'inulfarhan68@gmail.com';
+        const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD;
+        if (!adminPassword) {
+            if (process.env.NODE_ENV === 'production') {
+                console.error("FATAL ERROR: ADMIN_DEFAULT_PASSWORD is required in production environment!");
+                process.exit(1);
+            }
+            console.warn("⚠️  [WARNING] ADMIN_DEFAULT_PASSWORD is not set. Using fallback temporary password 'password123' for development.");
+        }
+
+        const passwordToUse = adminPassword || "password123";
+        const targetEmail = process.env.ADMIN_DEFAULT_EMAIL || 'inulfarhan68@gmail.com';
         const existing = await db.select().from(user).where(eq(user.email, targetEmail));
         
         if (existing.length > 0) {
@@ -31,19 +40,19 @@ async function main() {
         }
 
         // Recreate user using Better Auth API
-        console.log("Creating user using Better Auth...");
+        console.log(`Creating user ${targetEmail} using Better Auth...`);
         const result = await auth.api.signUpEmail({
             body: {
                 email: targetEmail,
-                password: "password123", // Temporary password
+                password: passwordToUse,
                 name: "Farhan Imanul Haq",
                 role: "owner"
             }
         });
         
         console.log("User recreated successfully on Turso:", result);
-    } catch (e) {
-        console.error("Failed to reset user:", e);
+    } catch (e: any) {
+        console.error("Failed to reset user:", e?.message || e);
     }
 }
 
