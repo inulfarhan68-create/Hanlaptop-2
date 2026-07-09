@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { journalEntries, inventory } from "@/db/schema";
 import { and, gte, lte, sum, eq } from "drizzle-orm";
 import { requireReportAccess } from "@/lib/auth-guard";
+import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,8 @@ export async function GET(request: Request) {
         const invStoreCond = authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined;
 
         const [journalBalances, periodJournals, allInventory] = await Promise.all([
-            db.select({ accountName: journalEntries.accountName, totalDebit: sum(journalEntries.debit).mapWith(Number), totalCredit: sum(journalEntries.credit).mapWith(Number) }).from(journalEntries).where(storeCond).groupBy(journalEntries.accountName),
-            db.select().from(journalEntries).where(conditions.length > 0 ? and(...conditions) : undefined),
+            db.select({ accountName: journalEntries.accountName, totalDebit: sum(journalEntries.debit).mapWith(Number), totalCredit: sum(journalEntries.credit).mapWith(Number) }).from(journalEntries).where(withActiveJournalEntries(storeCond)).groupBy(journalEntries.accountName),
+            db.select().from(journalEntries).where(withActiveJournalEntries(conditions.length > 0 ? and(...conditions) : undefined)),
             db.select().from(inventory).where(invStoreCond)
         ]);
 

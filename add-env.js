@@ -1,6 +1,37 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Read and parse backend/.env manually to avoid root npm dependencies
+const envVars = {};
+try {
+    const envPath = path.join(__dirname, 'backend', '.env');
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        envContent.split(/\r?\n/).forEach(line => {
+            const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+            if (match) {
+                let key = match[1];
+                let value = match[2] || '';
+                if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+                if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+                envVars[key] = value;
+            }
+        });
+    }
+} catch (err) {
+    console.error("Failed to read backend/.env manually:", err);
+}
 
 function addEnv(name, value, env) {
+    if (!value) {
+        console.warn(`[Warning] No value found for ${name}, skipping.`);
+        return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
         const proc = spawn('npx.cmd', ['vercel', 'env', 'add', name, env], { shell: true });
         
@@ -27,8 +58,15 @@ function rmEnv(name, env) {
 
 async function main() {
     try {
-        const url = "libsql://hanlatopbase11v2-farhan11.aws-ap-northeast-1.turso.io";
-        const token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE0MTEwMjYsImlkIjoiMDE5ZWM0NWUtYTAwMS03Y2I2LWFhOWUtYTI5YTMzMzkzYjg1IiwicmlkIjoiOTA1NDgyNzMtMGRhNy00MTdkLThmNmItOTMwOGRhYzc2M2Q0In0.YMhp7o1arFIALSGlLTklUb5mpLeA0Oxhp3Vtsv3Ty1vW2DIV6hkLzT45-Pe1yJpHmo5BqAU68-piDboDmQ6vCQ";
+        const url = envVars.DATABASE_URL || "libsql://hanlatopbase11v2-farhan11.aws-ap-northeast-1.turso.io";
+        const token = envVars.DATABASE_AUTH_TOKEN;
+        const betterAuthSecret = envVars.BETTER_AUTH_SECRET || "j2D8kLpQ9vX4mY7zW3aR6bN5tH1cC0eF2gU8jV4wS7mX9qR1";
+        const betterAuthUrl = envVars.BETTER_AUTH_URL || "https://hanlaptop.vercel.app";
+
+        if (!token) {
+            console.error("FATAL ERROR: DATABASE_AUTH_TOKEN not found in backend/.env!");
+            process.exit(1);
+        }
         
         for (const env of ["production", "preview", "development"]) {
             console.log(`Removing existing variables for ${env}...`);
@@ -44,10 +82,10 @@ async function main() {
             await addEnv("DATABASE_AUTH_TOKEN", token, env);
 
             console.log(`Adding BETTER_AUTH_SECRET to ${env}...`);
-            await addEnv("BETTER_AUTH_SECRET", "j2D8kLpQ9vX4mY7zW3aR6bN5tH1cC0eF2gU8jV4wS7mX9qR1", env);
+            await addEnv("BETTER_AUTH_SECRET", betterAuthSecret, env);
 
             console.log(`Adding BETTER_AUTH_URL to ${env}...`);
-            await addEnv("BETTER_AUTH_URL", "https://hanlaptop.vercel.app", env);
+            await addEnv("BETTER_AUTH_URL", betterAuthUrl, env);
         }
         
         console.log("Done.");

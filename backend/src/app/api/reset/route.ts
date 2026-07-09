@@ -1,44 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import {
-    transactions,
-    transactionItems,
-    journalEntries,
-    inventory,
-    customers,
-    suppliers,
-    technicians,
-    technicianCommissions,
-    cashierShifts,
-    activityLogs,
-    serviceOrders,
-    stockOpnames,
-    stockOpnameItems,
-    stockTransfers,
-    stockTransferItems,
-    employees,
-    employeeLoans,
-    payrolls,
-    attendances,
-    purchaseRequisitions,
-    membershipPoints,
-    crmReminders,
-    bankMutations,
-    qcInspections,
-    warrantyClaims,
-    warrantyClaimParts,
-    consignmentPayables,
-    storeSettings,
-} from "@/db/schema";
+import { OPERATIONAL_TABLES } from "@/db/reset-tables";
+import { sql } from "drizzle-orm";
 import { requireOwnerOnly } from "@/lib/auth-guard";
 import { resetDbSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-    // ── Security: Block in production ──
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+    // ── Security Feature Flag Check ──
+    if (process.env.ENABLE_FACTORY_RESET !== "true") {
         return NextResponse.json(
-            { error: "Endpoint ini dinonaktifkan di lingkungan production demi keamanan data." },
+            { error: "Fitur reset database dinonaktifkan di lingkungan ini. Aktifkan melalui ENABLE_FACTORY_RESET=true." },
             { status: 403 }
         );
     }
@@ -56,64 +28,22 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Invalid confirmation string", details: parsed.error.format() }, { status: 400 });
         }
 
-        // Delete in correct FK dependency order
-        // Child tables first, then parent tables
-
-        // Warranty
-        await db.delete(warrantyClaimParts);
-        await db.delete(warrantyClaims);
-
-        // Stock operations
-        await db.delete(stockOpnameItems);
-        await db.delete(stockOpnames);
-        await db.delete(stockTransferItems);
-        await db.delete(stockTransfers);
-
-        // QC & Consignment
-        await db.delete(qcInspections);
-        await db.delete(consignmentPayables);
-
-        // Procurement
-        await db.delete(purchaseRequisitions);
-
-        // Finance
-        await db.delete(bankMutations);
-        await db.delete(journalEntries);
-
-        // Transactions
-        await db.delete(transactionItems);
-        await db.delete(transactions);
-
-        // Service
-        await db.delete(serviceOrders);
-
-        // Inventory
-        await db.delete(inventory);
-
-        // Payroll & HR
-        await db.delete(attendances);
-        await db.delete(payrolls);
-        await db.delete(employeeLoans);
-        await db.delete(employees);
-
-        // Commissions & shifts
-        await db.delete(technicianCommissions);
-        await db.delete(cashierShifts);
-
-        // CRM
-        await db.delete(membershipPoints);
-        await db.delete(crmReminders);
-
-        // Activity logs
-        await db.delete(activityLogs);
-
-        // Master data
-        await db.delete(customers);
-        await db.delete(suppliers);
-        await db.delete(technicians);
-
-        // Store settings (logo, templates, etc.) - reset to blank
-        await db.delete(storeSettings);
+        // Delete all operational tables in strict FK dependency order within a transaction
+        await db.transaction(async (tx) => {
+            for (const table of OPERATIONAL_TABLES) {
+                await tx.delete(table);
+            }
+            
+            // Clear auto-increment sequences safely (only if sqlite_sequence table exists in the database)
+            try {
+                const checkTable = await tx.run(sql`SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence';`);
+                if (checkTable.rows && checkTable.rows.length > 0) {
+                    await tx.run(sql`DELETE FROM sqlite_sequence;`);
+                }
+            } catch (e) {
+                console.log("Could not clear sqlite_sequence, skipping:", e);
+            }
+        });
 
         return NextResponse.json({ message: "Database successfully reset. All operational data cleared." }, { status: 200 });
     } catch (error: any) {

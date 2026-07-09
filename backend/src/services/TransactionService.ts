@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables } from "@/db/schema";
 import { desc, eq, and, gte, like, sql, isNull } from "drizzle-orm";
+import { getAccountCodeFromName } from "./JournalMappingService";
 
 interface CreateTransactionParams {
     storeId: string;
@@ -8,6 +9,20 @@ interface CreateTransactionParams {
     userName: string;
     activeShiftId: string | null;
     data: any; // Ideally typed with transactionSchema
+}
+
+/**
+ * Helper to create journal entry with account_code auto-mapped
+ */
+function createJournalEntry(storeId: string, transactionId: string, accountName: string, debit: number, credit: number) {
+    return {
+        storeId,
+        transactionId,
+        accountName,
+        accountCode: getAccountCodeFromName(accountName), // Auto-map account_code
+        debit,
+        credit
+    };
 }
 
 export class TransactionService {
@@ -215,19 +230,19 @@ export class TransactionService {
                 const dp = paymentStatus === "Belum Lunas" ? (dpAmount || 0) : amount;
                 const piutang = amount - dp;
                 const entries = [];
-                
-                if (totalRegularSales > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Pendapatan", debit: 0, credit: totalRegularSales });
-                if (totalKomisiKonsinyasi > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Pendapatan Komisi Konsinyasi", debit: 0, credit: totalKomisiKonsinyasi });
-                if (totalUtangKonsinyasi > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Utang Konsinyasi", debit: 0, credit: totalUtangKonsinyasi });
+
+                if (totalRegularSales > 0) entries.push(createJournalEntry(storeId, newTx.id, "Penjualan Laptop", 0, totalRegularSales));
+                if (totalKomisiKonsinyasi > 0) entries.push(createJournalEntry(storeId, newTx.id, "Pendapatan Komisi", 0, totalKomisiKonsinyasi));
+                if (totalUtangKonsinyasi > 0) entries.push(createJournalEntry(storeId, newTx.id, "Utang Konsinyasi", 0, totalUtangKonsinyasi));
                 if (totalCogs > 0) {
                     entries.push(
-                        { storeId, transactionId: newTx.id, accountName: "HPP", debit: totalCogs, credit: 0 },
-                        { storeId, transactionId: newTx.id, accountName: "Persediaan", debit: 0, credit: totalCogs }
+                        createJournalEntry(storeId, newTx.id, "HPP Laptop", totalCogs, 0),
+                        createJournalEntry(storeId, newTx.id, "Persediaan", 0, totalCogs)
                     );
                 }
 
-                if (dp > 0) entries.push({ storeId, transactionId: newTx.id, accountName: liquidAccount, debit: dp, credit: 0 });
-                if (piutang > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Piutang Usaha", debit: piutang, credit: 0 });
+                if (dp > 0) entries.push(createJournalEntry(storeId, newTx.id, liquidAccount, dp, 0));
+                if (piutang > 0) entries.push(createJournalEntry(storeId, newTx.id, "Piutang Usaha", piutang, 0));
 
                 if (entries.length > 0) await tx.insert(journalEntries).values(entries);
 
@@ -236,10 +251,10 @@ export class TransactionService {
                 const piutang = amount - dp;
 
                 const entries = [
-                    { storeId, transactionId: newTx.id, accountName: "Pendapatan Servis", debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, "Pendapatan Servis", 0, amount)
                 ];
-                if (dp > 0) entries.push({ storeId, transactionId: newTx.id, accountName: liquidAccount, debit: dp, credit: 0 });
-                if (piutang > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Piutang Usaha", debit: piutang, credit: 0 });
+                if (dp > 0) entries.push(createJournalEntry(storeId, newTx.id, liquidAccount, dp, 0));
+                if (piutang > 0) entries.push(createJournalEntry(storeId, newTx.id, "Piutang Usaha", piutang, 0));
 
                 await tx.insert(journalEntries).values(entries);
                 
@@ -361,26 +376,26 @@ export class TransactionService {
                 const dp = paymentMethod === "Tempo" ? (dpAmount || 0) : amount;
                 const hutang = amount - dp;
                 const entries = [
-                    { storeId, transactionId: newTx.id, accountName: "Persediaan", debit: amount, credit: 0 }
+                    createJournalEntry(storeId, newTx.id, "Persediaan", amount, 0)
                 ];
-                if (dp > 0) entries.push({ storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: dp });
-                if (hutang > 0) entries.push({ storeId, transactionId: newTx.id, accountName: "Utang Usaha", debit: 0, credit: hutang });
+                if (dp > 0) entries.push(createJournalEntry(storeId, newTx.id, liquidAccount, 0, dp));
+                if (hutang > 0) entries.push(createJournalEntry(storeId, newTx.id, "Utang Usaha", 0, hutang));
                 await tx.insert(journalEntries).values(entries);
-                
+
             } else if (transactionType === "Pengeluaran Operasional" || transactionType === "Operasional") {
-                let accountName = "Beban Lain-lain";
+                let accountName = "Beban Lainnya";
                 const descStr = description || "";
                 const categories = [
                     "Beban Gaji Karyawan",
                     "Beban Listrik & Internet",
                     "Beban Sewa Tempat",
-                    "Beban ATK & Perlengkapan",
-                    "Beban Pemasaran / Iklan",
+                    "Beban Administrasi",
+                    "Beban Marketing",
                     "Beban Transportasi",
-                    "Beban Perbaikan & Perawatan",
-                    "Beban Lain-lain"
+                    "Beban Perbaikan",
+                    "Beban Lainnya"
                 ];
-                
+
                 let found = false;
                 for (const cat of categories) {
                     if (descStr.startsWith(cat)) {
@@ -389,45 +404,45 @@ export class TransactionService {
                         break;
                     }
                 }
-                
+
                 if (!found) {
                     accountName = `Beban ${descStr || 'Operasional'}`;
                 }
 
                 const entries = [
-                    { storeId, transactionId: newTx.id, accountName, debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, accountName, amount, 0),
+                    createJournalEntry(storeId, newTx.id, liquidAccount, 0, amount)
                 ];
                 await tx.insert(journalEntries).values(entries);
             } else if (transactionType === "Modal Baru") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: "Modal Pemilik", debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, liquidAccount, amount, 0),
+                    createJournalEntry(storeId, newTx.id, "Modal Pemilik", 0, amount)
                 ]);
             } else if (transactionType === "Prive") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: "Prive", debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, "Prive", amount, 0),
+                    createJournalEntry(storeId, newTx.id, liquidAccount, 0, amount)
                 ]);
             } else if (transactionType === "Pinjaman Bank") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: "Hutang Bank", debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, liquidAccount, amount, 0),
+                    createJournalEntry(storeId, newTx.id, "Hutang Bank", 0, amount)
                 ]);
             } else if (transactionType === "Pelunasan Hutang") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: "Hutang Bank", debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, "Hutang Bank", amount, 0),
+                    createJournalEntry(storeId, newTx.id, liquidAccount, 0, amount)
                 ]);
             } else if (transactionType === "Pembelian Aset Tetap") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: "Aset Tetap", debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, "Kendaraan", amount, 0),
+                    createJournalEntry(storeId, newTx.id, liquidAccount, 0, amount)
                 ]);
             } else if (transactionType === "Penjualan Aset Tetap") {
                 await tx.insert(journalEntries).values([
-                    { storeId, transactionId: newTx.id, accountName: liquidAccount, debit: amount, credit: 0 },
-                    { storeId, transactionId: newTx.id, accountName: "Aset Tetap", debit: 0, credit: amount }
+                    createJournalEntry(storeId, newTx.id, liquidAccount, amount, 0),
+                    createJournalEntry(storeId, newTx.id, "Kendaraan", 0, amount)
                 ]);
             }
 

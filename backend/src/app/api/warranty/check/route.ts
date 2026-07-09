@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactionItems, transactions, inventory, customers } from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
-import { eq, like } from "drizzle-orm";
+import { withActiveTransactions } from "@/db/query-helpers";
+import { eq, like, and } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
         .from(transactionItems)
         .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
         .leftJoin(inventory, eq(transactionItems.inventoryId, inventory.id))
-        .where(like(transactionItems.serialNumbers, snPattern));
+        .where(withActiveTransactions(like(transactionItems.serialNumbers, snPattern)));
 
         // Optional: If multi-tenant, filter by storeId
         const filteredResults = storeId === "all" 
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
         const finalResults = [];
         for (const r of filteredResults) {
             const tx = await db.query.transactions.findFirst({
-                where: eq(transactions.id, r.transactionId)
+                where: withActiveTransactions(eq(transactions.id, r.transactionId))
             });
             
             if (!tx) continue;

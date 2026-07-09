@@ -34,6 +34,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             return NextResponse.json({ error: "Invoice tidak ditemukan." }, { status: 404 });
         }
 
+        if (tx.isVoided) {
+            return NextResponse.json({ error: "Invoice ini telah dibatalkan.", isVoided: true }, { status: 410 });
+        }
+
         const settings = await db.query.storeSettings.findFirst({
             where: eq(storeSettings.storeId, tx.storeId)
         });

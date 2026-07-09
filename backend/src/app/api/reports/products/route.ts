@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transactions, transactionItems, inventory } from "@/db/schema";
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
 import { requireReportAccess } from "@/lib/auth-guard";
+import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -148,7 +149,7 @@ export async function GET(request: Request) {
             amount: transactions.amount
         })
         .from(transactions)
-        .where(and(...serviceConditions));
+        .where(withActiveTransactions(and(...serviceConditions)));
 
         const totalServiceRevenue = serviceTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 

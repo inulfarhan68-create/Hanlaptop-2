@@ -60,6 +60,14 @@ export interface IncomeStatementData {
     grossProfit: number;
     operatingIncome: number;
     netIncome: number;
+    // Extended fields
+    revenue?: number;
+    cogs?: number;
+    opex?: number;
+    otherIncome?: number;
+    otherExpense?: number;
+    incomeBeforeTax?: number;
+    tax?: number;
 }
 
 export interface BalanceSheetData {
@@ -67,18 +75,30 @@ export interface BalanceSheetData {
     assets: {
         current: { code: string; name: string; amount: number }[];
         fixed: { code: string; name: string; amount: number }[];
+        totalCurrent: number;
+        totalFixed: number;
         total: number;
     };
     liabilities: {
         current: { code: string; name: string; amount: number }[];
         longTerm: { code: string; name: string; amount: number }[];
+        totalCurrent: number;
+        totalLongTerm: number;
         total: number;
     };
     equity: {
         accounts: { code: string; name: string; amount: number }[];
+        calculated: number;
         total: number;
+        netIncome?: number;
     };
     isBalanced: boolean;
+    balanceEquation?: {
+        assets: number;
+        liabilities: number;
+        equity: number;
+        isBalanced: boolean;
+    };
 }
 
 export interface CashFlowSection {
@@ -372,114 +392,9 @@ export async function getTrialBalance(
 // ── Income Statement ──────────────────────────────────────────────────────────
 
 /**
- * Generate Income Statement (Laporan Laba Rugi) for a period
- */
-export async function getIncomeStatement(
-    storeId: string,
-    year: number,
-    month: number
-): Promise<IncomeStatementData> {
-    const { start, end } = getPeriodDates(year, month);
-
-    const sections: IncomeStatementSection[] = [];
-
-    // Get revenue accounts
-    const revenueAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.type, 'Revenue'),
-            eq(chartOfAccounts.isActive, true)
-        ),
-        orderBy: chartOfAccounts.code
-    });
-
-    // Calculate revenue
-    const revenueItems: { code: string; name: string; amount: number }[] = [];
-    let totalRevenue = 0;
-
-    for (const account of revenueAccounts) {
-        if (account.code.startsWith('4') && account.subType !== 'Header') {
-            const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
-            if (balance !== 0) {
-                revenueItems.push({ code: account.code, name: account.name, amount: balance });
-                totalRevenue += balance;
-            }
-        }
-    }
-
-    if (revenueItems.length > 0) {
-        sections.push({ name: 'Pendapatan', accounts: revenueItems, total: totalRevenue });
-    }
-
-    // Get expense accounts (grouped by subType)
-    const expenseAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.type, 'Expense'),
-            eq(chartOfAccounts.isActive, true)
-        ),
-        orderBy: chartOfAccounts.code
-    });
-
-    // Group expenses by section
-    const expenseGroups: Record<string, { code: string; name: string; amount: number }[]> = {
-        'COGS': [],
-        'Payroll': [],
-        'Utilities': [],
-        'Rent': [],
-        'Depreciation': [],
-        'Other': []
-    };
-
-    let totalExpenses = 0;
-
-    for (const account of expenseAccounts) {
-        if (account.subType === 'Header') continue;
-
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
-        if (balance !== 0) {
-            const group = account.subType || 'Other';
-            if (!expenseGroups[group]) {
-                expenseGroups[group] = [];
-            }
-            expenseGroups[group].push({ code: account.code, name: account.name, amount: Math.abs(balance) });
-            totalExpenses += Math.abs(balance);
-        }
-    }
-
-    // Add expense sections
-    for (const [groupName, items] of Object.entries(expenseGroups)) {
-        if (items.length > 0) {
-            const sectionName = groupName === 'COGS' ? 'Harga Pokok Penjualan' :
-                               groupName === 'Payroll' ? 'Beban Gaji' :
-                               groupName === 'Utilities' ? 'Beban Utilitas' :
-                               groupName === 'Rent' ? 'Beban Sewa' :
-                               groupName === 'Depreciation' ? 'Beban Penyusutan' : 'Beban Lainnya';
-            sections.push({
-                name: sectionName,
-                accounts: items,
-                total: items.reduce((sum, item) => sum + item.amount, 0)
-            });
-        }
-    }
-
-    const grossProfit = totalRevenue - (sections.find(s => s.name === 'Harga Pokok Penjualan')?.total || 0);
-    const operatingIncome = totalRevenue - totalExpenses;
-    const netIncome = operatingIncome;
-
-    return {
-        period: { year, month },
-        sections,
-        grossProfit,
-        operatingIncome,
-        netIncome
-    };
-}
-
-/**
  * Calculate account balance within a specific period
  */
-async function calculateAccountPeriodBalance(
+export async function calculateAccountPeriodBalance(
     storeId: string,
     accountCode: string,
     start: Date,
@@ -517,10 +432,290 @@ async function calculateAccountPeriodBalance(
     }
 }
 
+/**
+ * Section name mapping for expense subTypes
+ */
+const EXPENSE_SECTION_NAMES: Record<string, string> = {
+    'COGS': 'Harga Pokok Penjualan',
+    'Payroll': 'Beban Gaji Karyawan',
+    'Utilities': 'Beban Listrik & Internet',
+    'Rent': 'Beban Sewa Tempat',
+    'Travel': 'Beban Transportasi',
+    'Marketing': 'Beban Marketing',
+    'Admin': 'Beban Administrasi',
+    'Depreciation': 'Beban Penyusutan',
+    'Maintenance': 'Beban Perbaikan',
+    'Insurance': 'Beban Asuransi',
+    'Tax': 'Beban Pajak',
+    'Finance': 'Beban Bunga',
+    'WriteOff': 'Beban Penurunan Nilai Persediaan',
+    'Other': 'Beban Lainnya'
+};
+
+/**
+ * Generate Income Statement (Laporan Laba Rugi) for a period
+ * Follows SAK Indonesia format
+ */
+export async function getIncomeStatement(
+    storeId: string,
+    year: number,
+    month: number
+): Promise<IncomeStatementData> {
+    const { start, end } = getPeriodDates(year, month);
+
+    // === PENDAPATAN Section ===
+    const revenueSection: IncomeStatementSection = {
+        name: 'PENDAPATAN',
+        accounts: [],
+        total: 0
+    };
+
+    // Get all revenue accounts (type = Revenue, code 4xxx or 6xxx)
+    const revenueAccounts = await db.query.chartOfAccounts.findMany({
+        where: and(
+            eq(chartOfAccounts.storeId, storeId),
+            eq(chartOfAccounts.isActive, true),
+            or(
+                eq(chartOfAccounts.type, 'Revenue'),
+                sql`${chartOfAccounts.code} LIKE '4%'`,
+                sql`${chartOfAccounts.code} LIKE '6%'`
+            )
+        ),
+        orderBy: chartOfAccounts.code
+    });
+
+    let totalRevenue = 0;
+
+    for (const account of revenueAccounts) {
+        // Skip header accounts
+        if (account.subType === 'Header') continue;
+
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+
+        // Revenue accounts normally have credit balance (positive = income)
+        // But retur/diskon have debit normal balance
+        let displayAmount = balance;
+        if (account.normalBalance === 'Debit') {
+            // Retur and discount reduce revenue
+            displayAmount = -Math.abs(balance);
+        }
+
+        if (balance !== 0) {
+            // Categorize
+            if (account.code.startsWith('4') && account.subType !== 'Return' && account.subType !== 'Discount') {
+                revenueSection.accounts.push({ code: account.code, name: account.name, amount: balance });
+                totalRevenue += balance;
+            } else if (account.subType === 'Return' || account.subType === 'Discount') {
+                // Retur & Diskon - negative to reduce revenue
+                revenueSection.accounts.push({ code: account.code, name: account.name, amount: -Math.abs(balance) });
+                totalRevenue -= Math.abs(balance);
+            } else if (account.code.startsWith('6')) {
+                // Other revenue (6xxx)
+                revenueSection.accounts.push({ code: account.code, name: account.name, amount: balance });
+                totalRevenue += balance;
+            }
+        }
+    }
+
+    const sections: IncomeStatementSection[] = [];
+
+    // Add revenue section if has items
+    if (revenueSection.accounts.length > 0) {
+        revenueSection.total = totalRevenue;
+        sections.push(revenueSection);
+    }
+
+    // === HARGA POKOK PENJUALAN Section ===
+    const cogsSection: IncomeStatementSection = {
+        name: 'HARGA POKOK PENJUALAN',
+        accounts: [],
+        total: 0
+    };
+
+    const cogsAccounts = revenueAccounts.filter(a =>
+        a.subType === 'COGS' || a.code.startsWith('51')
+    );
+
+    let totalCogs = 0;
+    for (const account of cogsAccounts) {
+        if (account.subType === 'Header') continue;
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        if (balance !== 0) {
+            cogsSection.accounts.push({ code: account.code, name: account.name, amount: Math.abs(balance) });
+            totalCogs += Math.abs(balance);
+        }
+    }
+
+    if (cogsSection.accounts.length > 0) {
+        cogsSection.total = totalCogs;
+        sections.push(cogsSection);
+    }
+
+    const grossProfit = totalRevenue - totalCogs;
+
+    // === BEBAN OPERASIONAL Section ===
+    const opexSection: IncomeStatementSection = {
+        name: 'BEBAN OPERASIONAL',
+        accounts: [],
+        total: 0
+    };
+
+    // Get expense accounts (5xxx, 7xxx)
+    const expenseAccounts = await db.query.chartOfAccounts.findMany({
+        where: and(
+            eq(chartOfAccounts.storeId, storeId),
+            eq(chartOfAccounts.type, 'Expense'),
+            eq(chartOfAccounts.isActive, true)
+        ),
+        orderBy: chartOfAccounts.code
+    });
+
+    // Group expenses by subType
+    const expenseBySubType: Record<string, { code: string; name: string; amount: number }[]> = {};
+
+    for (const account of expenseAccounts) {
+        if (account.subType === 'Header') continue;
+        if (account.code.startsWith('51')) continue; // Already in COGS
+
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        if (balance !== 0) {
+            const subType = account.subType || 'Other';
+            if (!expenseBySubType[subType]) {
+                expenseBySubType[subType] = [];
+            }
+            expenseBySubType[subType].push({ code: account.code, name: account.name, amount: Math.abs(balance) });
+        }
+    }
+
+    let totalOpex = 0;
+
+    // Add expenses in proper order
+    const expenseOrder = ['Payroll', 'Utilities', 'Rent', 'Travel', 'Marketing', 'Admin', 'Depreciation', 'Maintenance', 'Insurance', 'Tax', 'Finance', 'WriteOff', 'Other'];
+
+    for (const subType of expenseOrder) {
+        if (expenseBySubType[subType] && expenseBySubType[subType].length > 0) {
+            const sectionName = EXPENSE_SECTION_NAMES[subType] || subType;
+            const sectionTotal = expenseBySubType[subType].reduce((sum, item) => sum + item.amount, 0);
+
+            sections.push({
+                name: sectionName,
+                accounts: expenseBySubType[subType],
+                total: sectionTotal
+            });
+
+            totalOpex += sectionTotal;
+        }
+    }
+
+    const operatingIncome = grossProfit - totalOpex;
+
+    // === PENDAPATAN/BEBAN LAINNYA Section ===
+    const otherIncomeSection: IncomeStatementSection = {
+        name: 'PENDAPATAN DAN BEBAN LAINNYA',
+        accounts: [],
+        total: 0
+    };
+
+    // Find other income/expense accounts
+    const otherIncomeAccounts = await db.query.chartOfAccounts.findMany({
+        where: and(
+            eq(chartOfAccounts.storeId, storeId),
+            eq(chartOfAccounts.isActive, true)
+        ),
+        orderBy: chartOfAccounts.code
+    });
+
+    let totalOtherIncome = 0;
+    let totalOtherExpense = 0;
+
+    for (const account of otherIncomeAccounts) {
+        // Other revenue (6xxx) - non-operating income
+        if (account.code.startsWith('6') && account.type === 'Revenue' && account.subType !== 'Header') {
+            const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+            if (balance !== 0) {
+                otherIncomeSection.accounts.push({ code: account.code, name: account.name, amount: balance });
+                totalOtherIncome += balance;
+            }
+        }
+        // Other expense (7xxx)
+        if (account.code.startsWith('7') && account.type === 'Expense' && account.subType !== 'Header') {
+            const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+            if (balance !== 0) {
+                otherIncomeSection.accounts.push({ code: account.code, name: account.name, amount: -Math.abs(balance) });
+                totalOtherExpense -= Math.abs(balance);
+            }
+        }
+    }
+
+    if (otherIncomeSection.accounts.length > 0) {
+        otherIncomeSection.total = totalOtherIncome + totalOtherExpense;
+        sections.push(otherIncomeSection);
+    }
+
+    const incomeBeforeTax = operatingIncome + (totalOtherIncome + totalOtherExpense);
+
+    // === BEBAN PAJAK Section (if any) ===
+    let totalTax = 0;
+    const taxAccounts = expenseAccounts.filter(a => a.subType === 'Tax');
+    for (const account of taxAccounts) {
+        if (account.subType === 'Header') continue;
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        if (balance !== 0) {
+            totalTax += Math.abs(balance);
+        }
+    }
+
+    const netIncome = incomeBeforeTax - totalTax;
+
+    return {
+        period: { year, month },
+        sections,
+        grossProfit,
+        operatingIncome,
+        netIncome,
+        // Extended data for detailed view
+        revenue: totalRevenue,
+        cogs: totalCogs,
+        opex: totalOpex,
+        otherIncome: totalOtherIncome,
+        otherExpense: Math.abs(totalOtherExpense),
+        incomeBeforeTax,
+        tax: totalTax
+    };
+}
+
 // ── Balance Sheet ─────────────────────────────────────────────────────────────
 
 /**
+ * Calculate total equity from equity accounts
+ */
+async function calculateTotalEquity(
+    storeId: string,
+    asOfDate: Date
+): Promise<number> {
+    const equityAccounts = await db.query.chartOfAccounts.findMany({
+        where: and(
+            eq(chartOfAccounts.storeId, storeId),
+            eq(chartOfAccounts.type, 'Equity'),
+            eq(chartOfAccounts.isActive, true)
+        )
+    });
+
+    let totalEquity = 0;
+
+    for (const account of equityAccounts) {
+        if (account.subType === 'Header') continue;
+
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, new Date(2000, 0, 1), asOfDate);
+        totalEquity += balance;
+    }
+
+    return totalEquity;
+}
+
+/**
  * Generate Balance Sheet (Neraca) for a period
+ * Follows SAK Indonesia format: Aset = Kewajiban + Ekuitas
  */
 export async function getBalanceSheet(
     storeId: string,
@@ -528,6 +723,7 @@ export async function getBalanceSheet(
     month: number
 ): Promise<BalanceSheetData> {
     const { start, end } = getPeriodDates(year, month);
+    const asOfDate = end;
 
     // Get all active accounts
     const accounts = await db.query.chartOfAccounts.findMany({
@@ -538,61 +734,119 @@ export async function getBalanceSheet(
         orderBy: chartOfAccounts.code
     });
 
+    // === ASET LANCAR ===
     const currentAssets: { code: string; name: string; amount: number }[] = [];
+    // === ASET TETAP (NET) ===
     const fixedAssets: { code: string; name: string; amount: number }[] = [];
+    // === KEWAJIBAN LANCAR ===
     const currentLiabilities: { code: string; name: string; amount: number }[] = [];
+    // === KEWAJIBAN JANGKA PANJANG ===
     const longTermLiabilities: { code: string; name: string; amount: number }[] = [];
-    const equityAccounts: { code: string; name: string; amount: number }[] = [];
+    // === EKUITAS ===
+    const equityAccountsList: { code: string; name: string; amount: number }[] = [];
+
+    let totalCurrentAssets = 0;
+    let totalFixedAssets = 0;
+    let totalCurrentLiabilities = 0;
+    let totalLongTermLiabilities = 0;
+    let totalEquity = 0;
 
     for (const account of accounts) {
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, new Date(2000, 0, 1), end);
+        if (account.subType === 'Header') continue;
+
+        const balance = await calculateAccountPeriodBalance(storeId, account.code, new Date(2000, 0, 1), asOfDate);
 
         if (account.type === 'Asset') {
+            // Skip accumulated depreciation as it's a contra account
+            if (account.subType === 'Contra') continue;
+
             if (account.subType === 'Fixed' || account.code.startsWith('12')) {
-                fixedAssets.push({ code: account.code, name: account.name, amount: balance });
+                // Fixed Asset - show net value
+                // Check for accumulated depreciation
+                const accDepr = accounts.find(a => a.code === '1230');
+                let netValue = balance;
+
+                if (accDepr) {
+                    const accDeprBalance = await calculateAccountPeriodBalance(storeId, '1230', new Date(2000, 0, 1), asOfDate);
+                    netValue = balance - Math.abs(accDeprBalance); // Accumulated depreciation reduces asset value
+                }
+
+                if (netValue !== 0) {
+                    fixedAssets.push({ code: account.code, name: account.name, amount: netValue });
+                    totalFixedAssets += netValue;
+                }
             } else {
-                currentAssets.push({ code: account.code, name: account.name, amount: balance });
+                // Current Asset (1xxx except 12xx)
+                if (balance !== 0) {
+                    currentAssets.push({ code: account.code, name: account.name, amount: balance });
+                    totalCurrentAssets += balance;
+                }
             }
         } else if (account.type === 'Liability') {
+            // Kewajiban
             if (account.code.startsWith('22')) {
+                // Jangka Panjang
                 longTermLiabilities.push({ code: account.code, name: account.name, amount: Math.abs(balance) });
+                totalLongTermLiabilities += Math.abs(balance);
             } else {
+                // Lancar
                 currentLiabilities.push({ code: account.code, name: account.name, amount: Math.abs(balance) });
+                totalCurrentLiabilities += Math.abs(balance);
             }
         } else if (account.type === 'Equity') {
-            equityAccounts.push({ code: account.code, name: account.name, amount: balance });
+            // Ekuitas
+            if (balance !== 0) {
+                equityAccountsList.push({ code: account.code, name: account.name, amount: balance });
+                totalEquity += balance;
+            }
         }
     }
 
-    // Subtract accumulated depreciation from fixed assets
-    const accumulatedDepr = fixedAssets.find(a => a.code === '1230');
-    if (accumulatedDepr) {
-        accumulatedDepr.amount = Math.abs(accumulatedDepr.amount);
+    // If equity accounts are empty or zero, calculate from A - L
+    if (equityAccountsList.length === 0 || Math.abs(totalEquity) < 0.01) {
+        const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
+        const totalAssets = totalCurrentAssets + totalFixedAssets;
+        totalEquity = totalAssets - totalLiabilities;
     }
 
-    const totalAssets = currentAssets.reduce((sum, a) => sum + a.amount, 0) +
-                        fixedAssets.reduce((sum, a) => sum + a.amount, 0);
-    const totalLiabilities = currentLiabilities.reduce((sum, a) => sum + a.amount, 0) +
-                            longTermLiabilities.reduce((sum, a) => sum + a.amount, 0);
-    const totalEquity = totalAssets - totalLiabilities;
+    const totalAssets = totalCurrentAssets + totalFixedAssets;
+    const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
+
+    // Check balance: Aset = Kewajiban + Ekuitas
+    const calculatedEquity = totalAssets - totalLiabilities;
+    const isBalanced = Math.abs(totalEquity - calculatedEquity) < 1; // Allow 1 IDR difference for rounding
 
     return {
         period: { year, month },
         assets: {
             current: currentAssets,
             fixed: fixedAssets,
+            totalCurrent: totalCurrentAssets,
+            totalFixed: totalFixedAssets,
             total: totalAssets
         },
         liabilities: {
             current: currentLiabilities,
             longTerm: longTermLiabilities,
+            totalCurrent: totalCurrentLiabilities,
+            totalLongTerm: totalLongTermLiabilities,
             total: totalLiabilities
         },
         equity: {
-            accounts: equityAccounts,
-            total: totalEquity
+            accounts: equityAccountsList,
+            calculated: calculatedEquity,
+            total: totalEquity,
+            // Add net income from current period
+            netIncome: 0 // Will be populated by caller if needed
         },
-        isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+        isBalanced,
+        // Balance equation check
+        balanceEquation: {
+            assets: totalAssets,
+            liabilities: totalLiabilities,
+            equity: totalEquity,
+            isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 1
+        }
     };
 }
 

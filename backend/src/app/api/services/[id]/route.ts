@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { serviceOrders, activityLogs, transactions, journalEntries, cashierShifts, storeSettings, technicians, technicianCommissions } from "@/db/schema";
 import { eq, and, like } from "drizzle-orm";
 import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { withActiveTransactions } from "@/db/query-helpers";
 import { Permissions } from "@/lib/permissions";
 import { z } from "zod";
 import { serviceOrderSchema } from "@/lib/validators";
@@ -135,22 +136,22 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             
             // Try to find the linked transaction by ID tag first
             let linkedTx = await db.query.transactions.findFirst({
-                where: and(
+                where: withActiveTransactions(and(
                     eq(transactions.storeId, existing.storeId),
                     eq(transactions.transactionType, "Jasa Servis"),
                     like(transactions.description, `%[ID: ${params.id}]%`)
-                )
+                ))
             });
             
             // Fallback for older transactions
             if (!linkedTx) {
                 linkedTx = await db.query.transactions.findFirst({
-                    where: and(
+                    where: withActiveTransactions(and(
                         eq(transactions.storeId, existing.storeId),
                         eq(transactions.transactionType, "Jasa Servis"),
                         eq(transactions.customerName, existing.customerName),
                         like(transactions.description, `%Servis: ${existing.deviceName}%`)
-                    )
+                    ))
                 });
             }
             
@@ -328,20 +329,20 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 let linkedTxId = createdTxId;
                 if (!linkedTxId) {
                     let linkedTx = await db.query.transactions.findFirst({
-                        where: and(
+                        where: withActiveTransactions(and(
                             eq(transactions.storeId, existing.storeId),
                             eq(transactions.transactionType, "Jasa Servis"),
                             like(transactions.description, `%[ID: ${params.id}]%`)
-                        )
+                        ))
                     });
                     if (!linkedTx) {
                         linkedTx = await db.query.transactions.findFirst({
-                            where: and(
+                            where: withActiveTransactions(and(
                                 eq(transactions.storeId, existing.storeId),
                                 eq(transactions.transactionType, "Jasa Servis"),
                                 eq(transactions.customerName, existing.customerName),
                                 like(transactions.description, `%Servis: ${existing.deviceName}%`)
-                            )
+                            ))
                         });
                     }
                     if (linkedTx) {

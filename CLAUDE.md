@@ -470,3 +470,8 @@ const FinancialManagement = lazy(() => import("@/pages/FinancialManagement").the
 - [ ] New journal entries use accountCode
 - [ ] Existing journals backward compatible
 - [ ] Dashboard KPIs match reports
+
+---
+
+## Soft Delete Policy
+For instructions and rules on soft deleting transactions and journal entries, refer to the [Soft Delete Policy Specification](file:///c:/Users/inulf/OneDrive/Documents/Hanlaptop-2/backend/SoftDeletePolicy.md).

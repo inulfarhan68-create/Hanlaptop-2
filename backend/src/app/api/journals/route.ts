@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { journalEntries, transactions } from "@/db/schema";
 import { eq, desc, gte, lte, and } from "drizzle-orm";
 import { requireReportAccess } from "@/lib/auth-guard";
+import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
         const startDate = searchParams.get("from") || searchParams.get("startDate");
         const endDate = searchParams.get("to") || searchParams.get("endDate");
         const accountName = searchParams.get("accountName");
+        const showVoided = searchParams.get("showVoided") === "true";
 
         let conditions = [];
         
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
             conditions.push(eq(journalEntries.accountName, accountName));
         }
 
-        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
+        const whereClause = showVoided ? baseWhere : withActiveJournalEntries(baseWhere);
 
         const results = await db.select({
             id: journalEntries.id,

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { journalEntries, transactions, inventory, transactionItems, warrantyClaims } from "@/db/schema";
 import { count, and, gte, lte, desc, eq, sum } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
+import { withActiveTransactions, withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,9 +45,11 @@ async function getAssetsAtDate(storeId: string, dateLimit: Date) {
     })
     .from(journalEntries)
     .where(
-        storeCond 
-            ? and(storeCond, lte(journalEntries.createdAt, dateLimit)) 
-            : lte(journalEntries.createdAt, dateLimit)
+        withActiveJournalEntries(
+            storeCond 
+                ? and(storeCond, lte(journalEntries.createdAt, dateLimit)) 
+                : lte(journalEntries.createdAt, dateLimit)
+        )
     )
     .groupBy(journalEntries.accountName);
     
@@ -149,7 +152,7 @@ export async function GET(request: Request) {
             if (authResult.storeId !== "all") {
                 prevConditions.push(eq(journalEntries.storeId, authResult.storeId));
             }
-            prevJournalsPromise = db.select().from(journalEntries).where(and(...prevConditions));
+            prevJournalsPromise = db.select().from(journalEntries).where(withActiveJournalEntries(and(...prevConditions)));
             
             prevAssetsPromise = getAssetsAtDate(authResult.storeId, prevTo);
             
@@ -171,15 +174,15 @@ export async function GET(request: Request) {
             prevAssets,
             currentAssetsVal
         ] = await Promise.all([
-            db.select().from(journalEntries).where(conditions.length > 0 ? and(...conditions) : undefined),
-            db.select().from(journalEntries).where(storeCond ? and(gte(journalEntries.createdAt, earliestDate), storeCond) : gte(journalEntries.createdAt, earliestDate)),
-            db.select({ accountName: journalEntries.accountName, totalDebit: sum(journalEntries.debit).mapWith(Number), totalCredit: sum(journalEntries.credit).mapWith(Number) }).from(journalEntries).where(storeCond).groupBy(journalEntries.accountName),
-            db.query.transactions.findMany({ where: txConditions.length > 0 ? and(...txConditions) : undefined }),
-            db.select({ count: count() }).from(transactions).where(txConditions.length > 0 ? and(...txConditions) : undefined),
-            db.query.transactions.findMany({ where: txStoreCond, orderBy: [desc(transactions.transactionDate)], limit: 5 }),
+            db.select().from(journalEntries).where(withActiveJournalEntries(conditions.length > 0 ? and(...conditions) : undefined)),
+            db.select().from(journalEntries).where(withActiveJournalEntries(storeCond ? and(gte(journalEntries.createdAt, earliestDate), storeCond) : gte(journalEntries.createdAt, earliestDate))),
+            db.select({ accountName: journalEntries.accountName, totalDebit: sum(journalEntries.debit).mapWith(Number), totalCredit: sum(journalEntries.credit).mapWith(Number) }).from(journalEntries).where(withActiveJournalEntries(storeCond)).groupBy(journalEntries.accountName),
+            db.query.transactions.findMany({ where: withActiveTransactions(txConditions.length > 0 ? and(...txConditions) : undefined) }),
+            db.select({ count: count() }).from(transactions).where(withActiveTransactions(txConditions.length > 0 ? and(...txConditions) : undefined)),
+            db.query.transactions.findMany({ where: withActiveTransactions(txStoreCond), orderBy: [desc(transactions.transactionDate)], limit: 5 }),
             db.select().from(inventory).where(invStoreCond),
             db.query.transactions.findMany({ 
-                where: txStoreCond ? and(gte(transactions.transactionDate, earliestDate), txStoreCond) : gte(transactions.transactionDate, earliestDate),
+                where: withActiveTransactions(txStoreCond ? and(gte(transactions.transactionDate, earliestDate), txStoreCond) : gte(transactions.transactionDate, earliestDate)),
                 with: { items: { with: { inventoryItem: true } } } 
             }),
             prevJournalsPromise,

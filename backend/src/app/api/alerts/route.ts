@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { inventory, transactions, serviceOrders, stores } from "@/db/schema";
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
+import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,7 @@ export async function GET() {
 
         const unpaidTransactions = await db.select()
             .from(transactions)
-            .where(and(...txConditions));
+            .where(withActiveTransactions(and(...txConditions)));
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -98,7 +99,7 @@ export async function GET() {
 
         const unpaidPurchases = await db.select()
             .from(transactions)
-            .where(and(...payConditions));
+            .where(withActiveTransactions(and(...payConditions)));
 
         unpaidPurchases.forEach(tx => {
             if (!tx.dueDate) return;

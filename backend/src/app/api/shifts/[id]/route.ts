@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cashierShifts, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
+import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
         // Fetch transactions for this shift
         const shiftTransactions = await db.query.transactions.findMany({
-            where: eq(transactions.shiftId, shift.id),
+            where: withActiveTransactions(eq(transactions.shiftId, shift.id)),
             orderBy: (transactions, { desc }) => [desc(transactions.createdAt)]
         });
 

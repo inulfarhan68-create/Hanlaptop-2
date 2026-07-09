@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, stores, storeSettings, cashierShifts, consignmentPayables } from "@/db/schema";
 import { desc, eq, count, gte, lte, and, like, inArray, sql } from "drizzle-orm";
+import { withActiveTransactions } from "@/db/query-helpers";
 import crypto from "crypto";
 import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
         if (to) conditions.push(lte(transactions.transactionDate, new Date(to)));
 
         const data = await db.query.transactions.findMany({
-            where: conditions.length > 0 ? and(...conditions) : undefined,
+            where: withActiveTransactions(conditions.length > 0 ? and(...conditions) : undefined),
             orderBy: [desc(transactions.transactionDate)],
             limit: limitParam ? parseInt(limitParam) : undefined,
             with: {

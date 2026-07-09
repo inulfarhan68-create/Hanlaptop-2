@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transactions, activityLogs, journalEntries } from "@/db/schema";
 import { and, eq, inArray, sum, desc, count, gte } from "drizzle-orm";
 import { requireReportAccess } from "@/lib/auth-guard";
+import { withActiveTransactions, withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export async function GET() {
             eq(activityLogs.entityId, transactions.id),
             eq(activityLogs.action, "CREATE_TRANSACTION")
         ))
-        .where(and(...cashierConditions))
+        .where(withActiveTransactions(and(...cashierConditions)))
         .groupBy(activityLogs.userId, activityLogs.userName)
         .orderBy(desc(sum(transactions.amount)));
 
@@ -57,7 +58,7 @@ export async function GET() {
             transactionCount: count(transactions.id)
         })
         .from(transactions)
-        .where(and(...customerConditions))
+        .where(withActiveTransactions(and(...customerConditions)))
         .groupBy(transactions.customerName)
         .orderBy(desc(sum(transactions.amount)))
         .limit(10);
@@ -83,7 +84,7 @@ export async function GET() {
 
         const recentJournals = await db.select()
             .from(journalEntries)
-            .where(and(...journalConditions))
+            .where(withActiveJournalEntries(and(...journalConditions)))
             .orderBy(journalEntries.createdAt);
 
         // Group by month in JS/TS

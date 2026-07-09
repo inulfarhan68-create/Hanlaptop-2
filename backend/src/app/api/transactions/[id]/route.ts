@@ -5,6 +5,21 @@ import { eq, inArray, desc, and } from "drizzle-orm";
 import { requireAuth, requireOwner, requireOwnerOrManager, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
+import { getAccountCodeFromName } from "@/services/JournalMappingService";
+
+/**
+ * Helper to create journal entry with account_code auto-mapped
+ */
+function createJournalEntry(storeId: string, transactionId: string, accountName: string, debit: number, credit: number) {
+    return {
+        storeId,
+        transactionId,
+        accountName,
+        accountCode: getAccountCodeFromName(accountName),
+        debit,
+        credit
+    };
+}
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requirePermission(Permissions.TRANSACTION_READ);
@@ -262,6 +277,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         });
 
         if (!trx) throw new Error("Transaction not found");
+        if (trx.isVoided) throw new Error("Transaksi telah dibatalkan (voided) dan tidak dapat dilunasi");
         if (trx.paymentStatus === "Lunas") throw new Error("Transaction is already paid off");
 
         // Calculate remaining amount
@@ -281,14 +297,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (trx.transactionType === "Penjualan" || trx.transactionType === "Jasa Servis") {
             // Pelunasan Piutang: Kas bertambah (debit), Piutang berkurang (credit)
             await tx.insert(journalEntries).values([
-                { transactionId: id, storeId: trx.storeId, accountName: "Kas", debit: sisaTagihan, credit: 0 },
-                { transactionId: id, storeId: trx.storeId, accountName: "Piutang Usaha", debit: 0, credit: sisaTagihan }
+                createJournalEntry(trx.storeId, id, "Kas", sisaTagihan, 0),
+                createJournalEntry(trx.storeId, id, "Piutang Usaha", 0, sisaTagihan)
             ]);
         } else if (trx.transactionType === "Pembelian Stok") {
             // Pelunasan Hutang: Hutang berkurang (debit), Kas berkurang (credit)
             await tx.insert(journalEntries).values([
-                { transactionId: id, storeId: trx.storeId, accountName: "Hutang Usaha", debit: sisaTagihan, credit: 0 },
-                { transactionId: id, storeId: trx.storeId, accountName: "Kas", debit: 0, credit: sisaTagihan }
+                createJournalEntry(trx.storeId, id, "Utang Usaha", sisaTagihan, 0),
+                createJournalEntry(trx.storeId, id, "Kas", 0, sisaTagihan)
             ]);
         }
 

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cashierShifts, transactions, journalEntries } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
+import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +37,11 @@ export async function GET() {
             .from(journalEntries)
             .innerJoin(transactions, eq(journalEntries.transactionId, transactions.id))
             .where(
-                and(
-                    eq(transactions.shiftId, active.id),
-                    eq(journalEntries.accountName, "Kas")
+                withActiveJournalEntries(
+                    and(
+                        eq(transactions.shiftId, active.id),
+                        eq(journalEntries.accountName, "Kas")
+                    )
                 )
             );
 
