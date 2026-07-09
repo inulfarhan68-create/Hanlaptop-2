@@ -22,9 +22,7 @@ export interface BatchPrintConfig {
     showSpecs: boolean;
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
-};
+import { formatCurrency } from "./utils";
 
 const escapeHtml = (str: any): string => {
     if (str === null || str === undefined) return '';
