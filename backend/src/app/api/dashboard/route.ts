@@ -234,7 +234,7 @@ export async function GET(request: Request) {
                 if (entry.accountName === "Pendapatan Servis") {
                     revenueServis += entry.credit - entry.debit;
                 }
-            } else if (entry.accountName === "HPP") {
+            } else if (entry.accountName.startsWith("HPP")) {
                 cogs += entry.debit - entry.credit;
             } else if (entry.accountName.includes("Beban")) {
                 opex += entry.debit - entry.credit;
@@ -305,7 +305,7 @@ export async function GET(request: Request) {
                     data.service += (entry.credit - entry.debit);
                 } else if (entry.accountName.includes("Beban")) {
                     data.expense += (entry.debit - entry.credit);
-                } else if (entry.accountName === "HPP") {
+                } else if (entry.accountName.startsWith("HPP")) {
                     data._hpp += (entry.debit - entry.credit);
                 }
             }
@@ -439,7 +439,7 @@ export async function GET(request: Request) {
         prevPeriodJournals.forEach(entry => {
             if (entry.accountName.includes("Pendapatan")) {
                 prevRevenue += entry.credit - entry.debit;
-            } else if (entry.accountName === "HPP") {
+            } else if (entry.accountName.startsWith("HPP")) {
                 prevCogs += entry.debit - entry.credit;
             } else if (entry.accountName.includes("Beban")) {
                 prevOpex += entry.debit - entry.credit;

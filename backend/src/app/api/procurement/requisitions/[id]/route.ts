@@ -20,20 +20,26 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             return NextResponse.json({ error: "Status wajib disertakan." }, { status: 400 });
         }
 
+        // 🔒 SaaS Tenant Isolation: Fetch with storeId check
         const existing = await db.query.purchaseRequisitions.findFirst({
-            where: eq(purchaseRequisitions.id, id)
+            where: authResult.storeId !== "all"
+                ? and(eq(purchaseRequisitions.id, id), eq(purchaseRequisitions.storeId, authResult.storeId))
+                : eq(purchaseRequisitions.id, id)
         });
 
         if (!existing) {
-            return NextResponse.json({ error: "Permintaan pembelian tidak ditemukan." }, { status: 404 });
+            return NextResponse.json({ error: "Permintaan pembelian tidak ditemukan atau akses ditolak." }, { status: 404 });
         }
 
+        // Use the actual storeId from the requisition
+        const actualStoreId = existing.storeId;
+
         const updateData: any = {};
-        
+
         if (status === "APPROVED" || status === "REJECTED") {
-            const isOwnerOrManager = authResult.storeRole === "owner" || 
-                                     authResult.storeRole === "manager" || 
-                                     (authResult.user as any).role === "owner" || 
+            const isOwnerOrManager = authResult.storeRole === "owner" ||
+                                     authResult.storeRole === "manager" ||
+                                     (authResult.user as any).role === "owner" ||
                                      (authResult.user as any).role === "manager";
             if (!isOwnerOrManager) {
                 return NextResponse.json({ error: "Hanya Owner atau Manager yang dapat menyetujui pengajuan pembelian." }, { status: 403 });
@@ -51,7 +57,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             // 1. Search matching item in branch
             const matchedItem = await db.query.inventory.findFirst({
                 where: and(
-                    eq(inventory.storeId, existing.storeId),
+                    eq(inventory.storeId, actualStoreId),
                     like(inventory.itemName, existing.itemName)
                 )
             });
@@ -67,7 +73,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                 const unitCost = Number((existing.estimatedCost / existing.quantity).toFixed(2)) || 0;
                 await db.insert(inventory).values({
                     id: crypto.randomUUID(),
-                    storeId: existing.storeId,
+                    storeId: actualStoreId,
                     itemName: existing.itemName,
                     category: "Sparepart", // default category for requisitioned parts
                     quantity: existing.quantity,

@@ -14,13 +14,28 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
+    const category = searchParams.get("category");
+    const status = searchParams.get("status");
+    const fetchAll = searchParams.get("fetchAll") === "true";
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const offset = (page - 1) * limit;
 
     try {
-        // Filter by storeId unless the owner wants to see 'all'
-        const conditions = [isNull(inventory.deletedAt)];
+        const baseConditions = [isNull(inventory.deletedAt)];
         if (authResult.storeId !== "all") {
-            conditions.push(eq(inventory.storeId, authResult.storeId));
+            baseConditions.push(eq(inventory.storeId, authResult.storeId));
         }
+
+        // Calculate total summary (KPI Stats) disregarding search/category filters, but scoped to store
+        const [summaryResult] = await db.select({
+            laptopCount: sql<number>`sum(CASE WHEN ${inventory.category} = 'Laptop Bekas' THEN ${inventory.quantity} ELSE 0 END)`,
+            spareCount: sql<number>`sum(CASE WHEN ${inventory.category} NOT IN ('Laptop Bekas', 'Aksesoris', 'Jasa Servis') THEN ${inventory.quantity} ELSE 0 END)`,
+            aksesorisCount: sql<number>`sum(CASE WHEN ${inventory.category} = 'Aksesoris' THEN ${inventory.quantity} ELSE 0 END)`,
+            totalAssetValue: sql<number>`sum(${inventory.costPrice} * ${inventory.quantity})`
+        }).from(inventory).where(and(...baseConditions));
+
+        const conditions = [...baseConditions];
 
         if (search) {
             const searchCondition = or(
@@ -31,7 +46,30 @@ export async function GET(request: Request) {
             if (searchCondition) conditions.push(searchCondition);
         }
 
-        const items = await db.select({
+        if (category && category !== "all") {
+            if (category === "laptop") conditions.push(eq(inventory.category, "Laptop Bekas"));
+            else if (category === "sparepart") conditions.push(sql`${inventory.category} NOT IN ('Laptop Bekas', 'Aksesoris', 'Jasa Servis')`);
+            else if (category === "aksesoris") conditions.push(eq(inventory.category, "Aksesoris"));
+            else if (category === "jasa") conditions.push(eq(inventory.category, "Jasa Servis"));
+        }
+
+        if (status && status !== "all") {
+            if (status === "instock") conditions.push(sql`${inventory.quantity} > 0`);
+            else if (status === "outofstock") conditions.push(sql`${inventory.quantity} = 0`);
+            else if (status === "lowstock") conditions.push(sql`${inventory.quantity} <= COALESCE(${inventory.minStock}, 2) AND ${inventory.quantity} > 0`);
+        }
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        let totalFiltered = 0;
+        if (!fetchAll) {
+            const [filteredCountResult] = await db.select({
+                count: sql<number>`count(*)`
+            }).from(inventory).where(whereClause);
+            totalFiltered = Number(filteredCountResult.count);
+        }
+
+        let query = db.select({
             id: inventory.id,
             storeId: inventory.storeId,
             itemName: inventory.itemName,
@@ -55,19 +93,41 @@ export async function GET(request: Request) {
             qcTechnicianId: sql<string | null>`(SELECT technician_id FROM qc_inspections WHERE qc_inspections.inventory_id = ${inventory.id} ORDER BY created_at DESC LIMIT 1)`
         })
         .from(inventory)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .where(whereClause)
         .orderBy(inventory.createdAt);
+
+        if (!fetchAll) {
+            query = query.limit(limit).offset(offset) as any;
+        }
+
+        const items = await query;
 
         const sanitizedItems = items.map(item => {
             if (authResult.storeRole === "kasir") {
-                return {
-                    ...item,
-                    costPrice: 0
-                };
+                return { ...item, costPrice: 0 };
             }
             return item;
         });
-        return NextResponse.json(sanitizedItems);
+
+        if (fetchAll) {
+            return NextResponse.json(sanitizedItems);
+        }
+
+        return NextResponse.json({
+            data: sanitizedItems,
+            meta: {
+                totalItems: totalFiltered,
+                currentPage: page,
+                itemsPerPage: limit,
+                totalPages: Math.ceil(totalFiltered / limit),
+                summary: {
+                    laptopCount: Number(summaryResult.laptopCount) || 0,
+                    spareCount: Number(summaryResult.spareCount) || 0,
+                    aksesorisCount: Number(summaryResult.aksesorisCount) || 0,
+                    totalAssetValue: Number(summaryResult.totalAssetValue) || 0,
+                }
+            }
+        });
     } catch (error) {
         console.error("Failed to fetch inventory:", error);
         return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });

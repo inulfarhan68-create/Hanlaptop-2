@@ -12,7 +12,7 @@ const formatCurrency = (value: number) => {
 
 export function MarkdownTab() {
   // Fetch items older than 60 days
-  const { data: inventoryData, mutate } = useSWR<any[]>((import.meta.env.VITE_API_URL || '') + '/api/inventory')
+  const { data: inventoryData, mutate } = useSWR<any[]>((import.meta.env.VITE_API_URL || '') + '/api/inventory?fetchAll=true')
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null)
 
   const items = Array.isArray(inventoryData) ? inventoryData : []

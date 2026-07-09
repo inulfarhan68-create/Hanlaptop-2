@@ -45,7 +45,7 @@ export function RefurbishmentForm({ passportId, serialNumber, technicians, onSuc
 
     // Fetch sparepart inventory (categories: Thermal Paste, RAM, SSD, Sparepart)
     const { data: sparepartInventory } = useSWR(
-        showForm ? `${import.meta.env.VITE_API_URL || ''}/api/inventory?category=Aksesoris` : null
+        showForm ? `${import.meta.env.VITE_API_URL || ''}/api/inventory?category=Aksesoris&fetchAll=true` : null
     );
 
     // Filter sparepart based on activity type

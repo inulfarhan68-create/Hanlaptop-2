@@ -8,6 +8,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import crypto from "crypto";
 
+export const dynamic = 'force-dynamic';
+
 function slugify(text: string) {
     return text
         .toString()
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
     } catch (error: any) {
         console.error("Failed to fetch stores:", error);
-        return NextResponse.json({ error: "Failed to fetch stores" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to fetch stores: " + error.message }, { status: 500 });
     }
 }
 

@@ -32,6 +32,11 @@ export const transactions = sqliteTable("transactions", {
     customerIdIdx: index("transaction_customer_id_idx").on(table.customerId),
     transactionDateIdx: index("transaction_date_idx").on(table.transactionDate),
     storeInvoiceIdx: uniqueIndex("transaction_store_invoice_idx").on(table.storeId, table.invoiceNumber),
+    // SaaS Performance: Added missing indexes
+    isVoidedIdx: index("transaction_is_voided_idx").on(table.isVoided),
+    transactionTypeIdx: index("transaction_type_idx").on(table.transactionType),
+    paymentStatusIdx: index("transaction_payment_status_idx").on(table.paymentStatus),
+    userIdIdx: index("transaction_user_id_idx").on(table.userId),
 }));
 
 export const transactionItems = sqliteTable("transaction_items", {
@@ -156,6 +161,9 @@ export const warrantyClaims = sqliteTable("warranty_claims", {
     transactionIdIdx: index("warranty_claims_transaction_id_idx").on(table.transactionId),
     passportIdIdx: index("warranty_claims_passport_id_idx").on(table.passportId),
     technicianIdIdx: index("warranty_claims_technician_id_idx").on(table.technicianId),
+    // SaaS Performance: Added missing indexes
+    statusIdx: index("warranty_claims_status_idx").on(table.status),
+    customerIdIdx: index("warranty_claims_customer_id_idx").on(table.customerId),
 }));
 
 export const warrantyClaimParts = sqliteTable("warranty_claim_parts", {

@@ -46,7 +46,7 @@ interface RestockTabProps {
 
 export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: RestockTabProps) {
   // SWR fetches
-  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
+  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory?fetchAll=true')
   const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/suggestions')
   
   const mergedLaptopModels = Array.from(new Set([

@@ -56,7 +56,7 @@ export async function GET(request: Request) {
                 revenueLaptop += entry.credit - entry.debit;
             } else if (entry.accountName === "Pendapatan Servis") {
                 revenueServis += entry.credit - entry.debit;
-            } else if (entry.accountName === "HPP") {
+            } else if (entry.accountName.startsWith("HPP")) {
                 cogs += entry.debit - entry.credit;
             } else if (entry.accountName === "Beban Gaji Karyawan") {
                 opexGaji += entry.debit - entry.credit;
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
                 kliring += deb - cred;
             } else if (entry.accountName === "Pendapatan" || entry.accountName === "Pendapatan Servis") {
                 cumulativeRevenue += cred - deb;
-            } else if (entry.accountName === "HPP") {
+            } else if (entry.accountName.startsWith("HPP")) {
                 cumulativeCogs += deb - cred;
             } else if (entry.accountName.includes("Beban")) {
                 cumulativeOpex += deb - cred;

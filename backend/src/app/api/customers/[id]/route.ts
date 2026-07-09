@@ -3,7 +3,38 @@ import { db } from '@/db';
 import { customers, activityLogs, transactions } from '@/db/schema';
 import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
 import { customerSchema } from '@/lib/validators';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+
+/**
+ * Helper: Verify customer belongs to user's store (SaaS Tenant Isolation)
+ */
+async function verifyCustomerAccess(authResult: any, customerId: string) {
+    // Owner (global) can access all customers
+    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+        const customer = await db.query.customers.findFirst({
+            where: eq(customers.id, customerId)
+        });
+        return customer ? { customer, authorized: true } : { customer: null, authorized: false, response: NextResponse.json({ error: "Customer not found" }, { status: 404 }) };
+    }
+
+    // Non-owner: must check storeId match
+    const customer = await db.query.customers.findFirst({
+        where: and(
+            eq(customers.id, customerId),
+            eq(customers.storeId, authResult.storeId)
+        )
+    });
+
+    if (!customer) {
+        return {
+            customer: null,
+            authorized: false,
+            response: NextResponse.json({ error: "Customer not found or access denied" }, { status: 404 })
+        };
+    }
+
+    return { customer, authorized: true };
+}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
@@ -12,8 +43,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;
 
+    const { id } = await context.params;
+
+    // 🔒 SaaS Tenant Isolation: Verify customer belongs to user's store
+    const { customer: existingCustomer, authorized, response } = await verifyCustomerAccess(authResult, id);
+    if (!authorized) return response;
+
     try {
-        const { id } = await context.params;
         const body = await request.json();
         const parsed = customerSchema.partial().safeParse(body);
         if (!parsed.success) {
@@ -23,7 +59,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
         const [updatedCustomer] = await db.update(customers)
             .set({ name, phone, address, notes })
-            .where(eq(customers.id, id))
+            .where(and(
+                eq(customers.id, id),
+                // 🔒 Double-check storeId in update
+                authResult.storeId !== "all" ? eq(customers.storeId, authResult.storeId) : undefined
+            ))
             .returning();
 
         if (!updatedCustomer) {
@@ -34,11 +74,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (name) {
             await db.update(transactions)
                 .set({ customerName: name })
-                .where(eq(transactions.customerId, id));
+                .where(and(
+                    eq(transactions.customerId, id),
+                    // 🔒 Only update transactions in same store
+                    authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                ));
         }
 
         await db.insert(activityLogs).values({
-            storeId: updatedCustomer.storeId,
+            storeId: existingCustomer!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "EDIT_CUSTOMER",
@@ -57,18 +101,26 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
-    
+
     // Only owner or manager can delete customers
-    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner') {
+    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && (authResult.user as any).role !== 'owner') {
         return NextResponse.json({ error: "Forbidden. Only owner or manager can delete customers." }, { status: 403 });
     }
 
-    try {
-        const { id } = await context.params;
+    const { id } = await context.params;
 
+    // 🔒 SaaS Tenant Isolation: Verify customer belongs to user's store
+    const { customer: existingCustomer, authorized, response } = await verifyCustomerAccess(authResult, id);
+    if (!authorized) return response;
+
+    try {
         const [deletedCustomer] = await db.update(customers)
             .set({ deletedAt: new Date() })
-            .where(eq(customers.id, id))
+            .where(and(
+                eq(customers.id, id),
+                // 🔒 Double-check storeId in delete
+                authResult.storeId !== "all" ? eq(customers.storeId, authResult.storeId) : undefined
+            ))
             .returning();
 
         if (!deletedCustomer) {
@@ -78,7 +130,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         // We don't delete transactions, the foreign key handles setting customerId to null
 
         await db.insert(activityLogs).values({
-            storeId: deletedCustomer.storeId,
+            storeId: existingCustomer!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_CUSTOMER",

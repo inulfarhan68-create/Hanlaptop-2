@@ -1,28 +1,68 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { warrantyClaims, warrantyClaimParts, inventory, journalEntries, activityLogs, serviceOrders, customers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
 import { warrantyResolutionSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Helper: Verify warranty claim belongs to user's store (SaaS Tenant Isolation)
+ */
+async function verifyWarrantyClaimAccess(authResult: any, claimId: string) {
+    // Owner (global) can access all claims
+    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+        const claim = await db.query.warrantyClaims.findFirst({
+            where: eq(warrantyClaims.id, claimId)
+        });
+        return claim ? { claim, authorized: true } : { claim: null, authorized: false, response: NextResponse.json({ error: "Warranty claim not found" }, { status: 404 }) };
+    }
+
+    // Non-owner: must check storeId match
+    const claim = await db.query.warrantyClaims.findFirst({
+        where: and(
+            eq(warrantyClaims.id, claimId),
+            eq(warrantyClaims.storeId, authResult.storeId)
+        )
+    });
+
+    if (!claim) {
+        return {
+            claim: null,
+            authorized: false,
+            response: NextResponse.json({ error: "Warranty claim not found or access denied" }, { status: 404 })
+        };
+    }
+
+    return { claim, authorized: true };
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
-    
+
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;
+
+    // 🔒 SaaS Tenant Isolation: Verify warranty claim belongs to user's store
+    const { claim: existingClaim, authorized, response } = await verifyWarrantyClaimAccess(authResult, id);
+    if (!authorized) return response;
 
     try {
         const body = await request.json();
         const parsed = warrantyResolutionSchema.parse(body);
 
         return await db.transaction(async (tx) => {
-            const [claim] = await tx.select().from(warrantyClaims).where(eq(warrantyClaims.id, id));
+            // Re-fetch with storeId check inside transaction
+            const [claim] = await tx.select().from(warrantyClaims).where(and(
+                eq(warrantyClaims.id, id),
+                // 🔒 Double-check storeId
+                authResult.storeId !== "all" ? eq(warrantyClaims.storeId, authResult.storeId) : undefined
+            ));
             if (!claim) {
-                return NextResponse.json({ error: "Warranty claim not found" }, { status: 404 });
+                return NextResponse.json({ error: "Warranty claim not found or access denied" }, { status: 404 });
             }
 
             let serviceOrderId = claim.serviceOrderId;
@@ -31,7 +71,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             if (parsed.status === 'INSPECTING' && !claim.serviceOrderId) {
                 // Fetch customer info
                 const [customer] = await tx.select().from(customers).where(eq(customers.id, claim.customerId));
-                
+
                 const [newSO] = await tx.insert(serviceOrders).values({
                     storeId: claim.storeId,
                     customerId: claim.customerId,
@@ -53,14 +93,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             // If resolving (COMPLETED), handle parts usage and journaling
             if (parsed.status === 'COMPLETED' && parsed.partsUsed && parsed.partsUsed.length > 0) {
                 let totalPartCost = 0;
-                
+
                 for (const part of parsed.partsUsed) {
-                    // Check inventory
-                    const [invItem] = await tx.select().from(inventory).where(eq(inventory.id, part.inventoryId));
+                    // Check inventory - with storeId check
+                    const [invItem] = await tx.select().from(inventory).where(and(
+                        eq(inventory.id, part.inventoryId),
+                        // 🔒 Ensure inventory belongs to same store
+                        authResult.storeId !== "all" ? eq(inventory.storeId, claim.storeId) : undefined
+                    ));
                     if (!invItem || invItem.quantity < part.quantity) {
                         throw new Error(`Insufficient stock for part ID: ${part.inventoryId}`);
                     }
-                    
+
                     totalPartCost += (part.costPrice * part.quantity);
 
                     // Deduct stock
@@ -100,7 +144,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             }
 
             // Update claim status
-            const updateData: Record<string, any> = { 
+            const updateData: Record<string, any> = {
                 status: parsed.status,
                 resolutionNotes: parsed.resolutionNotes,
                 updatedAt: new Date(),
@@ -121,6 +165,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
             // Log activity
             await tx.insert(activityLogs).values({
+                storeId: claim.storeId,
                 userId: authResult.user.id,
                 userName: authResult.user.name || 'Unknown',
                 action: 'UPDATE_WARRANTY_CLAIM',

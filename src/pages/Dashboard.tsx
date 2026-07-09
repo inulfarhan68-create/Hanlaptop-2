@@ -22,11 +22,14 @@ export function Dashboard() {
   const q = queryParams.toString() ? `?${queryParams.toString()}` : ""
 
   const { data, error: dashboardError, isLoading: loading, isValidating: refreshing } = useSWR<any>(
-    `/api/dashboard${q}`, 
+    `/api/dashboard${q}`,
     { keepPreviousData: true }
   )
-  const { data: inventoryData = [] } = useSWR<any[]>(
-    (import.meta.env.VITE_API_URL || '') + '/api/inventory'
+
+  // 🔒 FIX: Use KPI aggregation API instead of fetching ALL inventory
+  // This prevents loading thousands of inventory items into memory
+  const { data: inventoryKpi } = useSWR<any>(
+    '/api/inventory/kpi'
   )
 
   if (loading && !data) {
@@ -49,6 +52,31 @@ export function Dashboard() {
   const userRole = data.userRole || "kasir"
   const isOwner = userRole === "owner" || userRole === "manager" || userRole === "investor"
 
+  // Transform KPI data to match expected format for OverviewTab
+  const inventoryStats = inventoryKpi ? {
+    laptop: {
+      qty: inventoryKpi.laptop?.qty || 0,
+      value: inventoryKpi.laptop?.value || 0
+    },
+    sparepart: {
+      qty: inventoryKpi.sparepart?.qty || 0,
+      value: inventoryKpi.sparepart?.value || 0
+    },
+    aksesoris: {
+      qty: inventoryKpi.aksesoris?.qty || 0,
+      value: inventoryKpi.aksesoris?.value || 0
+    },
+    total: {
+      qty: inventoryKpi.total?.qty || 0,
+      value: inventoryKpi.total?.value || 0
+    }
+  } : {
+    laptop: { qty: 0, value: 0 },
+    sparepart: { qty: 0, value: 0 },
+    aksesoris: { qty: 0, value: 0 },
+    total: { qty: 0, value: 0 }
+  }
+
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Sticky Page Header */}
@@ -64,12 +92,12 @@ export function Dashboard() {
         </div>
         <div className="flex items-center justify-between gap-2 w-full md:w-auto">
           <div className="flex bg-muted/30 dark:bg-muted p-1 rounded-full border border-border shadow-inner shrink-0 w-1/2 md:w-auto">
-            <button 
+            <button
               className={`flex-1 md:flex-none px-2 md:px-4 py-1 md:py-1.5 text-[10px] md:text-xs font-bold rounded-full transition-all duration-300 ${activeTab === "overview" ? "bg-white dark:bg-accent text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => setActiveTab("overview")}
             >Overview</button>
             {isOwner && (
-              <button 
+              <button
                 className={`flex-1 md:flex-none px-2 md:px-4 py-1 md:py-1.5 text-[10px] md:text-xs font-bold rounded-full transition-all duration-300 ${activeTab === "analytics" ? "bg-white dark:bg-accent text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setActiveTab("analytics")}
               >Analytics</button>
@@ -87,17 +115,18 @@ export function Dashboard() {
           <ApprovalBoard isOwner={isOwner} />
         </div>
         {activeTab === "overview" && (
-          <OverviewTab 
-            data={data} 
-            inventoryData={inventoryData} 
-            isOwner={isOwner} 
-            formatCurrency={formatCurrency} 
+          <OverviewTab
+            data={data}
+            inventoryStats={inventoryStats}
+            inventoryKpi={inventoryKpi}
+            isOwner={isOwner}
+            formatCurrency={formatCurrency}
           />
         )}
         {activeTab === "analytics" && isOwner && (
-          <AnalyticsTab 
-            data={data} 
-            formatCurrency={formatCurrency} 
+          <AnalyticsTab
+            data={data}
+            formatCurrency={formatCurrency}
           />
         )}
       </div>

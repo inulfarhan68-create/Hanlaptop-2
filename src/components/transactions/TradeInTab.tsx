@@ -144,26 +144,36 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
     setAiResult(null)
   }
 
-  // For selecting new unit from inventory
+  // For selecting new unit from inventory - use search API instead of fetching all
   const [searchQuery, setSearchQuery] = useState("")
   const [inventoryList, setInventoryList] = useState<any[]>([])
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false)
 
+  // Fetch inventory when search query changes (for new unit selection)
   useEffect(() => {
     if (!active) return;
-    fetchInventory();
-  }, [active])
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setInventoryList([]);
+      return;
+    }
+    fetchInventoryBySearch(searchQuery);
+  }, [searchQuery, active])
 
-  const fetchInventory = async () => {
+  // 🔒 FIX: Use search API with pagination instead of fetching ALL inventory
+  const fetchInventoryBySearch = async (query: string) => {
     try {
+      setIsLoadingInventory(true);
       const storeId = localStorage.getItem('selectedStoreId') || 'all';
       if (storeId === 'all') return;
-      
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/inventory?storeId=${storeId}`);
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/inventory?search=${encodeURIComponent(query)}&status=instock&limit=20`);
       if (!res.ok) throw new Error("Failed to fetch inventory");
       const data = await res.json();
-      setInventoryList(data.filter((item: any) => item.quantity > 0));
+      setInventoryList(data.data || []);
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsLoadingInventory(false);
     }
   }
 
@@ -483,17 +493,19 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="search"
-                        placeholder="Cari laptop baru..."
+                        placeholder="Ketik 2+ karakter untuk cari laptop..."
                         className="pl-8"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
-                    {searchQuery.length > 2 && (
-                      <div className="bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto absolute z-10 w-full md:w-auto">
-                        {inventoryList
-                          .filter(i => i.itemName.toLowerCase().includes(searchQuery.toLowerCase()) || i.barcode?.includes(searchQuery))
-                          .map((item) => (
+                    {/* Autocomplete dropdown - now using server-side search */}
+                    {searchQuery.length >= 2 && (
+                      <div className="bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto w-full z-10">
+                        {isLoadingInventory ? (
+                          <div className="p-3 text-center text-sm text-muted-foreground">Mencari...</div>
+                        ) : inventoryList.length > 0 ? (
+                          inventoryList.map((item) => (
                             <div key={item.id} className="p-2 border-b hover:bg-slate-50 cursor-pointer flex justify-between" onClick={() => handleSelectNewUnit(item)}>
                               <div>
                                 <div className="font-medium text-sm">{item.itemName}</div>
@@ -501,7 +513,10 @@ export function TradeInTab({ active, onSuccess }: TradeInTabProps) {
                               </div>
                               <div className="font-bold text-sm text-green-600">Rp {item.sellingPrice.toLocaleString()}</div>
                             </div>
-                          ))}
+                          ))
+                        ) : (
+                          <div className="p-3 text-center text-sm text-muted-foreground">Barang tidak ditemukan</div>
+                        )}
                       </div>
                     )}
                   </div>

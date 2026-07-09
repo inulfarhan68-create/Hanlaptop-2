@@ -25,17 +25,23 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             return NextResponse.json({ error: "Invalid action" }, { status: 400 });
         }
 
+        // 🔒 SaaS Tenant Isolation: Fetch with storeId check
         const approvalReq = await db.query.approvalRequests.findFirst({
-            where: eq(approvalRequests.id, id)
+            where: authResult.storeId !== "all"
+                ? and(eq(approvalRequests.id, id), eq(approvalRequests.storeId, authResult.storeId))
+                : eq(approvalRequests.id, id)
         });
 
         if (!approvalReq) {
-            return NextResponse.json({ error: "Approval request not found" }, { status: 404 });
+            return NextResponse.json({ error: "Approval request not found or access denied" }, { status: 404 });
         }
 
         if (approvalReq.status !== "PENDING") {
             return NextResponse.json({ error: "Request ini sudah diproses sebelumnya." }, { status: 400 });
         }
+
+        // Use the actual storeId from the approval request (not the user's selected storeId)
+        const actualStoreId = approvalReq.storeId;
 
         // --- REJECT LOGIC ---
         if (action === 'REJECT') {
@@ -101,7 +107,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
                             for (const sn of sns) {
                                 try {
                                     await transitionDeviceStatus(
-                                        authResult.storeId,
+                                        actualStoreId,
                                         sn,
                                         'READY_FOR_SALE',
                                         authResult.user.id,

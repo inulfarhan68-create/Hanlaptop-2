@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -8,6 +8,9 @@ import { Plus, Search, Filter, Edit, Trash2, Printer, Download, FileSpreadsheet,
 import { toast } from "sonner"
 import { LaptopSpecForm } from "@/components/LaptopSpecForm"
 import { useUserRole } from "@/hooks/useUserRole"
+import { InventoryStats } from "@/components/inventory/InventoryStats"
+import { InventoryToolbar } from "@/components/inventory/InventoryToolbar"
+import { InventoryTable } from "@/components/inventory/InventoryTable"
 import { CameraScanner } from "@/components/CameraScanner"
 import { ScanLine } from "lucide-react"
 import { printBarcodeSticker, printBarcodeStickerBatch } from "@/lib/printBarcode"
@@ -19,7 +22,9 @@ import { Autocomplete } from "@/components/ui/autocomplete"
 import { INVENTORY_ITEMS } from "@/data/inventory-items"
 import { LAPTOP_MODELS } from "@/data/laptop-models"
 import * as XLSX from "xlsx"
-import { MarkdownTab } from "@/components/inventory/MarkdownTab"
+import { InventoryBulkCategoryModal } from "@/components/inventory/InventoryBulkCategoryModal"
+import { InventoryMarkdownModal } from "@/components/inventory/InventoryMarkdownModal"
+import { InventoryAddModal } from "@/components/inventory/InventoryAddModal"
 import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
 import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
 import { AIPricingWidget } from "@/components/AIPricingWidget"
@@ -34,8 +39,35 @@ import { apiFetch } from "@/lib/api"
 
 export function Inventory() {
   const navigate = useNavigate()
-  const { data: inventoryData, error: inventoryError, isLoading: loading, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
-  const items = Array.isArray(inventoryData) ? inventoryData : []
+  const [searchTerm, setSearchTerm] = useState("")
+  
+  // Bulk Actions States
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
+  const [bulkCategoryVal, setBulkCategoryVal] = useState("")
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Filters
+  const [filterCategory, setFilterCategory] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const deferredSearchTerm = useDeferredValue(searchTerm)
+  
+  const queryParams = new URLSearchParams({
+    page: currentPage.toString(),
+    limit: itemsPerPage.toString(),
+    category: filterCategory,
+    status: filterStatus,
+    ...(deferredSearchTerm ? { search: deferredSearchTerm } : {})
+  }).toString();
+
+  const { data: inventoryData, error: inventoryError, isLoading: loading, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + `/api/inventory?${queryParams}`)
+  
+  const items = inventoryData?.data || []
+  const meta = inventoryData?.meta || { totalItems: 0, currentPage: 1, itemsPerPage: 20, totalPages: 1 }
   const { isOwner, isManager, isInvestor, isKasir } = useUserRole()
   const canWrite = isOwner || isManager
   const canShowHPP = isOwner || isManager || isInvestor
@@ -58,22 +90,7 @@ export function Inventory() {
 
   const [printInventoryData, setPrintInventoryData] = useState<any[] | null>(null)
   
-  const [searchTerm, setSearchTerm] = useState("")
-  
-  // Bulk Actions States
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
-  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
-  const [bulkCategoryVal, setBulkCategoryVal] = useState("")
-  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 20
-
-  // Filters
-  const [filterCategory, setFilterCategory] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [showFilterMenu, setShowFilterMenu] = useState(false)
 
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -670,7 +687,7 @@ export function Inventory() {
       ];
 
       // Draw Grid Items (Pure Black texts with no shadows)
-      gridItems.forEach(item => {
+      gridItems.forEach((item: any) => {
         const itemX = startX + item.col * colWidth;
         const itemY = gridStartY + item.row * rowGap;
         const cx = itemX + badgeRadius;
@@ -1022,7 +1039,7 @@ export function Inventory() {
 
   const handleExportExcel = () => {
     try {
-      const exportData = filteredItems.map((item: any, idx: number) => ({
+      const exportData = items.map((item: any, idx: number) => ({
         "No": idx + 1,
         "ID/SKU": item.id,
         "Nama Barang": item.itemName,
@@ -1049,7 +1066,7 @@ export function Inventory() {
   }
 
   const handlePrintInventory = () => {
-    setPrintInventoryData(filteredItems)
+    setPrintInventoryData(items)
   }
 
   const openEditModal = (item: any) => {
@@ -1137,7 +1154,7 @@ export function Inventory() {
   }
 
   const handleBulkPrint = () => {
-    setBatchItems(items.map(item => ({
+    setBatchItems(items.map((item: any) => ({
       ...item,
       quantityToPrint: selectedItemIds.includes(item.id) ? 1 : 0
     })));
@@ -1230,41 +1247,9 @@ export function Inventory() {
     }
   };
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item: any) => {
-      // 1. Search Filter
-      const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // 2. Category Filter
-      let matchCat = true;
-      if (filterCategory === "laptop") matchCat = item.category === "Laptop Bekas";
-      if (filterCategory === "sparepart") matchCat = item.category !== "Laptop Bekas" && item.category !== "Aksesoris" && item.category !== "Jasa Servis";
-      if (filterCategory === "aksesoris") matchCat = item.category === "Aksesoris";
+  const isStale = searchTerm !== deferredSearchTerm;
 
-      // 3. Status Filter
-      let matchStatus = true;
-      if (filterStatus === "instock") matchStatus = item.quantity > 0;
-      if (filterStatus === "outofstock") matchStatus = item.quantity === 0;
-      if (filterStatus === "lowstock") matchStatus = item.quantity <= (item.minStock !== undefined ? item.minStock : 2) && item.quantity > 0;
-
-      return matchSearch && matchCat && matchStatus;
-    });
-  }, [items, searchTerm, filterCategory, filterStatus]);
-
-  const currentPageItems = useMemo(() => {
-    return filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  }, [filteredItems, currentPage, itemsPerPage]);
-
-  const { laptopCount, spareCount, aksesorisCount, totalAssetValue } = useMemo(() => {
-    return {
-      laptopCount: items.filter((i: any) => i.category === "Laptop Bekas").reduce((sum: any, i: any) => sum + i.quantity, 0),
-      spareCount: items.filter((i: any) => i.category !== "Laptop Bekas" && i.category !== "Aksesoris" && i.category !== "Jasa Servis").reduce((sum: any, i: any) => sum + i.quantity, 0),
-      aksesorisCount: items.filter((i: any) => i.category === "Aksesoris").reduce((sum: any, i: any) => sum + i.quantity, 0),
-      totalAssetValue: items.reduce((sum: any, i: any) => sum + (i.costPrice * i.quantity), 0)
-    };
-  }, [items]);
+  const { laptopCount = 0, spareCount = 0, aksesorisCount = 0, totalAssetValue = 0 } = meta?.summary || {}
 
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1295,7 +1280,7 @@ export function Inventory() {
                       <Printer className="h-4 w-4" /> Cetak Laporan PDF
                     </button>
                     <button className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-foreground hover:bg-amber-500/10 hover:text-amber-600 transition-colors" onClick={() => { 
-                      setBatchItems(items.map(item => ({ ...item, quantityToPrint: 0 })));
+                      setBatchItems(items.map((item: any) => ({ ...item, quantityToPrint: 0 })));
                       setIsBatchBarcodeOpen(true);
                       setIsExportMenuOpen(false);
                     }}>
@@ -1320,462 +1305,81 @@ export function Inventory() {
         </div>
 
         {/* KPI Mini Stats */}
-        <div className="grid grid-cols-5 md:grid-cols-4 gap-1.5 pb-0.5">
-          <div className="col-span-2 md:col-span-1 bg-white/60 light-blue:bg-white dark:bg-card backdrop-blur-xl border border-border rounded-lg p-1.5 flex flex-col justify-center text-center">
-            <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5 truncate">
-              {canShowHPP ? "Total Value" : "Total Stok"}
-            </span>
-            <span className="text-[11px] md:text-[14px] font-bold text-foreground truncate">
-              {canShowHPP 
-                ? formatCurrency(totalAssetValue) 
-                : `${items.reduce((sum: any, i: any) => sum + i.quantity, 0)} Pcs`}
-            </span>
-          </div>
-          <div className="col-span-1 bg-white/60 light-blue:bg-white dark:bg-card backdrop-blur-xl border border-border rounded-lg p-1.5 flex flex-col justify-center text-center">
-            <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5 truncate">Laptops</span>
-            <span className="text-[11px] md:text-[14px] font-bold text-emerald-600 dark:text-emerald-400">{laptopCount}</span>
-          </div>
-          <div className="col-span-1 bg-white/60 light-blue:bg-white dark:bg-card backdrop-blur-xl border border-border rounded-lg p-1.5 flex flex-col justify-center text-center">
-            <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5 truncate">Sparepart</span>
-            <span className="text-[11px] md:text-[14px] font-bold text-blue-600 dark:text-blue-400">{spareCount}</span>
-          </div>
-          <div className="col-span-1 bg-white/60 light-blue:bg-white dark:bg-card backdrop-blur-xl border border-border rounded-lg p-1.5 flex flex-col justify-center text-center">
-            <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5 truncate">Aksesoris</span>
-            <span className="text-[11px] md:text-[14px] font-bold text-amber-600 dark:text-amber-400">{aksesorisCount}</span>
-          </div>
-        </div>
+        <InventoryStats 
+          items={items} 
+          canShowHPP={canShowHPP} 
+          totalAssetValue={totalAssetValue} 
+          laptopCount={laptopCount} 
+          spareCount={spareCount} 
+          aksesorisCount={aksesorisCount} 
+        />
 
         {/* Search & Filter Bar */}
-        <div className="flex gap-2 w-full mt-1">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-            <Input
-              placeholder="Cari SKU/Nama..."
-              className="pl-8 bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-[11px] h-8 w-full rounded-lg shadow-sm focus-visible:ring-1 focus-visible:ring-blue-500/50 transition-all"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
-          <div className="relative shrink-0">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 px-2.5 text-[10px] md:text-xs font-medium gap-1.5"
-              onClick={() => setShowFilterMenu(!showFilterMenu)}
-            >
-              <Filter className="h-3 w-3" />
-              <span className="hidden sm:inline">Filter</span>
-              {(filterCategory !== "all" || filterStatus !== "all") && (
-                <span className="ml-1 flex h-2 w-2 rounded-full bg-blue-600"></span>
-              )}
-            </Button>
-            
-            {showFilterMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowFilterMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-[200px] rounded-md border bg-popover text-popover-foreground shadow-md outline-none z-50 p-2.5 animate-in fade-in-80 zoom-in-95">
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground px-1">Kategori</label>
-                      <ModernSelect
-                        value={filterCategory}
-                        onChange={(val) => { setFilterCategory(val); setCurrentPage(1); }}
-                        options={[
-                          { value: "all", label: "Semua Kategori" },
-                          { value: "laptop", label: "Laptop Bekas" },
-                          { value: "sparepart", label: "Sparepart" },
-                          { value: "aksesoris", label: "Aksesoris" }
-                        ]}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-medium text-muted-foreground px-1">Status Stok</label>
-                      <ModernSelect
-                        value={filterStatus}
-                        onChange={(val) => { setFilterStatus(val); setCurrentPage(1); }}
-                        options={[
-                          { value: "all", label: "Semua Status" },
-                          { value: "instock", label: "Tersedia" },
-                          { value: "outofstock", label: "Habis" },
-                          { value: "lowstock", label: "Stok Menipis" }
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <InventoryToolbar 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterCategory={filterCategory}
+          setFilterCategory={setFilterCategory}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          setCurrentPage={setCurrentPage}
+        />
       </div>
 
       {/* Table Section */}
-      <div className="flex-1 flex flex-col min-h-0 space-y-2">
-        {inventoryError ? (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center">
-              <p className="text-destructive font-semibold text-lg mb-2">Gagal memuat data inventaris</p>
-              <p className="text-muted-foreground text-sm mb-4">{inventoryError.message || "Terjadi kesalahan saat mengambil data."}</p>
-              <Button onClick={() => mutateInventory()} variant="outline">Coba Lagi</Button>
-            </div>
-          </div>
-        ) : loading ? (
-          <div className="bg-card rounded-xl border shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
-            <Table>
-              <TableHeader className="sticky top-0 z-30 bg-muted/95 shadow-sm">
-                <TableRow>
-                  <TableHead className="py-2 px-2 text-[10px] w-[50px]">SKU/ID</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px] min-w-[180px]">Nama Barang</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px]">Kategori</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px]">Qty</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px]">Harga Jual</TableHead>
-                  <TableHead className="py-2 px-1 text-[10px] w-[40px] text-center">Status</TableHead>
-                  <TableHead className="text-right py-2 px-2 text-[10px] w-[50px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableSkeleton rows={8} cols={7} />
-              </TableBody>
-            </Table>
-          </div>
-        ) : items.length === 0 ? (
-          <div className="bg-card rounded-xl border shadow-sm flex-1">
-            <InventoryEmpty onAdd={() => setIsAddOpen(true)} />
-          </div>
-        ) : (
-          <div className="bg-card rounded-xl border shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden [&>div]:flex-1 [&>div]:overflow-auto [&>div]:border-0 [&>div]:rounded-none">
-            <Table>
-              <TableHeader className="sticky top-0 z-30 bg-muted/95 shadow-sm">
-                <TableRow>
-                  <TableHead className="py-2 px-2 text-[10px] w-[30px]">
-                    {canWrite && (
-                      <input 
-                        type="checkbox" 
-                        checked={currentPageItems.length > 0 && currentPageItems.every(item => selectedItemIds.includes(item.id))}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const pageIds = currentPageItems.map(item => item.id);
-                            setSelectedItemIds(prev => Array.from(new Set([...prev, ...pageIds])));
-                          } else {
-                            const pageIds = currentPageItems.map(item => item.id);
-                            setSelectedItemIds(prev => prev.filter(id => !pageIds.includes(id)));
-                          }
-                        }}
-                        className="rounded border-slate-300 dark:border-slate-800 text-primary focus:ring-primary w-3.5 h-3.5"
-                      />
-                    )}
-                  </TableHead>
-                  <TableHead className="py-2 px-2 text-[10px] md:text-[11px] w-[50px]">SKU/ID</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px] md:text-[11px] min-w-[180px] sm:min-w-[250px]">Nama Barang</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px] md:text-[11px] whitespace-nowrap">Kategori</TableHead>
-                  <TableHead className="py-2 px-2 text-[10px] md:text-[11px]">Qty</TableHead>
-                  {canShowHPP && <TableHead className="py-2 px-2 text-[10px] md:text-[11px] whitespace-nowrap">Cost (HPP)</TableHead>}
-                  <TableHead className="py-2 px-2 text-[10px] md:text-[11px] whitespace-nowrap">Harga Jual</TableHead>
-                  <TableHead className="py-2 px-1 text-[10px] md:text-[11px] w-[40px] md:w-[60px] text-center">Status</TableHead>
-                  {localStorage.getItem('selectedStoreId') !== 'all' && <TableHead className="text-right py-2 px-2 text-[10px] md:text-[11px] w-[50px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-          <TableBody>
-            {currentPageItems.map((item: any) => (
-              <TableRow key={item.id} className="hover:bg-muted/30">
-                <TableCell className="py-1.5 px-2">
-                  {canWrite && (
-                    <input 
-                      type="checkbox" 
-                      checked={selectedItemIds.includes(item.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedItemIds(prev => [...prev, item.id]);
-                        } else {
-                          setSelectedItemIds(prev => prev.filter(id => id !== item.id));
-                        }
-                      }}
-                      className="rounded border-slate-300 dark:border-slate-800 text-primary focus:ring-primary w-3.5 h-3.5"
-                    />
-                  )}
-                </TableCell>
-                <TableCell className="font-medium text-[10px] md:text-[11px] py-1.5 px-2">{item.id.substring(0, 8).toUpperCase()}</TableCell>
-                <TableCell className="py-1.5 px-2">
-                  <div 
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={() => setViewDetailItem(item)}
-                  >
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.itemName} className="w-8 h-8 rounded object-cover shadow-sm border shrink-0 bg-slate-100" />
-                    ) : (
-                      <div className="w-8 h-8 rounded bg-muted border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 select-none">💻</div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                      <span className="font-medium text-[11px] md:text-[12px] text-primary hover:underline decoration-primary/50 underline-offset-2 transition-all leading-tight">
-                        {item.itemName}
-                      </span>
-                    {item.category === "Laptop Bekas" && item.specs && (() => {
-                      const conditionMatch = item.specs.match(/Kondisi:\s*([^|]+)/);
-                      const condition = conditionMatch ? conditionMatch[1].trim() : null;
-                      if (!condition) return null;
-                      const isMinus = condition.toLowerCase().includes("minus");
-                      const isGaransi = condition.toLowerCase().includes("garansi resmi");
-                      return (
-                        <span 
-                          className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold tracking-wide border whitespace-nowrap ${
-                            isMinus 
-                              ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" 
-                              : isGaransi
-                              ? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50"
-                              : "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50"
-                          }`}
-                          title={`Kondisi: ${condition}`}
-                        >
-                          {isMinus ? "Minus" : isGaransi ? "Garansi" : "Normal"}
-                        </span>
-                      )
-                    })()}
-                    {item.isConsignment && (
-                      <span className="bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 dark:border-fuchsia-800/50 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap">
-                        Titip Jual
-                      </span>
-                    )}
-                    {item.tracksSerialNumber && (
-                      <button
-                        onClick={() => navigate('/passports')}
-                        className="bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap hover:bg-blue-200 dark:hover:bg-blue-800 cursor-pointer transition-colors"
-                      >
-                        🔍 Lacak SN
-                      </button>
-                    )}
-                    {item.qcGrade && (
-                      <span className={`px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap border ${
-                        item.qcGrade === 'A' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                        item.qcGrade === 'B' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' :
-                        item.qcGrade === 'C' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' :
-                        'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400'
-                      }`}>
-                        QC: {item.qcGrade}
-                      </span>
-                    )}
-                    {!item.isPublished && (
-                      <span className="bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap">
-                        Hidden
-                      </span>
-                    )}
-                    {item.category === "Laptop Bekas" && classifyLaptop(item.itemName, item.specs || "", item.sellingPrice).map((rec) => (
-                      <span 
-                        key={rec.id} 
-                        className={`px-1 py-0.5 rounded text-[8px] font-bold border whitespace-nowrap ${rec.color}`}
-                      >
-                        {rec.name}
-                      </span>
-                    ))}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="py-1.5 px-2">
-                  <span className={`inline-flex items-center justify-center px-1 py-0.5 rounded text-[8px] md:text-[9px] font-semibold whitespace-nowrap border ${
-                    item.category === 'Laptop Bekas' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' 
-                    : item.category === 'Aksesoris' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'
-                    : 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800'
-                  }`}>
-                    {item.category === 'Laptop Bekas' ? 'Laptop' : item.category}
-                  </span>
-                </TableCell>
-                <TableCell className="font-bold text-[11px] md:text-[12px] py-1.5 px-2">
-                  <div className="flex items-center gap-1">
-                    <span>{item.quantity}</span>
-                    {item.quantity <= (item.minStock !== undefined ? item.minStock : 2) && item.quantity > 0 && (
-                      <span className="text-[8px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1 rounded font-bold whitespace-nowrap">Menipis</span>
-                    )}
-                    {item.quantity === 0 && (
-                      <span className="text-[8px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-1 rounded font-bold whitespace-nowrap">Habis</span>
-                    )}
-                  </div>
-                </TableCell>
-                {canShowHPP && <TableCell className="text-[10px] md:text-[11px] py-1.5 px-2 tabular-nums">{formatCurrency(item.costPrice)}</TableCell>}
-                <TableCell className="text-[10px] md:text-[11px] py-1.5 px-2 tabular-nums">{formatCurrency(item.sellingPrice)}</TableCell>
-                <TableCell className="py-1.5 px-1 flex justify-center">
-                  <span className={`flex items-center justify-center w-5 h-5 rounded-full ${
-                    item.quantity === 0 ? 'bg-destructive/10' : item.quantity <= (item.minStock !== undefined ? item.minStock : 2) ? 'bg-amber-500/10' : 'bg-emerald-500/10'
-                  }`} title={item.quantity === 0 ? 'Habis' : item.quantity <= (item.minStock !== undefined ? item.minStock : 2) ? 'Menipis' : 'Aman'}>
-                    <span className={`h-2 w-2 rounded-full ${
-                      item.quantity === 0 ? 'bg-destructive' : item.quantity <= (item.minStock !== undefined ? item.minStock : 2) ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`} />
-                  </span>
-                </TableCell>
-                {localStorage.getItem('selectedStoreId') !== 'all' && (
-                  <TableCell className="text-right py-1.5 px-2">
-                    <div className="flex justify-end gap-0.5">
-                      {item.barcode && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-emerald-500/10 hover:text-emerald-600 rounded" onClick={() => printBarcodeSticker(item, { name: localStorage.getItem('storeName') || 'Toko Anda', address: localStorage.getItem('storeAddress') || '', phone: localStorage.getItem('storePhone') || '' })} title="Cetak Barcode">
-                          <Printer className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {canWrite && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary rounded" onClick={() => openEditModal(item)}>
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {canWrite && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-indigo-500/10 hover:text-indigo-600 rounded" onClick={() => openERPModal(item)} title="Pengaturan ERP (Katalog, QC, Konsinyasi)">
-                          <Settings className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {canWrite && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive rounded" onClick={() => handleDelete(item.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-            {filteredItems.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="p-0">
-                  <SearchEmpty query={searchTerm || filterCategory || filterStatus} />
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    )}
+      <InventoryTable
+        items={items}
+        currentPageItems={items}
+        isLoading={loading}
+        inventoryError={inventoryError}
+        onRetry={() => mutateInventory()}
+        onAdd={() => setIsAddOpen(true)}
+        searchTerm={searchTerm}
+        filterCategory={filterCategory}
+        filterStatus={filterStatus}
+        canWrite={canWrite}
+        canShowHPP={canShowHPP}
+        isStale={isStale}
+        selectedItemIds={selectedItemIds}
+        setSelectedItemIds={setSelectedItemIds}
+        onViewDetail={(item: any) => setViewDetailItem(item)}
+        onPrintBarcode={(item: any) => printBarcodeSticker(item, { name: localStorage.getItem('storeName') || 'Toko Anda', address: localStorage.getItem('storeAddress') || '', phone: localStorage.getItem('storePhone') || '' })}
+        onEdit={(item: any) => openEditModal(item)}
+        onERPConfig={(item: any) => openERPModal(item)}
+        onDelete={(id) => handleDelete(id)}
+      />
 
-    {/* Pagination Controls */}
-    {!loading && items.length > 0 && (
-      <div className="flex items-center justify-between px-2 py-2 shrink-0 bg-card rounded-xl border mt-2">
-        <p className="text-[10px] md:text-xs text-muted-foreground">
-          Menampilkan <span className="font-medium text-foreground">{(currentPage - 1) * itemsPerPage + 1}</span>-
-          <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> dari <span className="font-medium text-foreground">{filteredItems.length}</span> barang
-        </p>
-        <div className="flex gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-[10px] md:text-xs px-2"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            Sebelumnnya
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-[10px] md:text-xs px-2"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredItems.length / itemsPerPage)))}
-            disabled={currentPage === Math.ceil(filteredItems.length / itemsPerPage) || filteredItems.length === 0}
-          >
-            Selanjutnya
-          </Button>
-        </div>
-      </div>
-    )}
-  </div>
-
-
-  {/* MODAL ADD */}
-      {isAddOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80  flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-2xl rounded-xl shadow-lg border p-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4">Tambah Barang Baru</h3>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Nama Barang</label>
-                  {addCategory === "Laptop Bekas" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAiSpecsCheck(addName, "add")}
-                      disabled={aiLoading || !addName.trim()}
-                      className="h-7 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 gap-1"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {aiLoading ? "Menganalisis..." : "Cek Spek AI ✨"}
-                    </Button>
-                  )}
-                </div>
-                <Autocomplete 
-                  value={addName} 
-                  onChange={setAddName} 
-                  options={addCategory === "Laptop Bekas" ? mergedLaptopModels : mergedInventoryItems} 
-                  placeholder={addCategory === "Laptop Bekas" ? "Ketik merek laptop..." : "Ketik nama barang..."} 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Barcode / SKU (Opsional)</label>
-                <div className="flex gap-2">
-                  <Input value={addBarcode} onChange={e => setAddBarcode(e.target.value)} placeholder="Scan barcode disini..." className="flex-1" />
-                  <Button variant="outline" type="button" size="icon" onClick={() => setShowCameraScannerFor("add")} title="Scan Barcode pakai Kamera HP">
-                    <ScanLine className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kategori</label>
-                <ModernSelect
-                  value={addCategory}
-                  onChange={(val) => setAddCategory(val)}
-                  options={[
-                    { value: "Laptop Bekas", label: "Laptop Bekas" },
-                    { value: "Sparepart", label: "Sparepart" },
-                    { value: "Aksesoris", label: "Aksesoris" }
-                  ]}
-                  placeholder="-- Pilih Kategori --"
-                />
-              </div>
-              {addCategory === "Laptop Bekas" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Spesifikasi Laptop</label>
-                    <LaptopSpecForm value={addSpecs} onChange={setAddSpecs} />
-                  </div>
-                  <AIPricingWidget 
-                    specs={addSpecs} 
-                    condition={parseItemSpecs(addSpecs).condition || "Bekas (Mulus)"} 
-                    onApplyBuyPrice={(price) => setAddCost(price.toString())}
-                    onApplySellPrice={(price) => setAddSell(price.toString())}
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Kuantitas</label>
-                  <Input type="number" value={addQty} onChange={e => setAddQty(e.target.value)} placeholder="0" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Batas Minimum</label>
-                  <Input type="number" value={addMinStock} onChange={e => setAddMinStock(e.target.value)} placeholder="2" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Harga Modal (Rp)</label>
-                  <Input type="number" value={addCost} onChange={e => setAddCost(e.target.value)} placeholder="0" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Harga Jual (Rp)</label>
-                <Input type="number" value={addSell} onChange={e => setAddSell(e.target.value)} placeholder="0" />
-              </div>
-              <div className="flex items-center space-x-2 py-1">
-                <input 
-                  type="checkbox" 
-                  id="addTracksSN" 
-                  checked={addTracksSN} 
-                  onChange={e => setAddTracksSN(e.target.checked)} 
-                  className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4"
-                />
-                <label htmlFor="addTracksSN" className="text-sm font-medium select-none cursor-pointer">Lacak Nomor Seri (SN) untuk barang ini</label>
-              </div>
-              <div className="flex gap-3 justify-end mt-6 pt-4">
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Batal</Button>
-                <Button onClick={submitAdd} disabled={isSubmitting}>
-                  {isSubmitting ? "Menyimpan..." : "Simpan Barang"}
-                </Button>
-              </div>
-            </div>
+      {/* Pagination Controls */}
+      {!loading && items.length > 0 && (
+        <div className="flex items-center justify-between px-2 py-2 shrink-0 bg-card rounded-xl border mt-2">
+          <p className="text-[10px] md:text-xs text-muted-foreground">
+            Menampilkan <span className="font-medium text-foreground">{(currentPage - 1) * itemsPerPage + 1}</span>-
+            <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, meta.totalItems)}</span> dari <span className="font-medium text-foreground">{meta.totalItems}</span> barang
+          </p>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] md:text-xs px-2"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Sebelumnnya
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] md:text-xs px-2"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(meta.totalItems / itemsPerPage)))}
+              disabled={currentPage === Math.ceil(meta.totalItems / itemsPerPage) || meta.totalItems === 0}
+            >
+              Selanjutnya
+            </Button>
           </div>
         </div>
       )}
+
+
 
       {/* MODAL EDIT */}
       {isEditOpen && (
@@ -2281,7 +1885,7 @@ export function Inventory() {
                    {/* Items Selection List */}
                 <div className="flex-1 border border-border rounded-xl overflow-y-auto min-h-[200px] divide-y divide-border bg-card">
                   {batchItems
-                    .filter(item => {
+                    .filter((item: any) => {
                       const barcodeVal = item.barcode || "";
                       const itemNameVal = item.itemName || "";
                       const idVal = item.id || "";
@@ -2335,7 +1939,7 @@ export function Inventory() {
                         </div>
                       );
                     })}
-                  {batchItems.filter(item => {
+                  {batchItems.filter((item: any) => {
                     const barcodeVal = item.barcode || "";
                     const itemNameVal = item.itemName || "";
                     const idVal = item.id || "";
@@ -2479,7 +2083,7 @@ export function Inventory() {
 
                       // 2. Automatically save generated barcodes (short SKU/ID) to database for items without barcode values
                       if (canWrite) {
-                        const itemsToUpdate = selected.filter(item => !item.barcode);
+                        const itemsToUpdate = selected.filter((item: any) => !item.barcode);
                         if (itemsToUpdate.length > 0) {
                           const payload = itemsToUpdate.map(item => ({
                             id: item.id,
@@ -2578,36 +2182,15 @@ export function Inventory() {
       )}
 
       {/* MODAL UBAH KATEGORI MASSAL */}
-      {bulkCategoryOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-xl shadow-lg border p-6 animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold mb-4">Ubah Kategori Massal ({selectedItemIds.length} Barang)</h3>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Pilih Kategori Baru</label>
-                <ModernSelect
-                  value={bulkCategoryVal}
-                  onChange={(val) => setBulkCategoryVal(val)}
-                  options={[
-                    { value: "Laptop Bekas", label: "Laptop Bekas" },
-                    { value: "Sparepart", label: "Sparepart" },
-                    { value: "Aksesoris", label: "Aksesoris" }
-                  ]}
-                  placeholder="-- Pilih Kategori --"
-                />
-              </div>
-              <div className="flex gap-3 justify-end pt-4 border-t">
-                <Button variant="outline" size="sm" onClick={() => setBulkCategoryOpen(false)} disabled={isBulkSubmitting}>
-                  Batal
-                </Button>
-                <Button size="sm" onClick={handleBulkCategoryUpdate} disabled={isBulkSubmitting || !bulkCategoryVal}>
-                  {isBulkSubmitting ? "Mengupdate..." : "Ubah Kategori"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <InventoryBulkCategoryModal
+        isOpen={bulkCategoryOpen}
+        onClose={() => setBulkCategoryOpen(false)}
+        selectedCount={selectedItemIds.length}
+        bulkCategoryVal={bulkCategoryVal}
+        setBulkCategoryVal={setBulkCategoryVal}
+        isBulkSubmitting={isBulkSubmitting}
+        onSubmit={handleBulkCategoryUpdate}
+      />
 
       {/* ERP & QC SETTINGS MODAL */}
       {isERPOpen && erpItem && (
@@ -2839,19 +2422,10 @@ export function Inventory() {
       )}
 
       {/* MARKDOWN MODAL */}
-      {isMarkdownOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-4xl rounded-2xl shadow-2xl border flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-lg">Markdown Liquidator</h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsMarkdownOpen(false)}>✕</Button>
-            </div>
-            <div className="p-4 overflow-y-auto flex-1">
-              <MarkdownTab />
-            </div>
-          </div>
-        </div>
-      )}
+      <InventoryMarkdownModal
+        isOpen={isMarkdownOpen}
+        onClose={() => setIsMarkdownOpen(false)}
+      />
 
       {/* STOCK FLYER GENERATOR MODAL */}
       <StockFlyerModal 

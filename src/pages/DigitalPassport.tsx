@@ -30,7 +30,7 @@ export function DigitalPassport() {
 
   // Fetch passport data
   const { data: passport, error: passportError, mutate: mutatePassport } = useSWR(
-    activeSn ? `${import.meta.env.VITE_API_URL || ''}/api/inventory/passports/${encodeURIComponent(activeSn)}` : null
+    activeSn ? `${import.meta.env.VITE_API_URL || ''}/api/inventory/passports/by-sn/${encodeURIComponent(activeSn)}` : null
   );
 
   // Fetch warranty data

@@ -33,10 +33,16 @@ export function StockTransfer() {
   
   // Tabs: 'list' | 'create'
   const [activeTab, setActiveTab] = useState<"list" | "create">("list");
+  const [itemSearchTerm, setItemSearchTerm] = useState("");
   
-  // API Fetch
+  // API Fetch - Use paginated search API instead of fetchAll for better performance
   const { data: transfers = [], error: transferError, isLoading: loading, mutate: mutateTransfers } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory/transfers');
-  const { data: inventoryData = [] } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory');
+  // 🔒 FIX: Use search API with pagination instead of fetching ALL inventory
+  const { data: inventorySearchData } = useSWR(
+    itemSearchTerm.trim() !== ""
+      ? (import.meta.env.VITE_API_URL || '') + `/api/inventory?search=${encodeURIComponent(itemSearchTerm)}&status=instock&limit=20`
+      : null
+  );
   const { data: storesList = [] } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/user/stores');
   
   // Create Form State
@@ -51,7 +57,6 @@ export function StockTransfer() {
     sellingPrice: number;
     quantity: number;
   }>>([]);
-  const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Detail Modal State
@@ -449,14 +454,7 @@ export function StockTransfer() {
                     {/* Autocomplete dropdown suggestion */}
                     {itemSearchTerm.trim() !== "" && (
                       <div className="absolute left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-xl z-[60] max-h-48 overflow-y-auto p-1.5 space-y-0.5">
-                        {inventoryData
-                          .filter((item: any) => {
-                            const term = itemSearchTerm.toLowerCase();
-                            return (
-                              item.itemName.toLowerCase().includes(term) ||
-                              (item.barcode && item.barcode.toLowerCase().includes(term))
-                            );
-                          })
+                        {(inventorySearchData?.data || [])
                           .slice(0, 10)
                           .map((item: any) => (
                             <button
@@ -476,13 +474,7 @@ export function StockTransfer() {
                               </span>
                             </button>
                           ))}
-                        {inventoryData.filter((item: any) => {
-                          const term = itemSearchTerm.toLowerCase();
-                          return (
-                            item.itemName.toLowerCase().includes(term) ||
-                            (item.barcode && item.barcode.toLowerCase().includes(term))
-                          );
-                        }).length === 0 && (
+                        {(inventorySearchData?.data || []).length === 0 && (
                           <div className="p-4 text-center text-xs text-muted-foreground italic">Barang tidak ditemukan atau habis.</div>
                         )}
                       </div>

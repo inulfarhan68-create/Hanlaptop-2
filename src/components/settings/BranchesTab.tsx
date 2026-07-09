@@ -9,7 +9,7 @@ import useSWR from "swr"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export function BranchesTab() {
-  const { data: branchesList, isLoading: branchesLoading, mutate: mutateBranches } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/stores')
+  const { data: branchesList, isLoading: branchesLoading, error: branchesError, mutate: mutateBranches } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/stores')
   
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false)
   const [editingBranch, setEditingBranch] = useState<any>(null)
@@ -89,6 +89,10 @@ export function BranchesTab() {
       <CardContent className="p-0 text-left">
         {branchesLoading ? (
           <div className="text-center py-12 text-xs font-semibold text-muted-foreground">Memuat data cabang...</div>
+        ) : branchesError ? (
+          <div className="text-center py-12 text-xs font-semibold text-destructive">
+            Gagal memuat data cabang: {branchesError.info?.error || branchesError.message || "Terjadi kesalahan"}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>

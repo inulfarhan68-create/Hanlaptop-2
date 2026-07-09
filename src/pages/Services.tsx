@@ -258,7 +258,7 @@ export function Services() {
 
   const { data: services, error: servicesError, mutate, isLoading } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/services', { refreshInterval: 5000 })
   const { data: storeSettings } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/settings')
-  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
+  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory?fetchAll=true')
   const { data: techniciansData } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/technicians?active=true')
   const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/suggestions')
 

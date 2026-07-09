@@ -14,6 +14,7 @@
     "@better-auth/drizzle-adapter": "^1.6.12",
     "@google/genai": "^2.10.0",
     "@libsql/client": "^0.17.3",
+    "@sentry/nextjs": "^10.64.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.5.0",
@@ -25,6 +26,7 @@
     "kysely": "^0.29.2",
     "lru-cache": "^11.5.1",
     "next": "^16.2.6",
+    "pino": "^10.3.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "zod": "^4.4.3"

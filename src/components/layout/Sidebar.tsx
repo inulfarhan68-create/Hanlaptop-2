@@ -37,7 +37,9 @@ import {
   Percent,
   Coins,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert,
+  ShieldQuestion
 } from "lucide-react"
 import { useTheme } from "@/components/ThemeProvider"
 import { useSession, signOut } from "@/lib/auth-client"
@@ -89,6 +91,8 @@ const sidebarGroups = [
   {
     group: "Sistem",
     items: [
+      { title: "Persetujuan", href: "/approvals", icon: ShieldQuestion },
+      { title: "Audit Trail", href: "/audit", icon: ShieldAlert },
       { title: "Pengaturan", href: "/settings", icon: SettingsIcon },
     ]
   }
@@ -118,6 +122,15 @@ export function Sidebar() {
   })
   const alerts = Array.isArray(alertsData) ? alertsData : []
   const unreadCount = alerts.length
+
+  // Fetch pending approvals for badge
+  const { data: approvalsData } = useSWR(
+    isOwner || (session?.user as any)?.role === "manager" 
+      ? (import.meta.env.VITE_API_URL || '') + '/api/approvals?status=PENDING' 
+      : null,
+    { refreshInterval: 60000 }
+  )
+  const pendingApprovalsCount = Array.isArray(approvalsData) ? approvalsData.length : 0;
 
   // Track which groups are expanded. By default, let's keep all expanded if not collapsed, or just let them manage state.
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -260,22 +273,31 @@ export function Sidebar() {
               {(isExpanded || isCollapsed) && (
                 <div className="space-y-1">
                   {visibleItems.map((item) => {
-                    const isActive = location.pathname === item.href
+                    const Icon = item.icon
+                    const isActive = location.pathname.startsWith(item.href)
+                    const isApprovals = item.href === '/approvals' && pendingApprovalsCount > 0
                     return (
                       <Link
                         key={item.href}
                         to={item.href}
                         title={isCollapsed ? item.title : undefined}
                         className={cn(
-                          "group relative flex items-center rounded-full text-xs font-bold transition-all duration-300",
+                          "group relative flex items-center justify-between rounded-full text-xs font-bold transition-all duration-300",
                           isCollapsed ? "justify-center p-2.5" : "space-x-3 px-3 py-2.5",
                           isActive 
                             ? "bg-primary shadow-md text-primary-foreground dark:bg-accent dark:text-accent-foreground" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-accent"
                         )}
                       >
-                        <item.icon className={cn("relative z-10 h-5 w-5 transition-transform duration-300 group-hover:scale-110 shrink-0")} />
-                        {!isCollapsed && <span className="relative z-10 font-semibold whitespace-nowrap">{item.title}</span>}
+                        <div className="flex items-center gap-3">
+                          <Icon className={cn("relative z-10 h-5 w-5 transition-transform duration-300 group-hover:scale-110 shrink-0")} />
+                          {!isCollapsed && <span className="relative z-10 font-semibold whitespace-nowrap">{item.title}</span>}
+                        </div>
+                        {!isCollapsed && isApprovals && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                            {pendingApprovalsCount}
+                          </span>
+                        )}
                       </Link>
                     )
                   })}

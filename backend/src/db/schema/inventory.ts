@@ -26,6 +26,12 @@ export const inventory = sqliteTable("inventory", {
 }, (table) => ({
     storeIdIdx: index("inventory_store_id_idx").on(table.storeId),
     categoryIdx: index("inventory_category_idx").on(table.category),
+    // SaaS Performance: Added missing indexes
+    deletedAtIdx: index("inventory_deleted_at_idx").on(table.deletedAt),
+    barcodeIdx: index("inventory_barcode_idx").on(table.barcode),
+    conditionIdx: index("inventory_condition_idx").on(table.condition),
+    isPublishedIdx: index("inventory_published_idx").on(table.isPublished),
+    storeActiveIdx: index("inventory_store_active_idx").on(table.storeId, table.deletedAt),
     quantityCheck: check("quantity_check", sql`${table.quantity} >= 0`),
 }));
 
@@ -59,6 +65,9 @@ export const qcInspections = sqliteTable("qc_inspections", {
 }, (table) => ({
     inventoryIdIdx: index("qc_inspections_inventory_id_idx").on(table.inventoryId),
     passportIdIdx: index("qc_inspections_passport_id_idx").on(table.passportId),
+    // SaaS Performance: Added missing indexes
+    technicianIdIdx: index("qc_inspections_technician_id_idx").on(table.technicianId),
+    createdAtIdx: index("qc_inspections_created_at_idx").on(table.createdAt),
 }));
 
 export const stockOpnames = sqliteTable("stock_opnames", {

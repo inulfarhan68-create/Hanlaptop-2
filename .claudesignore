@@ -1,0 +1,25 @@
+# --- CLAUDE CODE SECURITY BARRIER ---
+# Claude will completely ignore these files.
+# It cannot read, write, or summarize them, ensuring API privacy.
+
+# 1. Environment & Secrets
+.env
+.env.*
+*.pem
+*.key
+*.cert
+credentials.json
+secret.json
+
+# 2. Database Dumps
+*.sql
+*.sqlite
+*.db
+backend/drizzle/*
+
+# 3. Third-party specific logic
+components.json
+package-lock.json
+
+# 4. User data or uploads
+public/uploads/*

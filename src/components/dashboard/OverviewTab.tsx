@@ -8,14 +8,20 @@ import useSWR from "swr"
 
 interface OverviewTabProps {
   data: any;
-  inventoryData: any[];
+  inventoryStats?: {
+    laptop: { qty: number; value: number };
+    sparepart: { qty: number; value: number };
+    aksesoris: { qty: number; value: number };
+    total: { qty: number; value: number };
+  };
+  inventoryKpi?: any;
   isOwner: boolean;
   formatCurrency: (value: number) => string;
 }
 
 const renderGrowthBadge = (value: number | string | null | undefined, isExpense: boolean = false) => {
   if (value === null || value === undefined) return null;
-  
+
   if (value === "Baru") {
     return (
       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 animate-in fade-in zoom-in duration-300">
@@ -29,7 +35,7 @@ const renderGrowthBadge = (value: number | string | null | undefined, isExpense:
 
   const isGood = isExpense ? numVal <= 0 : numVal >= 0;
   const isZero = numVal === 0;
-  
+
   let colorClass = "";
   if (isZero) {
     colorClass = "text-muted-foreground bg-muted/20 border-muted/30";
@@ -38,10 +44,10 @@ const renderGrowthBadge = (value: number | string | null | undefined, isExpense:
   } else {
     colorClass = "text-rose-500 bg-rose-500/10 border-rose-500/20";
   }
-  
+
   const Icon = numVal >= 0 ? TrendingUp : TrendingDown;
   const sign = numVal > 0 ? "+" : "";
-  
+
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold border ${colorClass} animate-in fade-in zoom-in duration-300`}>
       {!isZero && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />}
@@ -50,18 +56,20 @@ const renderGrowthBadge = (value: number | string | null | undefined, isExpense:
   );
 };
 
-export function OverviewTab({ data, inventoryData, isOwner, formatCurrency }: OverviewTabProps) {
+export function OverviewTab({ data, inventoryStats, inventoryKpi, isOwner, formatCurrency }: OverviewTabProps) {
   const monthlyData = data.monthlyData || []
   const recentTransactions = data.recentTransactions || []
-  const inventory = Array.isArray(inventoryData) ? inventoryData : []
-  
-  // Low stock inventory
-  const lowStockItems = inventory.filter((item: any) => item.quantity <= (item.minStock !== undefined ? item.minStock : 2))
 
-  const topAssetItems = [...inventory]
-    .filter((i: any) => i.quantity > 0)
-    .sort((a: any, b: any) => Math.round(b.costPrice * b.quantity) - Math.round(a.costPrice * a.quantity))
-    .slice(0, 3);
+  // Get low stock count from KPI data (no need to fetch all items)
+  const lowStockCount = inventoryKpi?.lowStockCount || 0;
+
+  // Use aggregated inventory stats from KPI API
+  const stats = inventoryStats || data.inventoryStats || {
+    laptop: { qty: 0, value: 0 },
+    sparepart: { qty: 0, value: 0 },
+    aksesoris: { qty: 0, value: 0 },
+    total: { qty: 0, value: 0 }
+  }
 
   const averageTxValue = data.totalTransactions > 0 ? Math.round(data.revenue / data.totalTransactions) : 0;
 
@@ -139,7 +147,7 @@ export function OverviewTab({ data, inventoryData, isOwner, formatCurrency }: Ov
                     ...(isOwner ? [{ label: 'Gross Margin', value: `${data.grossMargin}%`, badge: '▲ Sehat', color: 'text-cyan-500', bg: 'bg-cyan-500/10' }] : []),
                     { label: 'Total Transaksi', value: data.totalTransactions.toString(), badge: '▲ Aktif', color: 'text-blue-500', bg: 'bg-blue-500/10' },
                     { label: 'Rata-rata Transaksi', value: formatCurrency(averageTxValue), badge: '◉ Stabil', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                    { label: 'Peringatan Stok', value: `${lowStockItems.length} item`, badge: lowStockItems.length > 0 ? '▼ Periksa' : '◉ Aman', color: lowStockItems.length > 0 ? 'text-amber-500' : 'text-teal-500', bg: lowStockItems.length > 0 ? 'bg-amber-500/10' : 'bg-teal-500/10' },
+                    { label: 'Peringatan Stok', value: `${lowStockCount} item`, badge: lowStockCount > 0 ? '▼ Periksa' : '◉ Aman', color: lowStockCount > 0 ? 'text-amber-500' : 'text-teal-500', bg: lowStockCount > 0 ? 'bg-amber-500/10' : 'bg-teal-500/10' },
                   ].map((kpi) => (
                     <div key={kpi.label} className="flex items-center justify-between py-1">
                       <div>
@@ -411,27 +419,11 @@ export function OverviewTab({ data, inventoryData, isOwner, formatCurrency }: Ov
                 </div>
               )}
 
-              {/* Top Asset Items (Filling empty space) */}
-              {topAssetItems.length > 0 && (
+              {/* Top Asset Items - Removed for pagination optimization (was fetching all inventory) */}
+              {false && (
                 <div className="pt-2 border-t border-border/50 mt-2">
                   <div className="flex justify-between text-xs font-medium mb-2">
                     <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Aset Terbesar</span>
-                  </div>
-                  <div className="space-y-2">
-                    {topAssetItems.map((item, i) => (
-                      <div key={item.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[10px] font-bold text-muted-foreground w-4">{i+1}</span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium truncate leading-none">{item.itemName}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{item.quantity} unit</p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-semibold shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          {formatCurrency(Math.round(item.costPrice * item.quantity))}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -449,27 +441,25 @@ export function OverviewTab({ data, inventoryData, isOwner, formatCurrency }: Ov
             <CardDescription>Items needing restock</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {lowStockItems.length === 0 ? (
+            {lowStockCount === 0 ? (
               <div className="flex h-[80px] items-center justify-center text-muted-foreground text-sm text-center">
                 Stok masih aman
               </div>
             ) : (
-              lowStockItems.slice(0, 3).map((item: any) => (
-                <div key={item.id} className="flex flex-col gap-1 p-2 bg-card rounded-lg border shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="font-medium text-sm truncate">{item.itemName}</h4>
-                      <p className="text-[10px] text-muted-foreground">{item.category}</p>
-                    </div>
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${item.quantity === 0 ? 'bg-destructive text-destructive-foreground' : 'bg-amber-500 text-white'}`}>
-                      {item.quantity} left (min: {item.minStock !== undefined ? item.minStock : 2})
-                    </span>
+              <div className="flex flex-col gap-1 p-2 bg-card rounded-lg border shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h4 className="font-medium text-sm">{lowStockCount} item memerlukan restok</h4>
+                    <p className="text-[10px] text-muted-foreground">Total item dengan stok di bawah minimum</p>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full text-[10px] h-6 border-dashed hover:bg-primary hover:text-primary-foreground hover:border-solid transition-colors" asChild>
-                    <Link to="/transactions?mode=Pembelian">Restock Now</Link>
-                  </Button>
+                  <span className="px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 bg-destructive text-destructive-foreground">
+                    {lowStockCount} left
+                  </span>
                 </div>
-              ))
+                <Button variant="outline" size="sm" className="w-full text-[10px] h-6 border-dashed hover:bg-primary hover:text-primary-foreground hover:border-solid transition-colors" asChild>
+                  <Link to="/inventory">Lihat Inventory</Link>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

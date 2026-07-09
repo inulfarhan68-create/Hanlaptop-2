@@ -16,7 +16,7 @@ interface AgingInventoryTabProps {
 
 export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
   const { data: inventoryData = [], isLoading: inventoryLoading } = useSWR<any[]>(
-    (import.meta.env.VITE_API_URL || '') + '/api/inventory',
+    (import.meta.env.VITE_API_URL || '') + '/api/inventory?fetchAll=true',
     { keepPreviousData: true }
   )
 
@@ -119,41 +119,41 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
   return (
     <div className="print:hidden space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-md rounded-xl">
+        <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Stok Baru (&lt;30 hari)</p>
-              <p className="text-lg md:text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1.5">{fmt(metrics.new.val)}</p>
+              <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.new.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.new.qty} unit barang fisik</p>
             </div>
-            <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-              <div className="w-5 h-5 rounded-full bg-emerald-500"></div>
+            <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-amber-500/20 bg-amber-500/5 backdrop-blur-md rounded-xl">
+        <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Stok Sedang (30-90 hari)</p>
-              <p className="text-lg md:text-xl font-black text-amber-700 dark:text-amber-300 mt-1.5">{fmt(metrics.medium.val)}</p>
+              <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.medium.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.medium.qty} unit barang fisik</p>
             </div>
-            <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-              <div className="w-5 h-5 rounded-full bg-amber-500"></div>
+            <div className="bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-rose-500/20 bg-rose-500/5 backdrop-blur-md rounded-xl">
+        <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Dead Stock (&gt;90 hari)</p>
-              <p className="text-lg md:text-xl font-black text-rose-700 dark:text-rose-300 mt-1.5">{fmt(metrics.old.val)}</p>
+              <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.old.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.old.qty} unit barang fisik</p>
             </div>
-            <div className="bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
-              <div className="w-5 h-5 rounded-full bg-rose-500"></div>
+            <div className="bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500" />
             </div>
           </CardContent>
         </Card>

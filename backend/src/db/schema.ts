@@ -6,6 +6,7 @@ export * from './schema/crm';
 export * from './schema/transactions';
 export * from './schema/accounting';
 export * from './schema/refurbish';
+export * from './schema/audit';
 
 import { organizations, stores, userStoreAccess, activityLogs, storeSettings } from './schema/store';
 import { user, session, account, verification } from './schema/users';
@@ -15,6 +16,7 @@ import { technicians, technicianCommissions, cashierShifts, employees, employeeL
 import { transactions, transactionItems, journalEntries, aiPricingLogs, approvalRequests, stockTransfers, stockTransferItems, bankMutations, warrantyClaims, warrantyClaimParts, consignmentPayables, devicePassports, deviceLifecycleLogs } from './schema/transactions';
 import { chartOfAccounts, fiscalPeriods, fixedAssets, depreciationEntries, closingEntries } from './schema/accounting';
 import { deviceRefurbishments } from './schema/refurbish';
+import { auditLogs } from './schema/audit';
 import { relations } from 'drizzle-orm';
 
 // ── Drizzle Relations ──
@@ -39,6 +41,7 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
     fixedAssets: many(fixedAssets),
     depreciationEntries: many(depreciationEntries),
     closingEntries: many(closingEntries),
+    auditLogs: many(auditLogs),
 }));
 
 export const userStoreAccessRelations = relations(userStoreAccess, ({ one }) => ({
@@ -532,5 +535,16 @@ export const closingEntriesRelations = relations(closingEntries, ({ one }) => ({
     closedByUser: one(user, {
         fields: [closingEntries.closedBy],
         references: [user.id],
+    }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+    user: one(user, {
+        fields: [auditLogs.userId],
+        references: [user.id],
+    }),
+    store: one(stores, {
+        fields: [auditLogs.storeId],
+        references: [stores.id],
     }),
 }));

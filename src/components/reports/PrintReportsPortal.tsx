@@ -1,35 +1,24 @@
+import React from "react"
 import { createPortal } from "react-dom"
 import { Printer, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface PrintReportsPortalProps {
-  data: {
-    label: string;
-    revenue: { laptop: number; servis: number };
-    cogs: number;
-    opex: { gaji: number; listrik: number; sewa: number; lainnya: number };
-    assets: { kas: number; inventory: number; piutang: number };
-    liabilities: number;
-    liabilitiesDetail: { hutangUsaha: number; hutangBank: number };
-    equity: number;
-    cumulativeNetProfit: number;
-  };
+  incomeStatement: any;
+  balanceSheet: any;
   printType: "all" | "pnl" | "balance";
   setPrintType: (val: "all" | "pnl" | "balance") => void;
   onClose: () => void;
   fmt: (v: number) => string;
 }
 
-export function PrintReportsPortal({ data, printType, setPrintType, onClose, fmt }: PrintReportsPortalProps) {
-  const totalRevenue = Math.round(data.revenue.laptop + data.revenue.servis)
-  const grossProfit = Math.round(totalRevenue - data.cogs)
-  const totalOpex = Math.round(data.opex.gaji + data.opex.listrik + data.opex.sewa + (data.opex.lainnya || 0))
-  const netProfit = Math.round(grossProfit - totalOpex)
-  const totalAssets = Math.round(data.assets.kas + data.assets.inventory + (data.assets.piutang || 0))
-  const retainedEarnings = Math.round(data.cumulativeNetProfit || 0)
-  const totalEquity = Math.round(data.equity + retainedEarnings)
-  const totalLiabEquity = Math.round(data.liabilities + totalEquity)
-  const grossMargin = totalRevenue === 0 ? "0.0" : ((grossProfit / totalRevenue) * 100).toFixed(1)
+export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, setPrintType, onClose, fmt }: PrintReportsPortalProps) {
+  if (!incomeStatement || !balanceSheet) return null;
+
+  const totalRevenue = incomeStatement.revenue || 0;
+  const grossProfit = incomeStatement.grossProfit || 0;
+  const netProfit = incomeStatement.netIncome || 0;
+  const grossMargin = totalRevenue === 0 ? "0.0" : ((grossProfit / totalRevenue) * 100).toFixed(1);
 
   return createPortal(
     <>
@@ -93,7 +82,7 @@ export function PrintReportsPortal({ data, printType, setPrintType, onClose, fmt
             <div className="text-right flex flex-col items-end">
               <h2 className="text-[20px] sm:text-[24px] font-black text-slate-300 uppercase tracking-[0.1em] leading-none mb-2">LAPORAN KEUANGAN</h2>
               <div className="inline-block bg-slate-100 border border-slate-200 px-3 py-1 rounded text-slate-800 font-bold text-[12px]">
-                {data.label}
+                Periode: {String(incomeStatement.period.month).padStart(2, '0')}/{incomeStatement.period.year}
               </div>
             </div>
           </div>
@@ -124,24 +113,46 @@ export function PrintReportsPortal({ data, printType, setPrintType, onClose, fmt
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Revenue */}
-                      <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Pendapatan (Revenue)</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Penjualan Laptop & Sparepart</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.revenue.laptop)}</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Pendapatan Jasa Servis</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.revenue.servis)}</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Pendapatan</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(totalRevenue)}</td></tr>
+                      {incomeStatement.sections.map((section: any, idx: number) => (
+                        <React.Fragment key={idx}>
+                          <tr>
+                            <td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">
+                              {section.name}
+                            </td>
+                          </tr>
+                          {section.accounts.map((acc: any) => (
+                            <tr key={acc.code}>
+                              <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">
+                                {acc.name}
+                              </td>
+                              <td className={`px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px] ${acc.amount < 0 || section.name.includes('BEBAN') || section.name.includes('HARGA POKOK') ? 'text-red-600' : ''}`}>
+                                {acc.amount < 0 || section.name.includes('BEBAN') || section.name.includes('HARGA POKOK') 
+                                  ? `(${fmt(Math.abs(acc.amount))})` 
+                                  : fmt(acc.amount)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">
+                              Total {section.name}
+                            </td>
+                            <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">
+                              {section.name.includes('BEBAN') || section.name.includes('HARGA POKOK') 
+                                ? `(${fmt(Math.abs(section.total))})` 
+                                : fmt(section.total)}
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      ))}
                       
-                      {/* COGS */}
-                      <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Harga Pokok Penjualan (COGS)</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">HPP Laptop & Sparepart</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-red-600 text-[12px]">({fmt(data.cogs)})</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Laba Kotor (Gross Profit)</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-black text-emerald-600 border-b border-slate-300 text-[12px]">{fmt(grossProfit)}</td></tr>
-
-                      {/* Opex */}
-                      <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Beban Operasional</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Gaji Karyawan</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-red-600 text-[12px]">({fmt(data.opex.gaji)})</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Listrik & Internet</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-red-600 text-[12px]">({fmt(data.opex.listrik)})</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Sewa Tempat</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-red-600 text-[12px]">({fmt(data.opex.sewa)})</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Lain-lain</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-red-600 text-[12px]">({fmt(data.opex.lainnya || 0)})</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Beban Operasional</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-red-600 border-b border-slate-300 text-[12px]">({fmt(totalOpex)})</td></tr>
+                      <tr>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">
+                          Laba Kotor (Gross Profit)
+                        </td>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-black text-emerald-600 border-b border-slate-300 text-[12px]">
+                          {fmt(grossProfit)}
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -168,7 +179,7 @@ export function PrintReportsPortal({ data, printType, setPrintType, onClose, fmt
                   </h3>
                   <div className="text-right">
                     <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Total Aset</span>
-                    <span className="font-black text-[12px] text-slate-800">{fmt(totalAssets)}</span>
+                    <span className="font-black text-[12px] text-slate-800">{fmt(balanceSheet.assets.total)}</span>
                   </div>
                 </div>
                 
@@ -181,32 +192,75 @@ export function PrintReportsPortal({ data, printType, setPrintType, onClose, fmt
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Aset */}
-                      <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Aset (Aktiva)</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Kas & Bank</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.assets.kas)}</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Piutang Usaha (Belum Lunas)</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.assets.piutang || 0)}</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Persediaan (Inventory)</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.assets.inventory)}</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Aset</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-black text-slate-900 border-b border-slate-300 text-[12px]">{fmt(totalAssets)}</td></tr>
+                      {/* Aset Lancar */}
+                      <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Aset Lancar</td></tr>
+                      {balanceSheet.assets.current.map((acc: any) => (
+                        <tr key={acc.code}>
+                          <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">{acc.name}</td>
+                          <td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(acc.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Aset Lancar</td>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(balanceSheet.assets.totalCurrent)}</td>
+                      </tr>
+
+                      {/* Aset Tetap */}
+                      {balanceSheet.assets.fixed.length > 0 && (
+                        <>
+                          <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Aset Tetap</td></tr>
+                          {balanceSheet.assets.fixed.map((acc: any) => (
+                            <tr key={acc.code}>
+                              <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">{acc.name}</td>
+                              <td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(acc.amount)}</td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Aset Tetap</td>
+                            <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(balanceSheet.assets.totalFixed)}</td>
+                          </tr>
+                        </>
+                      )}
                       
                       {/* Liabilities */}
                       <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Kewajiban (Liabilitas)</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Hutang Usaha (Supplier)</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.liabilitiesDetail?.hutangUsaha || 0)}</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Hutang Bank / Kreditur</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.liabilitiesDetail?.hutangBank || 0)}</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Kewajiban</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(data.liabilities)}</td></tr>
+                      {balanceSheet.liabilities.current.map((acc: any) => (
+                        <tr key={acc.code}>
+                          <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">{acc.name}</td>
+                          <td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(acc.amount)}</td>
+                        </tr>
+                      ))}
+                      {balanceSheet.liabilities.longTerm.map((acc: any) => (
+                        <tr key={acc.code}>
+                          <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">{acc.name}</td>
+                          <td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(acc.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Kewajiban</td>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(balanceSheet.liabilities.total)}</td>
+                      </tr>
 
                       {/* Equity */}
                       <tr><td colSpan={2} className="print-td-bg bg-slate-100 font-bold text-[10px] uppercase tracking-wider px-4 py-2 text-slate-700">Modal (Ekuitas)</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Modal Pemilik</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(data.equity)}</td></tr>
-                      <tr><td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">Laba Ditahan (Retained Earnings)</td><td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(retainedEarnings)}</td></tr>
-                      <tr><td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Modal</td><td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(totalEquity)}</td></tr>
+                      {balanceSheet.equity.accounts.map((acc: any) => (
+                        <tr key={acc.code}>
+                          <td className="px-4 py-1.5 pl-6 border-b border-slate-100 text-[12px]">{acc.name}</td>
+                          <td className="px-4 py-1.5 text-right border-b border-slate-100 font-medium text-[12px]">{fmt(acc.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 font-bold text-slate-900 border-b border-slate-300 text-[12px]">Total Ekuitas</td>
+                        <td className="print-td-bg-light bg-slate-50 px-4 py-2 text-right font-bold text-slate-900 border-b border-slate-300 text-[12px]">{fmt(balanceSheet.equity.total)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
 
                 <div className="print-td-bg bg-slate-100 px-4 py-3 border-t border-slate-800 flex justify-between items-center print:border-t-2">
-                  <span className="font-black text-[12px] sm:text-[14px] uppercase tracking-wider text-slate-800">Total Kewajiban & Modal</span>
+                  <span className="font-black text-[12px] sm:text-[14px] uppercase tracking-wider text-slate-800">Total Kewajiban & Ekuitas</span>
                   <span className="font-black text-[14px] sm:text-[16px] text-slate-900">
-                    {fmt(totalLiabEquity)}
+                    {fmt(balanceSheet.liabilities.total + balanceSheet.equity.total)}
                   </span>
                 </div>
               </div>

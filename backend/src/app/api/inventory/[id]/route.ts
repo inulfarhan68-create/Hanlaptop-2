@@ -1,33 +1,42 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
+import { AuditService } from "@/services/AuditService";
 import { inventorySchema } from "@/lib/validators";
 import { del } from "@vercel/blob";
 
-// ── Helper: hapus blob dari Vercel Storage jika URL adalah Vercel Blob ──
-async function deleteBlobIfExists(url: string | null | undefined) {
-    if (!url) return;
-    try {
-        const isVercelBlob =
-            url.includes("blob.vercel-storage.com") ||
-            url.includes("public.blob.vercel-storage.com");
-        if (!isVercelBlob) return;
-
-        const token =
-            process.env.BLOB_READ_WRITE_TOKEN ||
-            process.env.blob_READ_WRITE_TOKEN;
-        const options: any = {};
-        if (token) options.token = token;
-
-        await del(url, options);
-        console.log("[Blob Cleanup] Berhasil hapus blob:", url);
-    } catch (err) {
-        // Non-fatal — jangan gagalkan operasi utama
-        console.warn("[Blob Cleanup] Gagal hapus blob:", url, err);
+/**
+ * Helper: Verify inventory item belongs to user's store (SaaS Tenant Isolation)
+ */
+async function verifyInventoryAccess(authResult: any, inventoryId: string) {
+    // Owner (global) can access all inventory items
+    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+        const item = await db.query.inventory.findFirst({
+            where: eq(inventory.id, inventoryId)
+        });
+        return item ? { item, authorized: true } : { item: null, authorized: false, response: NextResponse.json({ error: "Inventory item not found" }, { status: 404 }) };
     }
+
+    // Non-owner: must check storeId match
+    const item = await db.query.inventory.findFirst({
+        where: and(
+            eq(inventory.id, inventoryId),
+            eq(inventory.storeId, authResult.storeId)
+        )
+    });
+
+    if (!item) {
+        return {
+            item: null,
+            authorized: false,
+            response: NextResponse.json({ error: "Inventory item not found or access denied" }, { status: 404 })
+        };
+    }
+
+    return { item, authorized: true };
 }
 
 // ══════════════════════════════════════════
@@ -37,8 +46,13 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const authResult = await requirePermission(Permissions.INVENTORY_EDIT);
     if (authResult instanceof NextResponse) return authResult;
 
+    const { id } = await context.params;
+
+    // 🔒 SaaS Tenant Isolation: Verify inventory belongs to user's store
+    const { item: existingItem, authorized, response } = await verifyInventoryAccess(authResult, id);
+    if (!authorized) return response;
+
     try {
-        const { id } = await context.params;
         const body = await request.json();
         console.log("[PUT API] received body:", body);
 
@@ -51,13 +65,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 { status: 400 }
             );
         }
-
-        // Ambil data item saat ini (untuk perbandingan imageUrl & quantity)
-        const [current] = await db
-            .select()
-            .from(inventory)
-            .where(eq(inventory.id, id))
-            .limit(1);
 
         // Susun hanya field yang dikirim dalam request body
         const updateData: any = {};
@@ -87,25 +94,30 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         const [updated] = await db
             .update(inventory)
             .set(updateData)
-            .where(eq(inventory.id, id))
+            .where(and(
+                eq(inventory.id, id),
+                // 🔒 Double-check storeId in update
+                authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined
+            ))
             .returning();
 
         // ── Blob cleanup: foto lama dihapus jika diganti foto baru ──
         if (
-            current?.imageUrl &&
+            existingItem!.imageUrl &&
             updateData.imageUrl !== undefined &&
-            updateData.imageUrl !== current.imageUrl
+            updateData.imageUrl !== existingItem!.imageUrl
         ) {
-            await deleteBlobIfExists(current.imageUrl);
+            await deleteBlobIfExists(existingItem!.imageUrl);
         }
 
         // ── Blob cleanup: foto dihapus jika quantity menjadi 0 (item habis terjual) ──
-        if (updateData.quantity === 0 && current?.imageUrl) {
-            await deleteBlobIfExists(current.imageUrl);
+        if (updateData.quantity === 0 && existingItem!.imageUrl) {
+            await deleteBlobIfExists(existingItem!.imageUrl);
         }
 
         // Log aktivitas
         await db.insert(activityLogs).values({
+            storeId: existingItem!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_INVENTORY",
@@ -116,6 +128,18 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 sellingPrice: updated?.sellingPrice,
                 quantity: updated?.quantity,
             }),
+        });
+
+        // ── SaaS Audit Trail ──
+        AuditService.log({
+            storeId: existingItem!.storeId,
+            userId: authResult.user.id,
+            action: 'UPDATE',
+            entity: 'INVENTORY',
+            entityId: id,
+            oldValue: existingItem!,
+            newValue: updated,
+            req: request as any
         });
 
         return NextResponse.json(updated);
@@ -132,30 +156,32 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const authResult = await requirePermission(Permissions.INVENTORY_DELETE);
     if (authResult instanceof NextResponse) return authResult;
 
+    const { id } = await context.params;
+
+    // 🔒 SaaS Tenant Isolation: Verify inventory belongs to user's store
+    const { item: existingItem, authorized, response } = await verifyInventoryAccess(authResult, id);
+    if (!authorized) return response;
+
     try {
-        const { id } = await context.params;
-
-        // Ambil data item sebelum dihapus untuk mendapatkan imageUrl
-        const [current] = await db
-            .select()
-            .from(inventory)
-            .where(eq(inventory.id, id))
-            .limit(1);
-
         // Log aktivitas
         await db.insert(activityLogs).values({
+            storeId: existingItem!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_INVENTORY",
             entityType: "inventory",
             entityId: id,
-            details: JSON.stringify({ itemName: current?.itemName ?? "unknown" }),
+            details: JSON.stringify({ itemName: existingItem!.itemName ?? "unknown" }),
         });
 
         // Soft delete item dari database
         await db.update(inventory)
             .set({ deletedAt: new Date() })
-            .where(eq(inventory.id, id));
+            .where(and(
+                eq(inventory.id, id),
+                // 🔒 Double-check storeId in delete
+                authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined
+            ));
 
         // ── Blob cleanup dihilangkan untuk soft delete (foto tetap disimpan) ──
 
@@ -163,5 +189,28 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     } catch (error) {
         console.error("Failed to delete item:", error);
         return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
+    }
+}
+
+// ── Helper: hapus blob dari Vercel Storage jika URL adalah Vercel Blob ──
+async function deleteBlobIfExists(url: string | null | undefined) {
+    if (!url) return;
+    try {
+        const isVercelBlob =
+            url.includes("blob.vercel-storage.com") ||
+            url.includes("public.blob.vercel-storage.com");
+        if (!isVercelBlob) return;
+
+        const token =
+            process.env.BLOB_READ_WRITE_TOKEN ||
+            process.env.blob_READ_WRITE_TOKEN;
+        const options: any = {};
+        if (token) options.token = token;
+
+        await del(url, options);
+        console.log("[Blob Cleanup] Berhasil hapus blob:", url);
+    } catch (err) {
+        // Non-fatal — jangan gagalkan operasi utama
+        console.warn("[Blob Cleanup] Gagal hapus blob:", url, err);
     }
 }

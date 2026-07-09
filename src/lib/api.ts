@@ -1,3 +1,5 @@
+import { syncChannel } from './broadcast';
+
 /**
  * Centralized API client for making authenticated requests.
  * 
@@ -40,11 +42,38 @@ export async function apiFetch(
     headers['Content-Type'] = 'application/json';
   }
 
-  return fetch(url, {
-    ...options,
-    credentials: 'include',
-    headers,
-  });
+  try {
+    const res = await fetch(url, {
+      ...options,
+      credentials: 'include',
+      headers,
+    });
+
+    // Cross-Tab Sync: Broadcast if it's a successful mutation
+    if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase()) && res.ok) {
+      let routePath = endpoint;
+      if (routePath.startsWith('http')) {
+         routePath = new URL(routePath).pathname;
+      }
+      routePath = routePath.split('?')[0]; // Strip query parameters
+      
+      syncChannel.broadcastMutation(routePath, options.method.toUpperCase());
+    }
+
+    return res;
+  } catch (error: any) {
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      return new Response(
+        JSON.stringify({ error: "Koneksi terputus. Silakan periksa jaringan internet Anda." }), 
+        {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+    throw error;
+  }
 }
 
 /**

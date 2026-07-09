@@ -119,7 +119,7 @@ export async function GET() {
 
             if (entry.accountName === "Pendapatan" || entry.accountName === "Pendapatan Servis") {
                 monthlyComparisonMap[key].sales += cred - deb;
-            } else if (entry.accountName === "HPP") {
+            } else if (entry.accountName.startsWith("HPP")) {
                 monthlyComparisonMap[key].cost += deb - cred;
             } else if (entry.accountName.includes("Beban")) {
                 monthlyComparisonMap[key].opex += deb - cred;

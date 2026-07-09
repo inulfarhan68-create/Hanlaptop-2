@@ -1,14 +1,71 @@
 /**
  * Distributed rate limiter for Next.js API routes with local in-memory fallback.
- * 
+ *
  * Production (Vercel Serverless): Uses Upstash Redis via HTTP REST for stateless,
  * multi-instance accurate rate limiting.
  * Local/Development: Falls back automatically to local in-memory Map rate limiting.
+ *
+ * Rate Limit Tiers:
+ * - login: 5/min (very strict for brute force protection)
+ * - token: 20/min (moderate for token refresh)
+ * - export: 10/hour (generous but limited)
+ * - ai: 30/hour (expensive operations)
+ * - strict: 50/min (for sensitive operations)
+ * - api: 300/min (standard API)
+ * - default: 100/min (fallback)
  */
 
 import { NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+
+/**
+ * Rate limit tiers for different endpoint types
+ */
+export type RateLimitTier = "login" | "token" | "export" | "ai" | "api" | "strict" | "default";
+
+export interface RateLimitTierConfig {
+  limit: number;
+  windowMs: number;
+  description: string;
+}
+
+/**
+ * Pre-configured rate limit tiers
+ */
+export const rateLimitTiers: Record<RateLimitTier, RateLimitTierConfig> = {
+  // Very strict - 5 attempts per minute for login
+  login: { limit: 5, windowMs: 60_000, description: "Login attempts" },
+
+  // Moderate - 20 per minute for token refresh
+  token: { limit: 20, windowMs: 60_000, description: "Token refresh" },
+
+  // Generous but limited - 10 per hour for exports
+  export: { limit: 10, windowMs: 3_600_000, description: "Export operations" },
+
+  // Expensive operations - 30 per hour for AI
+  ai: { limit: 30, windowMs: 3_600_000, description: "AI operations" },
+
+  // Strict API - 50 per minute
+  strict: { limit: 50, windowMs: 60_000, description: "Strict API" },
+
+  // Standard API - 300 per minute
+  api: { limit: 300, windowMs: 60_000, description: "Standard API" },
+
+  // Default fallback - 100 per minute
+  default: { limit: 100, windowMs: 60_000, description: "Default" },
+};
+
+/**
+ * Check rate limit using a specific tier
+ */
+export async function checkRateLimitTier(
+  request: Request,
+  tier: RateLimitTier = "default"
+): Promise<NextResponse | null> {
+  const config = rateLimitTiers[tier];
+  return checkRateLimit(request, config.limit, config.windowMs);
+}
 
 // Check if Upstash Redis credentials are set
 const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;

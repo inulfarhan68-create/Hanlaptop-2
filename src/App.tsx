@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -7,6 +7,8 @@ import { PageLoading } from "@/components/PageLoading"
 import { Toaster } from "sonner"
 import { SWRConfig } from "swr"
 import { swrFetcher } from "@/lib/api"
+import { mutate } from "swr"
+import { syncChannel, type SyncEventPayload } from "@/lib/broadcast"
 
 // Lazy load pages to optimize bundle size
 const Login = lazy(() => import("@/pages/Login").then(m => ({ default: m.Login })))
@@ -16,6 +18,8 @@ const Inventory = lazy(() => import("@/pages/Inventory").then(m => ({ default: m
 const Transactions = lazy(() => import("@/pages/Transactions").then(m => ({ default: m.Transactions })))
 const Reports = lazy(() => import("@/pages/Reports").then(m => ({ default: m.Reports })))
 const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })))
+const AuditLogs = lazy(() => import("@/pages/AuditLogs").then(m => ({ default: m.AuditLogs })))
+const Approvals = lazy(() => import("@/pages/Approvals").then(m => ({ default: m.Approvals })))
 const Payroll = lazy(() => import("@/pages/Payroll").then(m => ({ default: m.Payroll })))
 const Piutang = lazy(() => import("@/pages/Piutang").then(m => ({ default: m.Piutang })))
 const Hutang = lazy(() => import("@/pages/Hutang").then(m => ({ default: m.Hutang })))
@@ -37,6 +41,28 @@ const LandingPage = lazy(() => import("@/pages/LandingPage").then(m => ({ defaul
 const DigitalPassport = lazy(() => import("@/pages/DigitalPassport").then(m => ({ default: m.DigitalPassport })))
 
 function App() {
+  useEffect(() => {
+    const channel = syncChannel.getInstance();
+    
+    const handleMessage = (event: MessageEvent<SyncEventPayload>) => {
+      if (event.data?.type === 'api.mutated' && event.data?.route) {
+        mutate(
+          (key) => typeof key === 'string' && key.startsWith(event.data.route),
+          undefined,
+          { revalidate: true }
+        );
+      }
+    };
+    
+    channel.addEventListener('message', handleMessage);
+    
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      // We don't close the singleton channel here because it might be used by apiFetch,
+      // but cleaning up the listener prevents memory leaks!
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -76,11 +102,12 @@ function App() {
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/technicians" element={<Navigate to="/payroll?tab=teknisi" replace />} />
                 <Route path="/services" element={<Services />} />
-
                 <Route path="/opname" element={<StockOpname />} />
                 <Route path="/transfer" element={<StockTransfer />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/approvals" element={<Approvals />} />
+                <Route path="/audit" element={<AuditLogs />} />
                 <Route path="/payroll" element={<Payroll />} />
                 <Route path="/procurement" element={<Procurement />} />
                 <Route path="/crm" element={<CrmManagement />} />

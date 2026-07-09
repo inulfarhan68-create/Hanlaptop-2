@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Navigate } from "react-router-dom"
 import { useUserRole } from "@/hooks/useUserRole"
 import { Button } from "@/components/ui/button"
@@ -18,8 +18,10 @@ import { IncomeStatementReport } from "@/components/accounting/IncomeStatementRe
 import { BalanceSheetReport } from "@/components/accounting/BalanceSheetReport"
 import { CashFlowReport } from "@/components/accounting/CashFlowReport"
 import { FixedAssetsTable } from "@/components/accounting/FixedAssetsTable"
-import useSWR from "swr"
+import useSWR, { mutate } from "swr"
 import * as XLSX from "xlsx"
+import { syncChannel, type SyncEventPayload } from "@/lib/broadcast"
+import { TrendingUp, Scale, Package, UserCheck, Wrench, BookOpen } from "lucide-react"
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(v)
@@ -81,43 +83,91 @@ export function Reports() {
     { keepPreviousData: true }
   )
 
+  // Real-time synchronization for Reports
+  useEffect(() => {
+    const channel = syncChannel.getInstance();
+    
+    const handleMessage = (event: MessageEvent<SyncEventPayload>) => {
+      // If a transaction, inventory, or service is updated, the reports might change
+      if (event.data?.type === 'api.mutated' && 
+         (event.data.route.includes('/transactions') || 
+          event.data.route.includes('/inventory') || 
+          event.data.route.includes('/services') ||
+          event.data.route.includes('/payrolls') ||
+          event.data.route.includes('/procurement'))) {
+        
+        // Revalidate report data
+        mutate((key) => typeof key === 'string' && (
+          key.includes('/api/reports') || 
+          key.includes('/api/accounting/')
+        ), undefined, { revalidate: true });
+      }
+    };
+    
+    channel.addEventListener('message', handleMessage);
+    return () => channel.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleExportExcel = () => {
-    if (!res) return
+    if (!incomeStatement || !balanceSheet) return
 
-    // Profit & Loss Data
-    const pnlData = [
-      { Kategori: "Pendapatan", Item: "Penjualan Laptop Bekas", Nilai: Math.round(res.revenue?.laptop || 0) },
-      { Kategori: "Pendapatan", Item: "Pendapatan Servis", Nilai: Math.round(res.revenue?.servis || 0) },
-      { Kategori: "Pendapatan", Item: "Total Pendapatan", Nilai: Math.round((res.revenue?.laptop || 0) + (res.revenue?.servis || 0)) },
-      { Kategori: "HPP", Item: "Harga Pokok Penjualan", Nilai: Math.round(res.cogs || 0) },
-      { Kategori: "Laba Kotor", Item: "Laba Kotor", Nilai: Math.round((res.revenue?.laptop || 0) + (res.revenue?.servis || 0) - (res.cogs || 0)) },
-      { Kategori: "Beban Operasional", Item: "Gaji Karyawan", Nilai: Math.round(res.opex?.gaji || 0) },
-      { Kategori: "Beban Operasional", Item: "Listrik & Internet", Nilai: Math.round(res.opex?.listrik || 0) },
-      { Kategori: "Beban Operasional", Item: "Sewa Tempat", Nilai: Math.round(res.opex?.sewa || 0) },
-      { Kategori: "Beban Operasional", Item: "Klaim Garansi", Nilai: Math.round(res.opex?.garansi || 0) },
-      { Kategori: "Beban Operasional", Item: "Lainnya", Nilai: Math.round(res.opex?.lainnya || 0) },
-      { Kategori: "Beban Operasional", Item: "Total Beban", Nilai: Math.round((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.garansi || 0) + (res.opex?.lainnya || 0)) },
-      { Kategori: "Laba Bersih", Item: "Laba Bersih", Nilai: Math.round((res.revenue?.laptop || 0) + (res.revenue?.servis || 0) - (res.cogs || 0) - ((res.opex?.gaji || 0) + (res.opex?.listrik || 0) + (res.opex?.sewa || 0) + (res.opex?.garansi || 0) + (res.opex?.lainnya || 0))) }
-    ]
+    // 1. Profit & Loss Data (From Single Source of Truth)
+    const pnlData: any[] = [];
+    
+    incomeStatement.sections.forEach((section: any) => {
+        pnlData.push({ Kategori: section.name, Akun: "", Nilai: "" });
+        section.accounts.forEach((acc: any) => {
+            pnlData.push({ 
+                Kategori: section.name, 
+                Akun: acc.name, 
+                Nilai: Math.round(acc.amount) 
+            });
+        });
+        pnlData.push({ Kategori: `Total ${section.name}`, Akun: "", Nilai: Math.round(section.total) });
+        pnlData.push({ Kategori: "", Akun: "", Nilai: "" }); // Empty row separator
+    });
 
-    const totalAssets = Math.round((res.assets?.kas || 0) + (res.assets?.inventory || 0) + (res.assets?.piutang || 0))
-    const totalEquity = Math.round((res.equity || 0) + (res.cumulativeNetProfit || 0))
-    const totalLiabEquity = Math.round((res.liabilities || 0) + totalEquity)
+    pnlData.push({ Kategori: "Laba Kotor (Gross Profit)", Akun: "", Nilai: Math.round(incomeStatement.grossProfit) });
+    pnlData.push({ Kategori: "Laba Operasional", Akun: "", Nilai: Math.round(incomeStatement.operatingIncome) });
+    pnlData.push({ Kategori: "Laba Sebelum Pajak", Akun: "", Nilai: Math.round(incomeStatement.incomeBeforeTax) });
+    pnlData.push({ Kategori: "Laba Bersih (Net Income)", Akun: "", Nilai: Math.round(incomeStatement.netIncome) });
 
-    // Balance Sheet Data
-    const balanceData = [
-      { Kategori: "Aset", Item: "Kas & Bank", Nilai: Math.round(res.assets?.kas || 0) },
-      { Kategori: "Aset", Item: "Piutang Usaha", Nilai: Math.round(res.assets?.piutang || 0) },
-      { Kategori: "Aset", Item: "Persediaan Barang", Nilai: Math.round(res.assets?.inventory || 0) },
-      { Kategori: "Aset", Item: "Total Aset", Nilai: totalAssets },
-      { Kategori: "Kewajiban", Item: "Hutang Usaha", Nilai: Math.round(res.liabilitiesDetail?.hutangUsaha || 0) },
-      { Kategori: "Kewajiban", Item: "Hutang Bank/Lainnya", Nilai: Math.round(res.liabilitiesDetail?.hutangBank || 0) },
-      { Kategori: "Kewajiban", Item: "Total Kewajiban", Nilai: Math.round(res.liabilities || 0) },
-      { Kategori: "Ekuitas", Item: "Modal Awal", Nilai: Math.round(res.equity || 0) },
-      { Kategori: "Ekuitas", Item: "Laba Ditahan", Nilai: Math.round(res.cumulativeNetProfit || 0) },
-      { Kategori: "Ekuitas", Item: "Total Ekuitas", Nilai: totalEquity },
-      { Kategori: "Total Liab & Ekuitas", Item: "Total Kewajiban + Ekuitas", Nilai: totalLiabEquity }
-    ]
+    // 2. Balance Sheet Data (From Single Source of Truth)
+    const balanceData: any[] = [];
+    
+    // Assets
+    balanceData.push({ Kelompok: "ASET", Kategori: "Aset Lancar", Akun: "", Nilai: "" });
+    balanceSheet.assets.current.forEach((acc: any) => {
+        balanceData.push({ Kelompok: "ASET", Kategori: "Aset Lancar", Akun: acc.name, Nilai: Math.round(acc.amount) });
+    });
+    balanceData.push({ Kelompok: "ASET", Kategori: "Aset Tetap", Akun: "", Nilai: "" });
+    balanceSheet.assets.fixed.forEach((acc: any) => {
+        balanceData.push({ Kelompok: "ASET", Kategori: "Aset Tetap", Akun: acc.name, Nilai: Math.round(acc.amount) });
+    });
+    balanceData.push({ Kelompok: "TOTAL ASET", Kategori: "", Akun: "", Nilai: Math.round(balanceSheet.assets.total) });
+    balanceData.push({ Kelompok: "", Kategori: "", Akun: "", Nilai: "" });
+
+    // Liabilities
+    balanceData.push({ Kelompok: "KEWAJIBAN", Kategori: "Kewajiban Lancar", Akun: "", Nilai: "" });
+    balanceSheet.liabilities.current.forEach((acc: any) => {
+        balanceData.push({ Kelompok: "KEWAJIBAN", Kategori: "Kewajiban Lancar", Akun: acc.name, Nilai: Math.round(acc.amount) });
+    });
+    balanceData.push({ Kelompok: "KEWAJIBAN", Kategori: "Kewajiban Jangka Panjang", Akun: "", Nilai: "" });
+    balanceSheet.liabilities.longTerm.forEach((acc: any) => {
+        balanceData.push({ Kelompok: "KEWAJIBAN", Kategori: "Kewajiban Jangka Panjang", Akun: acc.name, Nilai: Math.round(acc.amount) });
+    });
+    balanceData.push({ Kelompok: "TOTAL KEWAJIBAN", Kategori: "", Akun: "", Nilai: Math.round(balanceSheet.liabilities.total) });
+    balanceData.push({ Kelompok: "", Kategori: "", Akun: "", Nilai: "" });
+
+    // Equity
+    balanceData.push({ Kelompok: "EKUITAS", Kategori: "Modal & Laba", Akun: "", Nilai: "" });
+    balanceSheet.equity.accounts.forEach((acc: any) => {
+        balanceData.push({ Kelompok: "EKUITAS", Kategori: "Modal & Laba", Akun: acc.name, Nilai: Math.round(acc.amount) });
+    });
+    balanceData.push({ Kelompok: "TOTAL EKUITAS", Kategori: "", Akun: "", Nilai: Math.round(balanceSheet.equity.total) });
+    balanceData.push({ Kelompok: "", Kategori: "", Akun: "", Nilai: "" });
+
+    balanceData.push({ Kelompok: "TOTAL KEWAJIBAN & EKUITAS", Kategori: "", Akun: "", Nilai: Math.round(balanceSheet.liabilities.total + balanceSheet.equity.total) });
 
     const wb = XLSX.utils.book_new()
     const wsPnl = XLSX.utils.json_to_sheet(pnlData)
@@ -165,14 +215,26 @@ export function Reports() {
         </div>
       </div>
 
-      {/* Tabs Navigation - Simplified to 6 essential tabs */}
+      {/* Tabs Navigation - Clean Lucide icons instead of emojis */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-2 px-1 print:hidden scrollbar-none">
-        <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3">📈 Laba Rugi</Button>
-        <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3">📊 Neraca & Kas</Button>
-        <Button size="sm" variant={activeTab === "produk" ? "default" : "outline"} onClick={() => setActiveTab("produk")} className="rounded-full h-8 text-xs px-3">💻 Produk</Button>
-        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-3">💰 Kasir</Button>
-        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3">🔧 Teknisi</Button>
-        <Button size="sm" variant={activeTab === "akuntansi" ? "default" : "outline"} onClick={() => setActiveTab("akuntansi")} className="rounded-full h-8 text-xs px-3">📒 Akuntansi</Button>
+        <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <TrendingUp className="h-3.5 w-3.5" /> Laba Rugi
+        </Button>
+        <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <Scale className="h-3.5 w-3.5" /> Neraca & Kas
+        </Button>
+        <Button size="sm" variant={activeTab === "produk" ? "default" : "outline"} onClick={() => setActiveTab("produk")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <Package className="h-3.5 w-3.5" /> Produk
+        </Button>
+        <Button size="sm" variant={activeTab === "shift" ? "default" : "outline"} onClick={() => setActiveTab("shift")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <UserCheck className="h-3.5 w-3.5" /> Kasir
+        </Button>
+        <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <Wrench className="h-3.5 w-3.5" /> Teknisi
+        </Button>
+        <Button size="sm" variant={activeTab === "akuntansi" ? "default" : "outline"} onClick={() => setActiveTab("akuntansi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
+          <BookOpen className="h-3.5 w-3.5" /> Akuntansi
+        </Button>
       </div>
 
       {/* Scrollable Body Content - Simplified tabs */}
@@ -250,9 +312,10 @@ export function Reports() {
       </div>
 
       {/* Print Overlay / Portal */}
-      {isPrinting && res && (
+      {isPrinting && incomeStatement && balanceSheet && (
         <PrintReportsPortal 
-          data={res} 
+          incomeStatement={incomeStatement}
+          balanceSheet={balanceSheet}
           printType={printType} 
           setPrintType={setPrintType} 
           onClose={() => setIsPrinting(false)} 

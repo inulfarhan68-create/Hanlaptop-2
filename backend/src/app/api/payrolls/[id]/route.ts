@@ -36,24 +36,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
 
-    if (authResult.storeId === "all") {
-        return NextResponse.json({ error: "Please select a specific branch to update a payroll" }, { status: 400 });
-    }
-
     const { id } = await context.params;
 
     try {
-        // Fetch payroll record
+        // Fetch payroll record - support storeId="all" for global owners
         const payroll = await db.query.payrolls.findFirst({
-            where: and(
-                eq(payrolls.id, id),
-                eq(payrolls.storeId, authResult.storeId)
-            )
+            where: authResult.storeId !== "all"
+                ? and(eq(payrolls.id, id), eq(payrolls.storeId, authResult.storeId))
+                : eq(payrolls.id, id)
         });
 
         if (!payroll) {
-            return NextResponse.json({ error: "Payroll record not found" }, { status: 404 });
+            return NextResponse.json({ error: "Payroll record not found or access denied" }, { status: 404 });
         }
+
+        // Use actual storeId (either from auth or from payroll for global owners)
+        const actualStoreId = authResult.storeId !== "all" ? authResult.storeId : payroll.storeId;
 
         if (payroll.paymentStatus === 'PAID') {
             return NextResponse.json({ error: "Gaji ini sudah dibayarkan" }, { status: 400 });
@@ -78,7 +76,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             // Get active shift
             const activeShift = await db.query.cashierShifts.findFirst({
                 where: and(
-                    eq(cashierShifts.storeId, authResult.storeId),
+                    eq(cashierShifts.storeId, actualStoreId),
                     eq(cashierShifts.status, "OPEN")
                 )
             });
@@ -88,7 +86,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                 // 1. Create operasional payout transaction
                 const payoutDesc = `Beban Gaji Karyawan - Gaji & Komisi Karyawan: ${employee.name} (${payroll.period})`;
                 const [newTx] = await tx.insert(transactions).values({
-                    storeId: authResult.storeId,
+                    storeId: actualStoreId,
                     transactionType: "Operasional",
                     amount: payroll.netSalary,
                     description: payoutDesc,
@@ -102,8 +100,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
                 // Journal entries: Debit "Beban Gaji Karyawan" (Expense), Credit Kas/Bank
                 await tx.insert(journalEntries).values([
-                    { storeId: authResult.storeId, transactionId: newTx.id, accountName: "Beban Gaji Karyawan", debit: payroll.netSalary, credit: 0 },
-                    { storeId: authResult.storeId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: payroll.netSalary }
+                    { storeId: actualStoreId, transactionId: newTx.id, accountName: "Beban Gaji Karyawan", debit: payroll.netSalary, credit: 0 },
+                    { storeId: actualStoreId, transactionId: newTx.id, accountName: liquidAccount, debit: 0, credit: payroll.netSalary }
                 ]);
 
                 // 2. Mark technicians unpaid commissions to PAID if any
@@ -115,7 +113,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                             payoutTransactionId: newTx.id
                         })
                         .where(and(
-                            eq(technicianCommissions.storeId, authResult.storeId),
+                            eq(technicianCommissions.storeId, actualStoreId),
                             eq(technicianCommissions.technicianId, employee.technicianId),
                             eq(technicianCommissions.status, 'UNPAID')
                         ));
@@ -126,7 +124,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                     let remainingDeduction = payroll.deductions;
                     const unpaidLoans = await tx.query.employeeLoans.findMany({
                         where: and(
-                            eq(employeeLoans.storeId, authResult.storeId),
+                            eq(employeeLoans.storeId, actualStoreId),
                             eq(employeeLoans.employeeId, payroll.employeeId),
                             ne(employeeLoans.status, 'PAID')
                         ),
@@ -170,7 +168,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
             // Log activity
             await db.insert(activityLogs).values({
-                storeId: authResult.storeId,
+                storeId: actualStoreId,
                 userId: authResult.user.id,
                 userName: authResult.user.name,
                 action: "PAYOUT_PAYROLL",
@@ -196,19 +194,22 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { id } = await context.params;
 
     try {
+        // 🔒 SaaS Tenant Isolation: Support storeId="all" for global owners
         const existing = await db.query.payrolls.findFirst({
-            where: and(
-                eq(payrolls.id, id),
-                eq(payrolls.storeId, authResult.storeId)
-            ),
+            where: authResult.storeId !== "all"
+                ? and(eq(payrolls.id, id), eq(payrolls.storeId, authResult.storeId))
+                : eq(payrolls.id, id),
             with: {
                 employee: true
             }
         });
 
         if (!existing) {
-            return NextResponse.json({ error: "Payroll record not found" }, { status: 404 });
+            return NextResponse.json({ error: "Payroll record not found or access denied" }, { status: 404 });
         }
+
+        // Use actual storeId for global owners
+        const actualStoreId = authResult.storeId !== "all" ? authResult.storeId : existing.storeId;
 
         if (existing.paymentStatus === 'PAID') {
             return NextResponse.json({ error: "Gaji yang sudah dibayarkan tidak dapat dihapus" }, { status: 400 });
@@ -218,7 +219,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId,
+            storeId: actualStoreId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_PAYROLL",

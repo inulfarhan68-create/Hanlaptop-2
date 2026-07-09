@@ -532,9 +532,18 @@ export async function getIncomeStatement(
         total: 0
     };
 
-    const cogsAccounts = revenueAccounts.filter(a =>
-        a.subType === 'COGS' || a.code.startsWith('51')
-    );
+    // Get COGS accounts (51xxx)
+    const cogsAccounts = await db.query.chartOfAccounts.findMany({
+        where: and(
+            eq(chartOfAccounts.storeId, storeId),
+            eq(chartOfAccounts.isActive, true),
+            or(
+                eq(chartOfAccounts.subType, 'COGS'),
+                sql`${chartOfAccounts.code} LIKE '51%'`
+            )
+        ),
+        orderBy: chartOfAccounts.code
+    });
 
     let totalCogs = 0;
     for (const account of cogsAccounts) {
@@ -803,10 +812,17 @@ export async function getBalanceSheet(
     }
 
     // If equity accounts are empty or zero, calculate from A - L
-    if (equityAccountsList.length === 0 || Math.abs(totalEquity) < 0.01) {
-        const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
-        const totalAssets = totalCurrentAssets + totalFixedAssets;
-        totalEquity = totalAssets - totalLiabilities;
+    // But since we are doing proper accounting, we should append Net Income
+    const incomeStmt = await getIncomeStatement(storeId, year, month);
+    const netIncome = incomeStmt.netIncome;
+    
+    if (netIncome !== 0) {
+        equityAccountsList.push({ 
+            code: '3999', // Virtual code for Current Year Earnings
+            name: 'Laba Bersih Periode Berjalan', 
+            amount: netIncome 
+        });
+        totalEquity += netIncome;
     }
 
     const totalAssets = totalCurrentAssets + totalFixedAssets;
@@ -837,7 +853,7 @@ export async function getBalanceSheet(
             calculated: calculatedEquity,
             total: totalEquity,
             // Add net income from current period
-            netIncome: 0 // Will be populated by caller if needed
+            netIncome: netIncome
         },
         isBalanced,
         // Balance equation check
@@ -875,9 +891,9 @@ export async function getCashFlow(
     const operatingItems: { description: string; amount: number }[] = [];
     let operatingTotal = 0;
 
-    // Cash received from customers (all revenue accounts credited)
+    // Uang Masuk (Cash Inflows) -> Debit on Cash Accounts
     const cashInflows = await db.select({
-        total: sql<number>`SUM(${journalEntries.credit})`
+        total: sql<number>`SUM(${journalEntries.debit})`
     })
     .from(journalEntries)
     .where(and(
@@ -891,9 +907,9 @@ export async function getCashFlow(
     operatingTotal = Number(cashInflows[0]?.total) || 0;
     operatingItems.push({ description: 'Penerimaan dari Pelanggan', amount: operatingTotal });
 
-    // Cash paid to suppliers/employees (from expense accounts debited)
+    // Uang Keluar (Cash Outflows) -> Credit on Cash Accounts
     const cashOutflows = await db.select({
-        total: sql<number>`SUM(${journalEntries.debit})`
+        total: sql<number>`SUM(${journalEntries.credit})`
     })
     .from(journalEntries)
     .where(and(

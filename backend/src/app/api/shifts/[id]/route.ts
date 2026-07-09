@@ -14,23 +14,23 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     try {
         const { id } = await context.params;
 
+        // 🔒 SaaS Tenant Isolation: Support storeId="all" for global owners
         const shift = await db.query.cashierShifts.findFirst({
-            where: and(
-                eq(cashierShifts.id, id),
-                eq(cashierShifts.storeId, authResult.storeId)
-            )
+            where: authResult.storeId !== "all"
+                ? and(eq(cashierShifts.id, id), eq(cashierShifts.storeId, authResult.storeId))
+                : eq(cashierShifts.id, id)
         });
 
         if (!shift) {
-            return NextResponse.json({ error: "Shift not found" }, { status: 404 });
+            return NextResponse.json({ error: "Shift not found or access denied" }, { status: 404 });
         }
 
         // Check permission: non-owners/non-managers/non-investors can only view their own shifts
         if (
-            shift.userId !== authResult.user.id && 
-            authResult.storeRole !== "owner" && 
-            authResult.storeRole !== "manager" && 
-            authResult.storeRole !== "investor" && 
+            shift.userId !== authResult.user.id &&
+            authResult.storeRole !== "owner" &&
+            authResult.storeRole !== "manager" &&
+            authResult.storeRole !== "investor" &&
             (authResult.user as any).role !== "owner"
         ) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });

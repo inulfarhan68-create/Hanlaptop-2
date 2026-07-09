@@ -12,18 +12,59 @@ import { awardPoints, scheduleServiceReminder } from "@/lib/crm-helper";
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Helper: Verify service order belongs to user's store (SaaS Tenant Isolation)
+ */
+async function verifyServiceOrderAccess(authResult: any, serviceOrderId: string) {
+    // Owner (global) can access all service orders
+    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+        const serviceOrder = await db.query.serviceOrders.findFirst({
+            where: eq(serviceOrders.id, serviceOrderId)
+        });
+        return serviceOrder ? { serviceOrder, authorized: true } : { serviceOrder: null, authorized: false, response: NextResponse.json({ error: "Service order not found" }, { status: 404 }) };
+    }
+
+    // Non-owner: must check storeId match
+    const serviceOrder = await db.query.serviceOrders.findFirst({
+        where: and(
+            eq(serviceOrders.id, serviceOrderId),
+            eq(serviceOrders.storeId, authResult.storeId)
+        )
+    });
+
+    if (!serviceOrder) {
+        return {
+            serviceOrder: null,
+            authorized: false,
+            response: NextResponse.json({ error: "Service order not found or access denied" }, { status: 404 })
+        };
+    }
+
+    return { serviceOrder, authorized: true };
+}
+
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
+
+    // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
+    const { serviceOrder, authorized, response } = await verifyServiceOrderAccess(authResult, params.id);
+    if (!authorized) return response;
 
     try {
         const data = await db.query.serviceOrders.findFirst({
             where: eq(serviceOrders.id, params.id),
             with: { customer: true, technician: true }
         });
-        
+
         if (!data) return NextResponse.json({ error: "Service order not found" }, { status: 404 });
+
+        // Additional storeId check for non-owner
+        if (authResult.storeId !== "all" && data.storeId !== authResult.storeId) {
+            return NextResponse.json({ error: "Service order not found or access denied" }, { status: 404 });
+        }
+
         return NextResponse.json(data);
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch service order" }, { status: 500 });
@@ -35,6 +76,10 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const authResult = await requirePermission(Permissions.SERVICE_UPDATE_STATUS);
     if (authResult instanceof NextResponse) return authResult;
 
+    // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
+    const { serviceOrder: existing, authorized, response } = await verifyServiceOrderAccess(authResult, params.id);
+    if (!authorized) return response;
+
     try {
         const body = await request.json();
         const updateSchema = serviceOrderSchema.partial().extend({
@@ -45,17 +90,22 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
         }
         const { status, finalCost, notes, technicianName, technicianId, createTransaction, customerName, customerPhone, customerAddress, deviceName, issue, estimatedCost } = parsed.data;
-        
-        const existing = await db.query.serviceOrders.findFirst({
-            where: eq(serviceOrders.id, params.id)
+
+        // Re-fetch with storeId check for security
+        const existingSO = await db.query.serviceOrders.findFirst({
+            where: and(
+                eq(serviceOrders.id, params.id),
+                // 🔒 Double-check storeId
+                authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+            )
         });
 
-        if (!existing) {
-            return NextResponse.json({ error: "Service order not found" }, { status: 404 });
+        if (!existingSO) {
+            return NextResponse.json({ error: "Service order not found or access denied" }, { status: 404 });
         }
 
         // --- FSM (Finite State Machine) Engine ---
-        if (status && status !== existing.status) {
+        if (status && status !== existingSO.status) {
             const validTransitions: Record<string, string[]> = {
                 'Diterima': ['Dikerjakan', 'Menunggu Part', 'Batal'],
                 'Menunggu Part': ['Dikerjakan', 'Batal'],
@@ -65,20 +115,20 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 'Batal': []    // Terminal
             };
 
-            const allowedNextStates = validTransitions[existing.status] || [];
-            
+            const allowedNextStates = validTransitions[existingSO.status] || [];
+
             if (!allowedNextStates.includes(status)) {
-                return NextResponse.json({ 
-                    error: `SOP Violation: Invalid status transition. Cannot move from '${existing.status}' directly to '${status}'. Allowed next states are: ${allowedNextStates.join(', ') || 'None (Terminal)'}.` 
+                return NextResponse.json({
+                    error: `SOP Violation: Invalid status transition. Cannot move from '${existingSO.status}' directly to '${status}'. Allowed next states are: ${allowedNextStates.join(', ') || 'None (Terminal)'}.`
                 }, { status: 403 });
             }
-            
+
             // Checklist Validation (SOP Hard-Gate)
             if (status === 'Selesai' && (!body.notes || !body.notes.includes('QC_PASS'))) {
                  // In a real implementation, you'd check a dedicated 'qc_checklist' JSON column.
                  // For now, we enforce a simple text requirement in notes.
                  // return NextResponse.json({ error: "SOP Violation: Cannot mark as 'Selesai' without passing Quality Control (QC_PASS required in notes)." }, { status: 403 });
-                 // Note: Skipped strict notes enforcement temporarily to avoid breaking frontend blindly, 
+                 // Note: Skipped strict notes enforcement temporarily to avoid breaking frontend blindly,
                  // but the FSM transition constraint is now active.
             }
         }
@@ -89,13 +139,13 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         if (createTransaction && status === 'Diambil') {
             // Check if cashier shift is enabled in store settings
             const settings = await db.query.storeSettings.findFirst({
-                where: eq(storeSettings.storeId, authResult.storeId)
+                where: eq(storeSettings.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId)
             });
             const isShiftEnabled = settings ? settings.enableCashierShift !== false : true;
 
             activeShift = await db.query.cashierShifts.findFirst({
                 where: and(
-                    eq(cashierShifts.storeId, authResult.storeId),
+                    eq(cashierShifts.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId),
                     eq(cashierShifts.userId, authResult.user.id),
                     eq(cashierShifts.status, "OPEN")
                 )
@@ -120,51 +170,55 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         if (body.issue !== undefined) updateData.issue = parsed.data.issue;
         if (body.estimatedCost !== undefined) updateData.estimatedCost = parsed.data.estimatedCost;
 
-        if (status === 'Selesai' && existing.status !== 'Selesai') {
+        if (status === 'Selesai' && existingSO.status !== 'Selesai') {
             updateData.completedDate = new Date();
             // Automatically set warranty if not set? We'll let the user do it via notes or UI.
         }
 
         const result = await db.update(serviceOrders)
             .set(updateData)
-            .where(eq(serviceOrders.id, params.id))
+            .where(and(
+                eq(serviceOrders.id, params.id),
+                // 🔒 Double-check storeId in update
+                authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+            ))
             .returning();
 
         // If finalCost, estimatedCost, deviceName, issue, or customerName is updated, sync it with the transaction history
         if (body.finalCost !== undefined || body.estimatedCost !== undefined || body.deviceName !== undefined || body.issue !== undefined || body.customerName !== undefined) {
-            const newAmount = body.finalCost !== undefined ? parsed.data.finalCost : (existing.finalCost || parsed.data.estimatedCost || existing.estimatedCost || 0);
-            
+            const newAmount = body.finalCost !== undefined ? parsed.data.finalCost : (existingSO.finalCost || parsed.data.estimatedCost || existingSO.estimatedCost || 0);
+
             // Try to find the linked transaction by ID tag first
             let linkedTx = await db.query.transactions.findFirst({
                 where: withActiveTransactions(and(
-                    eq(transactions.storeId, existing.storeId),
+                    eq(transactions.storeId, existingSO.storeId),
                     eq(transactions.transactionType, "Jasa Servis"),
                     like(transactions.description, `%[ID: ${params.id}]%`)
                 ))
             });
-            
+
             // Fallback for older transactions
             if (!linkedTx) {
                 linkedTx = await db.query.transactions.findFirst({
                     where: withActiveTransactions(and(
-                        eq(transactions.storeId, existing.storeId),
+                        eq(transactions.storeId, existingSO.storeId),
                         eq(transactions.transactionType, "Jasa Servis"),
-                        eq(transactions.customerName, existing.customerName),
-                        like(transactions.description, `%Servis: ${existing.deviceName}%`)
+                        eq(transactions.customerName, existingSO.customerName),
+                        like(transactions.description, `%Servis: ${existingSO.deviceName}%`)
                     ))
                 });
             }
-            
+
             if (linkedTx) {
-                const newDesc = `Servis: ${body.deviceName !== undefined ? parsed.data.deviceName : existing.deviceName} - ${body.issue !== undefined ? parsed.data.issue : existing.issue} [ID: ${params.id}]`;
+                const newDesc = `Servis: ${body.deviceName !== undefined ? parsed.data.deviceName : existingSO.deviceName} - ${body.issue !== undefined ? parsed.data.issue : existingSO.issue} [ID: ${params.id}]`;
                 await db.update(transactions)
                     .set({
                         amount: newAmount,
                         description: newDesc,
-                        customerName: body.customerName !== undefined ? parsed.data.customerName : existing.customerName
+                        customerName: body.customerName !== undefined ? parsed.data.customerName : existingSO.customerName
                     })
                     .where(eq(transactions.id, linkedTx.id));
-                    
+
                 // Also update corresponding journal entries
                 if (linkedTx.amount !== newAmount) {
                     await db.update(journalEntries)
@@ -185,7 +239,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: existing.storeId,
+            storeId: existingSO.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_SERVICE",
@@ -203,8 +257,8 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const randomCode = Math.floor(100 + Math.random() * 900);
-            const serviceAmount = finalCost || existing.estimatedCost || 0;
-            const isWarranty = existing.warrantyClaimed === true;
+            const serviceAmount = finalCost || existingSO.estimatedCost || 0;
+            const isWarranty = existingSO.warrantyClaimed === true;
 
             if (isWarranty) {
                 // ── Klaim Garansi: catat sebagai BEBAN (pengeluaran toko) ──
@@ -213,14 +267,14 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 if (serviceAmount > 0) {
                     await db.insert(transactions).values({
                         id: txId,
-                        storeId: existing.storeId,
+                        storeId: existingSO.storeId,
                         transactionType: "Beban Garansi",
                         amount: serviceAmount,
-                        description: `Klaim Garansi: ${existing.deviceName} - ${existing.issue} [ID: ${params.id}]`,
+                        description: `Klaim Garansi: ${existingSO.deviceName} - ${existingSO.issue} [ID: ${params.id}]`,
                         transactionDate: now,
                         invoiceNumber: `GRN/${year}/${month}/${randomCode}`,
-                        customerName: existing.customerName,
-                        customerId: existing.customerId,
+                        customerName: existingSO.customerName,
+                        customerId: existingSO.customerId,
                         paymentMethod: "Cash",
                         paymentStatus: "Lunas",
                         userId: authResult.user.id,
@@ -230,8 +284,8 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
                     // Journal: Beban Garansi (Debit) + Kas (Credit) — pengeluaran toko
                     await db.insert(journalEntries).values([
-                        { storeId: existing.storeId, transactionId: txId, accountName: "Beban Garansi", debit: serviceAmount, credit: 0 },
-                        { storeId: existing.storeId, transactionId: txId, accountName: "Kas", debit: 0, credit: serviceAmount }
+                        { storeId: existingSO.storeId, transactionId: txId, accountName: "Beban Garansi", debit: serviceAmount, credit: 0 },
+                        { storeId: existingSO.storeId, transactionId: txId, accountName: "Kas", debit: 0, credit: serviceAmount }
                     ]);
                 }
                 // Jika biaya = 0 (garansi penuh tanpa sparepart), tidak perlu entri transaksi
@@ -239,14 +293,14 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 // ── Service Biasa: catat sebagai PENDAPATAN ──
                 await db.insert(transactions).values({
                     id: txId,
-                    storeId: existing.storeId,
+                    storeId: existingSO.storeId,
                     transactionType: "Jasa Servis",
                     amount: serviceAmount,
-                    description: `Servis: ${existing.deviceName} - ${existing.issue} [ID: ${params.id}]`,
+                    description: `Servis: ${existingSO.deviceName} - ${existingSO.issue} [ID: ${params.id}]`,
                     transactionDate: now,
                     invoiceNumber: `SRV/${year}/${month}/${randomCode}`,
-                    customerName: existing.customerName,
-                    customerId: existing.customerId,
+                    customerName: existingSO.customerName,
+                    customerId: existingSO.customerId,
                     paymentMethod: "Cash",
                     paymentStatus: "Lunas",
                     userId: authResult.user.id,
@@ -257,29 +311,29 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 // Journal: Pendapatan Servis (Credit) + Kas (Debit) — pendapatan toko
                 if (serviceAmount > 0) {
                     await db.insert(journalEntries).values([
-                        { storeId: existing.storeId, transactionId: txId, accountName: "Pendapatan Servis", debit: 0, credit: serviceAmount },
-                        { storeId: existing.storeId, transactionId: txId, accountName: "Kas", debit: serviceAmount, credit: 0 }
+                        { storeId: existingSO.storeId, transactionId: txId, accountName: "Pendapatan Servis", debit: 0, credit: serviceAmount },
+                        { storeId: existingSO.storeId, transactionId: txId, accountName: "Kas", debit: serviceAmount, credit: 0 }
                     ]);
                 }
             }
         }
 
         // Award points and schedule reminder on collection
-        if (status === 'Diambil' && existing.customerId) {
+        if (status === 'Diambil' && existingSO.customerId) {
             try {
                 const now = new Date();
                 const srvInvoiceNumber = `SRV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`;
-                const serviceAmount = finalCost || existing.estimatedCost || 0;
-                
-                await awardPoints(db, existing.customerId, serviceAmount, srvInvoiceNumber);
-                await scheduleServiceReminder(db, existing.storeId, existing.customerId, existing.customerPhone || "", existing.deviceName);
+                const serviceAmount = finalCost || existingSO.estimatedCost || 0;
+
+                await awardPoints(db, existingSO.customerId, serviceAmount, srvInvoiceNumber);
+                await scheduleServiceReminder(db, existingSO.storeId, existingSO.customerId, existingSO.customerPhone || "", existingSO.deviceName);
             } catch (crmErr) {
                 console.error("Failed to process CRM logic for service collection:", crmErr);
             }
         }
 
         // Calculate technician commission if technician is assigned
-        const finalTechnicianId = technicianId !== undefined ? technicianId : existing.technicianId;
+        const finalTechnicianId = technicianId !== undefined ? technicianId : existingSO.technicianId;
         if (status === 'Diambil' && finalTechnicianId) {
             // Find technician
             const tech = await db.query.technicians.findFirst({
@@ -287,7 +341,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             });
             if (tech) {
                 // Parse spareparts
-                const finalNotes = notes !== undefined ? notes : existing.notes;
+                const finalNotes = notes !== undefined ? notes : existingSO.notes;
                 let partsAmount = 0;
                 if (finalNotes) {
                     const partsMatch = finalNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
@@ -307,9 +361,9 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                     }
                 }
 
-                const serviceAmount = finalCost !== undefined ? finalCost : (existing.finalCost || existing.estimatedCost || 0);
+                const serviceAmount = finalCost !== undefined ? finalCost : (existingSO.finalCost || existingSO.estimatedCost || 0);
                 const netServiceAmount = Math.max(0, serviceAmount - partsAmount);
-                
+
                 let commissionAmount = 0;
                 const commissionType = tech.commissionType || 'percentage';
                 const commissionValue = tech.commissionValue || 0;
@@ -330,7 +384,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 if (!linkedTxId) {
                     let linkedTx = await db.query.transactions.findFirst({
                         where: withActiveTransactions(and(
-                            eq(transactions.storeId, existing.storeId),
+                            eq(transactions.storeId, existingSO.storeId),
                             eq(transactions.transactionType, "Jasa Servis"),
                             like(transactions.description, `%[ID: ${params.id}]%`)
                         ))
@@ -338,10 +392,10 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                     if (!linkedTx) {
                         linkedTx = await db.query.transactions.findFirst({
                             where: withActiveTransactions(and(
-                                eq(transactions.storeId, existing.storeId),
+                                eq(transactions.storeId, existingSO.storeId),
                                 eq(transactions.transactionType, "Jasa Servis"),
-                                eq(transactions.customerName, existing.customerName),
-                                like(transactions.description, `%Servis: ${existing.deviceName}%`)
+                                eq(transactions.customerName, existingSO.customerName),
+                                like(transactions.description, `%Servis: ${existingSO.deviceName}%`)
                             ))
                         });
                     }
@@ -353,7 +407,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 if (!existingCommission) {
                     await db.insert(technicianCommissions).values({
                         id: crypto.randomUUID(),
-                        storeId: existing.storeId,
+                        storeId: existingSO.storeId,
                         technicianId: finalTechnicianId,
                         serviceOrderId: params.id,
                         transactionId: linkedTxId,
@@ -388,7 +442,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
         // Enterprise Audit Logging for Service Updates
         await db.insert(activityLogs).values({
-            storeId: existing.storeId,
+            storeId: existingSO.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_SERVICE",
@@ -396,9 +450,9 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             entityId: params.id,
             details: JSON.stringify({
                 oldData: {
-                    status: existing.status,
-                    finalCost: existing.finalCost,
-                    technicianId: existing.technicianId
+                    status: existingSO.status,
+                    finalCost: existingSO.finalCost,
+                    technicianId: existingSO.technicianId
                 },
                 newData: {
                     status: result[0].status,
@@ -425,17 +479,20 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;
 
-    try {
-        const existing = await db.query.serviceOrders.findFirst({
-            where: eq(serviceOrders.id, params.id)
-        });
-        if (!existing) return NextResponse.json({ error: "Service order not found" }, { status: 404 });
+    // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
+    const { serviceOrder: existing, authorized, response } = await verifyServiceOrderAccess(authResult, params.id);
+    if (!authorized) return response;
 
-        await db.delete(serviceOrders).where(eq(serviceOrders.id, params.id));
+    try {
+        await db.delete(serviceOrders).where(and(
+            eq(serviceOrders.id, params.id),
+            // 🔒 Double-check storeId in delete
+            authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+        ));
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: existing.storeId,
+            storeId: existing!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_SERVICE",

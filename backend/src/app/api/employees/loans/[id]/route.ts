@@ -39,25 +39,28 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { id } = await context.params;
 
     try {
+        // 🔒 SaaS Tenant Isolation: Support storeId="all" for global owners
         const existing = await db.query.employeeLoans.findFirst({
-            where: and(
-                eq(employeeLoans.id, id),
-                eq(employeeLoans.storeId, authResult.storeId)
-            ),
+            where: authResult.storeId !== "all"
+                ? and(eq(employeeLoans.id, id), eq(employeeLoans.storeId, authResult.storeId))
+                : eq(employeeLoans.id, id),
             with: {
                 employee: true
             }
         });
 
         if (!existing) {
-            return NextResponse.json({ error: "Loan record not found" }, { status: 404 });
+            return NextResponse.json({ error: "Loan record not found or access denied" }, { status: 404 });
         }
+
+        // Use actual storeId for global owners
+        const actualStoreId = authResult.storeId !== "all" ? authResult.storeId : existing.storeId;
 
         await db.delete(employeeLoans).where(eq(employeeLoans.id, id));
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId,
+            storeId: actualStoreId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_EMPLOYEE_LOAN",

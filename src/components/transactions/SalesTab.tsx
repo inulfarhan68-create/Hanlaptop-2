@@ -38,7 +38,7 @@ interface SalesTabProps {
 
 export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess }: SalesTabProps) {
   // SWR fetches
-  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory')
+  const { data: inventoryData, mutate: mutateInventory } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/inventory?fetchAll=true')
   const { data: customersData } = useSWR((import.meta.env.VITE_API_URL || '') + '/api/customers')
   const { data: storeSettings } = useSWR<any>((import.meta.env.VITE_API_URL || '') + '/api/settings')
 

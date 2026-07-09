@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Building2, CheckCircle, XCircle, Scale } from "lucide-react"
+import { Building2, CheckCircle, XCircle, Scale, ChevronDown, ChevronRight } from "lucide-react"
+import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface BalanceSheetReportProps {
     data: any
@@ -9,18 +11,79 @@ interface BalanceSheetReportProps {
     isLoading: boolean
 }
 
+const CollapsibleList = ({ 
+    title, 
+    accounts, 
+    total, 
+    fmt, 
+    colorClass, 
+    bgClass,
+    defaultOpen = false
+}: { 
+    title: string, 
+    accounts: any[], 
+    total: number, 
+    fmt: any, 
+    colorClass: string, 
+    bgClass: string,
+    defaultOpen?: boolean
+}) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    return (
+        <div className="mb-4 rounded-xl border border-border/50 overflow-hidden shadow-sm bg-white dark:bg-card">
+            <div 
+                className={`${bgClass} p-3 flex justify-between items-center cursor-pointer hover:opacity-90 transition-opacity`}
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <div className={`font-semibold flex items-center gap-2 ${colorClass}`}>
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {title}
+                </div>
+                <div className={`font-bold ${colorClass}`}>
+                    {fmt(total)}
+                </div>
+            </div>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <Table>
+                            <TableBody>
+                                {accounts.map((account: any) => (
+                                    <TableRow key={account.code} className="hover:bg-muted/30 border-b-border/30">
+                                        <TableCell className="text-sm py-2 pl-4 text-muted-foreground">{account.name}</TableCell>
+                                        <TableCell className="text-right py-2 pr-4 font-medium">{fmt(account.amount)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
 export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportProps) {
     if (isLoading) {
         return (
-            <Card>
+            <Card className="border-none shadow-md bg-white/50 dark:bg-card/50 backdrop-blur-sm">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5" />
+                    <CardTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <Building2 className="h-6 w-6 text-primary" />
                         Neraca (Balance Sheet)
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-center py-10 text-muted-foreground">Memuat...</div>
+                    <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        <div className="text-muted-foreground font-medium">Sinkronisasi data real-time...</div>
+                    </div>
                 </CardContent>
             </Card>
         )
@@ -28,17 +91,9 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
 
     if (!data) {
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5" />
-                        Neraca (Balance Sheet)
-                    </CardTitle>
-                </CardHeader>
+            <Card className="border-none shadow-md">
                 <CardContent>
-                    <div className="text-center py-10 text-muted-foreground">
-                        Gagal memuat data
-                    </div>
+                    <div className="text-center py-10 text-muted-foreground">Gagal memuat data</div>
                 </CardContent>
             </Card>
         )
@@ -56,225 +111,158 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
     const totalLiabilitiesAndEquity = liabilities.total + equity.total
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
+        <Card className="border-none shadow-lg overflow-hidden bg-white/80 dark:bg-card/80 backdrop-blur-xl">
+            <CardHeader className="border-b bg-muted/20 pb-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            Neraca (Balance Sheet)
+                        <CardTitle className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+                            <Building2 className="h-6 w-6 text-primary" />
+                            Neraca Keuangan
                         </CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Per {period?.month}/{period?.year}
+                            Posisi Keuangan Per: {period?.month}/{period?.year}
                         </p>
                     </div>
-                    <Badge variant={isBalanced ? "default" : "destructive"} className="gap-1">
+                    <Badge variant={isBalanced ? "default" : "destructive"} className={`gap-1.5 px-3 py-1 shadow-sm ${isBalanced ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border-emerald-500/20' : ''}`}>
                         {isBalanced ? (
                             <>
-                                <CheckCircle className="h-3 w-3" />
-                                Seimbang
+                                <CheckCircle className="h-3.5 w-3.5" />
+                                Neraca Seimbang
                             </>
                         ) : (
                             <>
-                                <XCircle className="h-3 w-3" />
-                                Tidak Seimbang
+                                <XCircle className="h-3.5 w-3.5" />
+                                Tidak Seimbang (Selisih)
                             </>
                         )}
                     </Badge>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* ASSETS */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-bold text-blue-600 mb-3 flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            ASET
-                        </h3>
+            <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                    {/* LEFT COLUMN - ASSETS */}
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-5 w-1 bg-slate-400 dark:bg-slate-600 rounded-full" />
+                            <h3 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100">
+                                ASET (AKTIVA)
+                            </h3>
+                        </div>
 
-                        {/* Current Assets */}
                         {assets.current.length > 0 && (
-                            <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-lg">
-                                <h4 className="text-sm font-semibold mb-2 text-blue-700 dark:text-blue-400">Aset Lancar</h4>
-                                <Table>
-                                    <TableBody>
-                                        {assets.current.map((account: any) => (
-                                            <TableRow key={account.code}>
-                                                <TableCell className="text-xs py-1 font-medium">{account.name}</TableCell>
-                                                <TableCell className="text-right py-1">
-                                                    {fmt(account.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        <TableRow className="border-t-2 border-blue-200">
-                                            <TableCell className="text-xs py-1 font-semibold text-blue-600">Total Aset Lancar</TableCell>
-                                            <TableCell className="text-right py-1 font-semibold text-blue-600">
-                                                {fmt(assets.totalCurrent)}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <CollapsibleList 
+                                title="Aset Lancar"
+                                accounts={assets.current}
+                                total={assets.totalCurrent}
+                                fmt={fmt}
+                                colorClass="text-slate-800 dark:text-slate-200"
+                                bgClass="bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+                                defaultOpen={true}
+                            />
                         )}
 
-                        {/* Fixed Assets */}
                         {assets.fixed.length > 0 && (
-                            <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-3 rounded-lg">
-                                <h4 className="text-sm font-semibold mb-2 text-indigo-700 dark:text-indigo-400">Aset Tetap (Net)</h4>
-                                <Table>
-                                    <TableBody>
-                                        {assets.fixed.map((account: any) => (
-                                            <TableRow key={account.code}>
-                                                <TableCell className="text-xs py-1 font-medium">{account.name}</TableCell>
-                                                <TableCell className="text-right py-1">
-                                                    {fmt(account.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        <TableRow className="border-t-2 border-indigo-200">
-                                            <TableCell className="text-xs py-1 font-semibold text-indigo-600">Total Aset Tetap</TableCell>
-                                            <TableCell className="text-right py-1 font-semibold text-indigo-600">
-                                                {fmt(assets.totalFixed)}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <CollapsibleList 
+                                title="Aset Tetap (Net)"
+                                accounts={assets.fixed}
+                                total={assets.totalFixed}
+                                fmt={fmt}
+                                colorClass="text-slate-800 dark:text-slate-200"
+                                bgClass="bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+                                defaultOpen={true}
+                            />
                         )}
 
-                        {/* Total Assets */}
-                        <div className="border-t-2 border-blue-400 pt-3 mt-4 bg-blue-100 dark:bg-blue-900/40 rounded-lg p-3">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-blue-700 dark:text-blue-300">TOTAL ASET</span>
-                                <span className="font-bold text-xl text-blue-700 dark:text-blue-300">{fmt(assets.total)}</span>
-                            </div>
+                        <div className="mt-6 bg-slate-900 dark:bg-slate-800 rounded-xl p-4 text-white flex justify-between items-center border border-slate-800 shadow-sm">
+                            <span className="font-semibold text-slate-300 uppercase tracking-wider text-xs">Total Aset</span>
+                            <span className="font-bold text-lg tabular-nums">{fmt(assets.total)}</span>
                         </div>
                     </div>
 
-                    {/* LIABILITIES & EQUITY */}
-                    <div className="space-y-4">
-                        {/* LIABILITIES */}
-                        <h3 className="text-lg font-bold text-red-600 mb-3 flex items-center gap-2">
-                            Kewajiban
-                        </h3>
+                    {/* RIGHT COLUMN - LIABILITIES & EQUITY */}
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="h-5 w-1 bg-slate-400 dark:bg-slate-600 rounded-full" />
+                            <h3 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100">
+                                KEWAJIBAN & EKUITAS
+                            </h3>
+                        </div>
 
-                        {/* Current Liabilities */}
                         {liabilities.current.length > 0 && (
-                            <div className="bg-red-50/50 dark:bg-red-950/20 p-3 rounded-lg">
-                                <h4 className="text-sm font-semibold mb-2 text-red-700 dark:text-red-400">Utang Lancar</h4>
-                                <Table>
-                                    <TableBody>
-                                        {liabilities.current.map((account: any) => (
-                                            <TableRow key={account.code}>
-                                                <TableCell className="text-xs py-1 font-medium">{account.name}</TableCell>
-                                                <TableCell className="text-right py-1">
-                                                    {fmt(account.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        <TableRow className="border-t-2 border-red-200">
-                                            <TableCell className="text-xs py-1 font-semibold text-red-600">Total Utang Lancar</TableCell>
-                                            <TableCell className="text-right py-1 font-semibold text-red-600">
-                                                {fmt(liabilities.totalCurrent)}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <CollapsibleList 
+                                title="Utang Lancar"
+                                accounts={liabilities.current}
+                                total={liabilities.totalCurrent}
+                                fmt={fmt}
+                                colorClass="text-slate-800 dark:text-slate-200"
+                                bgClass="bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+                                defaultOpen={true}
+                            />
                         )}
 
-                        {/* Long Term Liabilities */}
                         {liabilities.longTerm.length > 0 && (
-                            <div className="bg-orange-50/50 dark:bg-orange-950/20 p-3 rounded-lg">
-                                <h4 className="text-sm font-semibold mb-2 text-orange-700 dark:text-orange-400">Utang Jangka Panjang</h4>
-                                <Table>
-                                    <TableBody>
-                                        {liabilities.longTerm.map((account: any) => (
-                                            <TableRow key={account.code}>
-                                                <TableCell className="text-xs py-1 font-medium">{account.name}</TableCell>
-                                                <TableCell className="text-right py-1">
-                                                    {fmt(account.amount)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        <TableRow className="border-t-2 border-orange-200">
-                                            <TableCell className="text-xs py-1 font-semibold text-orange-600">Total Utang Jangka Panjang</TableCell>
-                                            <TableCell className="text-right py-1 font-semibold text-orange-600">
-                                                {fmt(liabilities.totalLongTerm)}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <CollapsibleList 
+                                title="Utang Jangka Panjang"
+                                accounts={liabilities.longTerm}
+                                total={liabilities.totalLongTerm}
+                                fmt={fmt}
+                                colorClass="text-slate-800 dark:text-slate-200"
+                                bgClass="bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+                                defaultOpen={true}
+                            />
                         )}
 
-                        {/* Total Liabilities */}
-                        <div className="border-t-2 border-red-400 pt-3 bg-red-100 dark:bg-red-900/40 rounded-lg p-3">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-red-700 dark:text-red-300">TOTAL KEWAJIBAN</span>
-                                <span className="font-bold text-red-700 dark:text-red-300">{fmt(liabilities.total)}</span>
-                            </div>
-                        </div>
+                        {equity.accounts.length > 0 && (
+                            <CollapsibleList 
+                                title="Ekuitas (Modal)"
+                                accounts={equity.accounts}
+                                total={equity.total}
+                                fmt={fmt}
+                                colorClass="text-slate-800 dark:text-slate-200"
+                                bgClass="bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+                                defaultOpen={true}
+                            />
+                        )}
 
-                        {/* EQUITY */}
-                        <h3 className="text-lg font-bold text-green-600 mt-6 mb-3 flex items-center gap-2">
-                            EKUITAS
-                        </h3>
-
-                        <div className="bg-green-50/50 dark:bg-green-950/20 p-3 rounded-lg">
-                            <Table>
-                                <TableBody>
-                                    {equity.accounts.map((account: any) => (
-                                        <TableRow key={account.code}>
-                                            <TableCell className="text-xs py-1 font-medium">{account.name}</TableCell>
-                                            <TableCell className="text-right py-1">
-                                                {fmt(account.amount)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Total Equity */}
-                        <div className="border-t-2 border-green-400 pt-3 bg-green-100 dark:bg-green-900/40 rounded-lg p-3">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-green-700 dark:text-green-300">TOTAL EKUITAS</span>
-                                <span className="font-bold text-green-700 dark:text-green-300">{fmt(equity.total)}</span>
-                            </div>
-                        </div>
-
-                        {/* Total Liabilities + Equity */}
-                        <div className="border-t-2 border-blue-400 pt-3 mt-4 bg-blue-100 dark:bg-blue-900/40 rounded-lg p-3">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-blue-700 dark:text-blue-300">TOTAL KEWAJIBAN + EKUITAS</span>
-                                <span className="font-bold text-xl text-blue-700 dark:text-blue-300">{fmt(totalLiabilitiesAndEquity)}</span>
-                            </div>
+                        <div className="mt-6 bg-slate-950 dark:bg-black rounded-xl p-4 text-white flex justify-between items-center border border-slate-900 shadow-sm">
+                            <span className="font-semibold text-slate-300 uppercase tracking-wider text-xs w-1/2">Total Kewajiban & Ekuitas</span>
+                            <span className="font-bold text-lg text-right tabular-nums">{fmt(totalLiabilitiesAndEquity)}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Balance Equation Check */}
+                {/* Accounting Equation Check */}
                 {balanceEquation && (
-                    <div className="mt-6 pt-4 border-t">
-                        <div className="flex items-center justify-center gap-4 text-sm">
-                            <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">ASET</span>
-                                <span className="font-bold">{fmt(balanceEquation.assets)}</span>
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`mt-8 p-4 rounded-xl border ${balanceEquation.isBalanced ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-rose-50/50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/50'}`}
+                    >
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-sm font-medium">
+                            <div className="flex flex-col items-center">
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Aset</span>
+                                <span className="font-bold text-lg">{fmt(balanceEquation.assets)}</span>
                             </div>
-                            <span className="text-muted-foreground">=</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">KEWAJIBAN</span>
-                                <span className="font-bold">{fmt(balanceEquation.liabilities)}</span>
+                            
+                            <span className="text-2xl text-muted-foreground/50 font-light">=</span>
+                            
+                            <div className="flex flex-col items-center">
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Kewajiban</span>
+                                <span className="font-bold text-lg">{fmt(balanceEquation.liabilities)}</span>
                             </div>
-                            <span className="text-muted-foreground">+</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">EKUITAS</span>
-                                <span className="font-bold">{fmt(balanceEquation.equity)}</span>
+                            
+                            <span className="text-xl text-muted-foreground/50 font-light">+</span>
+                            
+                            <div className="flex flex-col items-center">
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Ekuitas</span>
+                                <span className="font-bold text-lg">{fmt(balanceEquation.equity)}</span>
                             </div>
-                            <Scale className={`h-4 w-4 ${balanceEquation.isBalanced ? 'text-green-500' : 'text-red-500'}`} />
+
+                            <div className="hidden md:block ml-4 pl-6 border-l border-border/50">
+                                <Scale className={`h-8 w-8 ${balanceEquation.isBalanced ? 'text-emerald-500' : 'text-rose-500'}`} />
+                            </div>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
             </CardContent>
         </Card>

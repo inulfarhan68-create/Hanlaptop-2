@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Clock, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -16,53 +18,21 @@ interface ApprovalRequest {
 }
 
 export function ApprovalBoard({ isOwner }: { isOwner: boolean }) {
-    const [requests, setRequests] = useState<ApprovalRequest[]>([]);
-    const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const storeId = localStorage.getItem("selectedStoreId") || "default";
 
-    const fetchRequests = async () => {
-        if (!isOwner) {
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const token = localStorage.getItem("token");
-            const storeId = localStorage.getItem("selectedStoreId") || "default";
-            
-            const response = await fetch(`${API_URL}/api/approvals?storeId=${storeId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setRequests(data);
-            }
-        } catch (error) {
-            console.error("Failed to fetch approvals:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchRequests();
-        const interval = setInterval(fetchRequests, 15000); // refresh every 15s
-        return () => clearInterval(interval);
-    }, [isOwner]);
+    const { data: requests = [], isLoading: loading, mutate: fetchRequests } = useSWR<ApprovalRequest[]>(
+        isOwner ? `/api/approvals?storeId=${storeId}` : null,
+        { refreshInterval: 15000 }
+    );
 
     const handleAction = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
         if (!confirm(`Anda yakin ingin ${action === 'APPROVE' ? 'menyetujui' : 'menolak'} request ini?`)) return;
 
         setProcessingId(requestId);
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${API_URL}/api/approvals/${requestId}`, {
+            const response = await apiFetch(`/api/approvals/${requestId}`, {
                 method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
                 body: JSON.stringify({ action })
             });
 
