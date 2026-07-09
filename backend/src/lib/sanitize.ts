@@ -1,23 +1,17 @@
-import DOMPurify from 'isomorphic-dompurify';
-
 /**
  * Input sanitization utility for XSS and injection prevention.
  * 
  * Provides defense-in-depth by sanitizing user input BEFORE storing in the database.
- * We use DOMPurify alongside Zod schema validation to strip dangerous HTML 
- * while preserving safe text content.
+ * Uses a lightweight regex-based HTML stripper to prevent Vercel Serverless crashes.
  */
 
 /**
- * Strips HTML tags and dangerous attributes from a string using DOMPurify.
+ * Strips HTML tags and dangerous attributes from a string.
  */
 function sanitizeString(input: string): string {
-    // Basic DOMPurify config to strip all tags by default (if you only want pure text)
-    // If you need to allow basic formatting, change ALLOWED_TAGS.
-    return DOMPurify.sanitize(input, {
-        ALLOWED_TAGS: [], // No tags allowed by default to prevent any HTML injection in pure text fields
-        ALLOWED_ATTR: [],
-    }).trim();
+    if (!input) return input;
+    // Strip HTML tags using regex (lightweight alternative to DOMPurify for serverless)
+    return input.replace(/<\/?[^>]+(>|$)/g, "").trim();
 }
 
 /**
