@@ -1,73 +1,233 @@
-# React + TypeScript + Vite
+# Han Laptop ERP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistem Manajemen Toko Komputer dengan fitur lengkap untuk UMKM Indonesia.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Fitur Utama
 
-## React Compiler
+### Modul Transaksi
+- [x] Point of Sale (Kasir)
+- [x] Penjualan & Pembelian
+- [x] Multi-payment (Cash, Transfer, QRIS)
+- [x] Retur & Tukar Tambah
+- [x] Trade-in & Buyback
+- [x] Pesanan Servis
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Modul Inventory
+- [x] Manajemen Stok
+- [x] Digital Passport (Serial Number Tracking)
+- [x] QC Inspection
+- [x] Stock Opname
+- [x] Markdown/Diskon Otomatis
+- [x] Transfer Antar Gudang
 
-## Expanding the ESLint configuration
+### Modul Service
+- [x] Service Order Management
+- [x] Technician Assignment
+- [x] Commission Tracking
+- [x] Warranty Claims
+- [x] AI Pricing (TechSama integration)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Modul Accounting
+- [x] Chart of Accounts
+- [x] General Ledger
+- [x] Trial Balance
+- [x] Income Statement (Laba Rugi)
+- [x] Balance Sheet (Neraca)
+- [x] Cash Flow
+- [x] Fixed Assets & Depreciation
+- [x] Fiscal Period Management
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Modul HR
+- [x] Employee Management
+- [x] Attendance Tracking
+- [x] Payroll
+- [x] Employee Loans
+- [x] Purchase Requisitions
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Modul CRM
+- [x] Customer Management
+- [x] Supplier Management
+- [x] Membership & Points
+- [x] Reminders & Notifications
+- [x] Lead Management
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Multi-Tenant
+- [x] Multi-Store Support
+- [x] Role-Based Access (Owner/Manager/Kasir/Teknisi/Investor)
+- [x] PBAC (Permission-Based Access Control)
+- [x] Store Isolation
+
+---
+
+## Production Readiness
+
+### Monitoring & Observability
+- [x] Structured Logging (Pino)
+- [x] Request ID & Correlation ID
+- [x] Health Check Endpoints (`/health`, `/ready`, `/live`)
+- [x] Sentry Integration (Frontend & Backend)
+- [x] Rate Limiting per Endpoint
+
+### Security
+- [x] Multi-Tenant Isolation (IDOR Protection)
+- [x] Rate Limiting (Login: 5/min, Export: 10/hr, AI: 30/hr, API: 300/min)
+- [x] Dependency Security (npm audit)
+- [x] TypeScript Strict Mode
+- [x] ESLint Configuration
+
+### Database
+- [x] SQLite (Turso)
+- [x] Database Indexing for Performance
+- [x] Soft Delete Pattern
+- [x] Audit Trail
+
+### Backup & Recovery
+- [x] Manual Backup/Restore
+- [x] Cron-based Automated Backup
+- [x] Cloud Storage Support (R2, S3)
+- [x] Health Check Endpoints
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite + TypeScript |
+| Backend | Next.js (App Router) |
+| Database | SQLite + Turso |
+| Auth | Better Auth |
+| ORM | Drizzle |
+| UI | shadcn/ui |
+| Charts | Recharts |
+| Email | React Email |
+| Payments | Midtrans |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- npm or pnpm
+- Turso CLI (optional, for local DB)
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/han-laptop-erp.git
+cd han-laptop-erp
+
+# Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
+
+# Copy environment file
+cp backend/.env.example backend/.env.local
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Backend (port 3000)
+cd backend && npm run dev
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Frontend (port 5173)
+cd frontend && npm run dev
 ```
+
+### Production Build
+
+```bash
+# Build backend
+cd backend && npm run build
+
+# Verify TypeScript
+npx tsc --noEmit
+
+# Run tests
+cd backend && node tests/smoke-test.js
+```
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Vercel deployment guide |
+| [VERIFICATION.md](./backend/VERIFICATION.md) | Pre-production checklist |
+| [CLAUDE.md](./CLAUDE.md) | Project context for AI tools |
+
+---
+
+## API Endpoints
+
+### Health
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Basic liveness |
+| `/api/health/ready` | GET | Readiness with dependencies |
+| `/api/health/live` | GET | Kubernetes liveness probe |
+
+### Transactions
+| `/api/transactions` | GET, POST | List/Create transactions |
+| `/api/transactions/[id]` | GET, PUT, PATCH, DELETE | Single transaction |
+
+### Inventory
+| `/api/inventory` | GET, POST | List/Create inventory |
+| `/api/inventory/[id]` | GET, PUT, DELETE | Single item |
+| `/api/inventory/kpi` | GET | Aggregated stats |
+| `/api/inventory/transfers` | GET, POST | Stock transfers |
+
+### Services
+| `/api/services` | GET, POST | List/Create service orders |
+| `/api/services/[id]` | GET, PATCH, DELETE | Single service |
+
+### Accounting
+| `/api/accounting/*` | GET | Reports & ledgers |
+
+### Cron Jobs
+| `/api/cron/backup` | GET | Daily backup |
+| `/api/cron/cleanup` | GET | Daily cleanup |
+
+---
+
+## Rate Limits
+
+| Endpoint Tier | Limit | Window |
+|----------------|-------|---------|
+| Login | 5 | 1 minute |
+| Token Refresh | 20 | 1 minute |
+| Export | 10 | 1 hour |
+| AI Operations | 30 | 1 hour |
+| Standard API | 300 | 1 minute |
+
+---
+
+## Environment Variables
+
+### Required
+```bash
+TURSO_DATABASE_URL=libsql://xxx.turso.io
+BETTER_AUTH_SECRET=32-char-secret
+NODE_ENV=production
+```
+
+### Recommended
+```bash
+SENTRY_DSN=https://xxx@sentry.io/xxx
+UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
+UPSTASH_REDIS_REST_TOKEN=xxx
+```
+
+---
+
+## License
+
+Proprietary - Han Laptop ERP

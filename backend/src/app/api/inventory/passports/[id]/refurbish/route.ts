@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { deviceRefurbishments, devicePassports, deviceLifecycleLogs, inventory, journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { ACCOUNT_CODES } from "@/constants/accounting";
 
 export const dynamic = 'force-dynamic';
 
@@ -154,7 +155,7 @@ export async function POST(
                 journalEntriesToCreate.push({
                     storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
                     transactionId: refurbishment.id,
-                    accountCode: '7100', // Beban Perbaikan
+                    accountCode: ACCOUNT_CODES.BEBAN_PERBAIKAN, // Beban Perbaikan
                     accountName: "Beban Perbaikan & Perawatan",
                     debit: cost,
                     credit: 0,
@@ -165,7 +166,7 @@ export async function POST(
                 journalEntriesToCreate.push({
                     storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
                     transactionId: refurbishment.id,
-                    accountCode: sparepartUsed ? '1500' : '1110', // Persediaan or Kas
+                    accountCode: sparepartUsed ? ACCOUNT_CODES.PERSEDIAAN_SPAREPART : ACCOUNT_CODES.KAS, // Persediaan Sparepart or Kas
                     accountName: sparepartUsed ? "Persediaan Sparepart" : "Kas",
                     debit: 0,
                     credit: cost,

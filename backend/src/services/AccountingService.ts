@@ -9,6 +9,7 @@ import {
     transactions
 } from "@/db/schema";
 import { desc, eq, and, gte, lte, or, inArray, sql } from "drizzle-orm";
+import { CASH_EQUIVALENTS } from "../constants/accounting";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -879,7 +880,7 @@ export async function getCashFlow(
     const { start, end } = getPeriodDates(year, month);
 
     // Cash accounts for opening/closing calculation
-    const cashAccounts = ['1110', '1120', '1130']; // Kas, Bank, QRIS
+    const cashAccounts = CASH_EQUIVALENTS; // Kas, Bank, QRIS
 
     // Calculate opening cash (before period start)
     let openingCash = 0;

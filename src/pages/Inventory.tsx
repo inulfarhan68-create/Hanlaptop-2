@@ -25,6 +25,7 @@ import * as XLSX from "xlsx"
 import { InventoryBulkCategoryModal } from "@/components/inventory/InventoryBulkCategoryModal"
 import { InventoryMarkdownModal } from "@/components/inventory/InventoryMarkdownModal"
 import { InventoryAddModal } from "@/components/inventory/InventoryAddModal"
+import { InventoryImportModal } from "@/components/inventory/InventoryImportModal"
 import { TrendingDown, Info, Image as ImageIcon, Upload, Sparkles } from "lucide-react"
 import { StockFlyerModal } from "@/components/inventory/StockFlyerModal"
 import { AIPricingWidget } from "@/components/AIPricingWidget"
@@ -94,6 +95,7 @@ export function Inventory() {
 
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [viewDetailItem, setViewDetailItem] = useState<any>(null)
   const { data: itemPassports, isLoading: passportsLoading } = useSWR<any[]>(
@@ -1297,9 +1299,14 @@ export function Inventory() {
               <ImageIcon className="h-3.5 w-3.5 text-indigo-500" /> <span className="hidden sm:inline">Buat Flyer</span>
             </Button>
             {canWrite && localStorage.getItem('selectedStoreId') !== 'all' && (
-              <Button size="sm" className="flex items-center gap-1.5 h-8 px-3.5 text-[11px] font-bold shadow-md shadow-blue-500/20" onClick={() => setIsAddOpen(true)}>
-                <Plus className="h-4 w-4" /> Tambah Barang
-              </Button>
+              <>
+                <Button size="sm" variant="outline" className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsImportOpen(true)} title="Impor data barang dari Excel atau Nota PDF AI">
+                  <Upload className="h-3.5 w-3.5 text-primary" /> <span className="hidden sm:inline">Impor Massal</span>
+                </Button>
+                <Button size="sm" className="flex items-center gap-1.5 h-8 px-3.5 text-[11px] font-bold shadow-md shadow-blue-500/20" onClick={() => setIsAddOpen(true)}>
+                  <Plus className="h-4 w-4" /> Tambah Barang
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -2432,6 +2439,43 @@ export function Inventory() {
         isOpen={isFlyerOpen} 
         onClose={() => setIsFlyerOpen(false)} 
         items={items} 
+      />
+
+      {/* ADD ITEM MODAL */}
+      <InventoryAddModal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        addName={addName}
+        setAddName={setAddName}
+        addCategory={addCategory}
+        setAddCategory={setAddCategory}
+        addBarcode={addBarcode}
+        setAddBarcode={setAddBarcode}
+        addQty={addQty}
+        setAddQty={setAddQty}
+        addCost={addCost}
+        setAddCost={setAddCost}
+        addSell={addSell}
+        setAddSell={setAddSell}
+        addMinStock={addMinStock}
+        setAddMinStock={setAddMinStock}
+        addSpecs={addSpecs}
+        setAddSpecs={setAddSpecs}
+        isSubmitting={isSubmitting}
+        aiLoading={aiLoading}
+        onAiCheck={(name) => handleAiSpecsCheck(name, 'add')}
+        onScanBarcode={() => setShowCameraScannerFor('add')}
+        onSubmit={submitAdd}
+        mergedLaptopModels={mergedLaptopModels}
+        mergedInventoryItems={mergedInventoryItems}
+        parseItemSpecs={parseItemSpecs}
+      />
+
+      {/* IMPORT MASSAL MODAL */}
+      <InventoryImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImportSuccess={fetchInventory}
       />
 
     </div>

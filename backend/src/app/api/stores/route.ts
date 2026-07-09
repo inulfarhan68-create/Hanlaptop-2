@@ -6,7 +6,7 @@ import { requireOwner } from "@/lib/auth-guard";
 import { createStoreSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
-import crypto from "crypto";
+// using global crypto for randomUUID() instead of importing Node's crypto
 
 export const dynamic = 'force-dynamic';
 

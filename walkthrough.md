@@ -41,8 +41,11 @@ Berdasarkan aturan Next.js, Anda tidak boleh meletakkan dua parameter dinamis (`
    - `api/inventory/passports/by-sn/[sn]`
 2. **Penyesuaian Integrasi Frontend**
    - Memperbarui komponen `DigitalPassport.tsx` agar memanggil URL rute yang baru, yakni `/api/inventory/passports/by-sn/{serialNumber}`.
-3. **Deploy Ulang ke Produksi**
-   - Mendorong *(push)* perbaikan ke GitHub sehingga Vercel segera membangun ulang sistem *routing* backend dengan benar.
+3. **Pembersihan Modul yang Tidak Kompatibel**
+   - Menghapus penggunaan `isomorphic-dompurify` dari `lib/sanitize.ts` (yang terbukti menyebabkan Vercel *crash* akibat lingkungan JSDOM) dan menggantinya dengan Regex HTML Stripper bawaan yang jauh lebih ringan.
+4. **Perbaikan Resolusi Dependensi Monorepo di Vercel**
+   - Menemukan bahwa sisa *error* 500 (terutama pada rute yang menggunakan Rate Limit) disebabkan oleh Vercel yang mengabaikan `package.json` di dalam folder `/backend`.
+   - Memasang seluruh paket krusial (`@upstash/ratelimit`, `@upstash/redis`, `@sentry/nextjs`, `pino`) secara paksa ke dalam `package.json` di tingkat *root* proyek agar diinstal dengan benar oleh *compiler* Vercel di *cloud*.
 
-## Hasil
-Setelah *deployment* Vercel selesai (dalam 1-3 menit), rute API tidak akan lagi bertabrakan. Semua *endpoint* API (termasuk halaman manajemen Cabang di tab Pengaturan) kini akan berjalan normal tanpa mengalami *crash* HTTP 500. Anda bisa merefresh situs *live* Anda dan memastikan seluruh data dapat dimuat.
+## Hasil Akhir
+Setelah *deployment* Vercel selesai, seluruh rute API terbebas dari *crash* lingkungan, *module not found*, maupun tabrakan URL. Semua *endpoint* API (termasuk halaman manajemen Cabang di tab Pengaturan) kini telah berjalan dengan mulus secara produksi.

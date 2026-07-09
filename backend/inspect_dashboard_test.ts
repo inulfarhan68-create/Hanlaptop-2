@@ -74,7 +74,7 @@ async function getAssetsAtDate(db: any, storeId: string, dateLimit: Date) {
             piutang += deb - cred;
         } else if (name === "Persediaan") {
             persediaan += deb - cred;
-        } else if (name === "Aset Tetap") {
+        } else if (name === "Aset Tetap" || name === "Kendaraan" || name === "Peralatan" || name === "Akumulasi Penyusutan") {
             asetTetap += deb - cred;
         }
     });
@@ -91,10 +91,10 @@ async function main() {
     const db = drizzle(client, { schema });
     
     // Test custom periods to ensure both have data:
-    // Current: June 15 - June 30, 2026
-    // Previous: May 30 - June 14, 2026 (includes June 14 seed transactions)
-    const fromStr = "2026-06-15";
-    const toStr = "2026-06-30";
+    // Current: July 1 - July 31, 2026
+    // Previous: June 1 - June 30, 2026
+    const fromStr = "2026-07-01";
+    const toStr = "2026-07-31";
     const storeId = "default";
     
     const { prevFrom, prevTo } = getPreviousPeriod(fromStr, toStr);
@@ -111,8 +111,8 @@ async function main() {
         
         let currentRevenue = 0, currentCogs = 0, currentOpex = 0;
         currentJournals.forEach((entry: any) => {
-            if (entry.accountName.includes("Pendapatan")) currentRevenue += entry.credit - entry.debit;
-            else if (entry.accountName === "HPP") currentCogs += entry.debit - entry.credit;
+            if (entry.accountName.includes("Pendapatan") || entry.accountName.includes("Penjualan")) currentRevenue += entry.credit - entry.debit;
+            else if (entry.accountName.startsWith("HPP") || entry.accountName.includes("HPP")) currentCogs += entry.debit - entry.credit;
             else if (entry.accountName.includes("Beban")) currentOpex += entry.debit - entry.credit;
         });
         const currentNetProfit = currentRevenue - currentCogs - currentOpex;
@@ -126,8 +126,8 @@ async function main() {
         
         let prevRevenue = 0, prevCogs = 0, prevOpex = 0;
         prevJournals.forEach((entry: any) => {
-            if (entry.accountName.includes("Pendapatan")) prevRevenue += entry.credit - entry.debit;
-            else if (entry.accountName === "HPP") prevCogs += entry.debit - entry.credit;
+            if (entry.accountName.includes("Pendapatan") || entry.accountName.includes("Penjualan")) prevRevenue += entry.credit - entry.debit;
+            else if (entry.accountName.startsWith("HPP") || entry.accountName.includes("HPP")) prevCogs += entry.debit - entry.credit;
             else if (entry.accountName.includes("Beban")) prevOpex += entry.debit - entry.credit;
         });
         const prevNetProfit = prevRevenue - prevCogs - prevOpex;

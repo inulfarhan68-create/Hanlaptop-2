@@ -76,7 +76,7 @@ async function getAssetsAtDate(storeId: string, dateLimit: Date) {
             piutang += deb - cred;
         } else if (name === "Persediaan") {
             persediaan += deb - cred;
-        } else if (name === "Aset Tetap") {
+        } else if (name === "Aset Tetap" || name === "Kendaraan" || name === "Peralatan" || name === "Akumulasi Penyusutan") {
             asetTetap += deb - cred;
         } else if (name === "Kliring Antar Cabang") {
             kliring += deb - cred;
@@ -229,7 +229,7 @@ export async function GET(request: Request) {
 
 
         periodJournals.forEach(entry => {
-            if (entry.accountName.includes("Pendapatan")) {
+            if (entry.accountName.includes("Pendapatan") || entry.accountName.includes("Penjualan")) {
                 totalRevenue += entry.credit - entry.debit;
                 if (entry.accountName === "Pendapatan Servis") {
                     revenueServis += entry.credit - entry.debit;
@@ -246,11 +246,12 @@ export async function GET(request: Request) {
         let qris = 0;
         let piutang = 0;
         let kliring = 0;
+        let fixedAssets = 0;
 
         journalBalances.forEach(entry => {
             const deb = entry.totalDebit || 0;
             const cred = entry.totalCredit || 0;
-            if (entry.accountName.includes("Hutang")) {
+            if (entry.accountName.includes("Hutang") || entry.accountName.includes("Utang")) {
                 liabilities += cred - deb;
             } else if (entry.accountName === "Modal Pemilik") {
                 equity += cred - deb;
@@ -266,6 +267,8 @@ export async function GET(request: Request) {
                 piutang += deb - cred;
             } else if (entry.accountName === "Kliring Antar Cabang") {
                 kliring += deb - cred;
+            } else if (entry.accountName === "Kendaraan" || entry.accountName === "Peralatan" || entry.accountName === "Akumulasi Penyusutan") {
+                fixedAssets += deb - cred;
             }
         });
 
@@ -274,7 +277,9 @@ export async function GET(request: Request) {
         const netProfit = totalRevenue - cogs - opex;
         const grossMargin = totalRevenue > 0 ? ((totalRevenue - cogs) / totalRevenue) * 100 : 0;
 
-        const totalTx = allTx[0].count;
+        // Filter totalTx to only count sales and service transactions in the period
+        const salesTransactions = periodTx.filter(t => t.transactionType === "Penjualan" || t.transactionType === "Jasa Servis");
+        const totalTx = salesTransactions.length;
 
         const monthlyDataMap = new Map();
         for (let i = 5; i >= 0; i--) {
@@ -317,7 +322,7 @@ export async function GET(request: Request) {
         const totalInventoryValue = allInventory.reduce((sum, i) => sum + (i.costPrice * i.quantity), 0);
         const totalInventoryQty = allInventory.reduce((sum, i) => sum + i.quantity, 0);
 
-        const actualTotalAssets = kasLiquid + totalInventoryValue + piutang;
+        const actualTotalAssets = kasLiquid + totalInventoryValue + piutang + fixedAssets;
 
         const brandSalesMap = new Map<string, number>();
         const productSalesMap = new Map<string, { name: string, sold: number, revenue: number }>();

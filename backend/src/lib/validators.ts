@@ -64,6 +64,7 @@ export const transactionSchema = z.object({
     customerAddress: z.string().nullable().optional(),
     customerId: z.string().nullable().optional(),
     supplierId: z.string().nullable().optional(),
+    metadata: z.any().optional(),
     items: z.array(transactionItemSchema).optional().default([]),
 });
 

@@ -64,13 +64,15 @@ export function AnalyticsTab({ data, formatCurrency }: AnalyticsTabProps) {
     "hsl(200 40% 50%)"  // slate-teal
   ];
 
-  const opexData = Object.entries(data.opexDetails || {}).map(([name, value], index) => {
-    return {
-      name,
-      value: Math.round(value as number),
-      color: opexColors[index % opexColors.length]
-    };
-  });
+  const opexData = Object.entries(data.opexDetails || {})
+    .map(([name, value], index) => {
+      return {
+        name,
+        value: Math.round(value as number),
+        color: opexColors[index % opexColors.length]
+      };
+    })
+    .filter(item => item.value > 0);
 
   return (
     <div className="space-y-2 animate-in fade-in slide-in-from-right-8 duration-500">

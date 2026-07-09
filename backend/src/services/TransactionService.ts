@@ -373,27 +373,44 @@ export class TransactionService {
                     }
                 }
 
+                const { discount = 0, tax = 0, shipping = 0, subTotal = amount } = data.metadata || {};
+
                 const dp = paymentMethod === "Tempo" ? (dpAmount || 0) : amount;
                 const hutang = amount - dp;
-                const entries = [
-                    createJournalEntry(storeId, newTx.id, "Persediaan", amount, 0)
-                ];
+                const entries = [];
+
+                // Debit: Persediaan (Nilai pokok barang / subtotal)
+                // Jika tidak ada metadata, subtotal = amount
+                entries.push(createJournalEntry(storeId, newTx.id, "Persediaan", subTotal, 0));
+
+                // Debit: PPN Masukan
+                if (tax > 0) entries.push(createJournalEntry(storeId, newTx.id, "PPN Masukan", tax, 0));
+
+                // Debit: Beban Pengiriman (Ongkir)
+                if (shipping > 0) entries.push(createJournalEntry(storeId, newTx.id, "Beban Transportasi", shipping, 0));
+
+                // Credit: Diskon (Potongan harga pembelian barang)
+                // (Dalam akuntansi, Diskon Pembelian berada di sisi Kredit untuk mengurangi HPP/Aset)
+                if (discount > 0) entries.push(createJournalEntry(storeId, newTx.id, "Diskon Pembelian", 0, discount));
+
+                // Credit: Kas / Utang (Aliran uang keluar)
                 if (dp > 0) entries.push(createJournalEntry(storeId, newTx.id, liquidAccount, 0, dp));
                 if (hutang > 0) entries.push(createJournalEntry(storeId, newTx.id, "Utang Usaha", 0, hutang));
+                
                 await tx.insert(journalEntries).values(entries);
 
             } else if (transactionType === "Pengeluaran Operasional" || transactionType === "Operasional") {
-                let accountName = "Beban Lainnya";
+                let accountName = "Beban Lain-lain";
                 const descStr = description || "";
                 const categories = [
                     "Beban Gaji Karyawan",
                     "Beban Listrik & Internet",
                     "Beban Sewa Tempat",
-                    "Beban Administrasi",
-                    "Beban Marketing",
+                    "Beban ATK & Perlengkapan",
+                    "Beban Pemasaran / Iklan",
                     "Beban Transportasi",
-                    "Beban Perbaikan",
-                    "Beban Lainnya"
+                    "Beban Perbaikan & Perawatan",
+                    "Beban Lain-lain"
                 ];
 
                 let found = false;

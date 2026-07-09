@@ -52,13 +52,7 @@ export function ApprovalBoard({ isOwner }: { isOwner: boolean }) {
 
     if (loading) return <div className="p-4 text-sm text-muted-foreground animate-pulse">Memuat persetujuan...</div>;
 
-    if (requests.length === 0) return (
-        <div className="bg-card border rounded-xl p-6 text-center shadow-sm">
-            <ShieldAlert className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-            <h4 className="font-semibold text-sm">Tidak ada permintaan persetujuan</h4>
-            <p className="text-xs text-muted-foreground mt-1">Semua alur persetujuan saat ini sudah selesai.</p>
-        </div>
-    );
+    if (requests.length === 0) return null;
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
