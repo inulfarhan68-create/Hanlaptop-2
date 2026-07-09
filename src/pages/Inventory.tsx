@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -1230,33 +1230,41 @@ export function Inventory() {
     }
   };
 
-  const filteredItems = items.filter((item: any) => {
-    // 1. Search Filter
-    const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    // 2. Category Filter
-    let matchCat = true;
-    if (filterCategory === "laptop") matchCat = item.category === "Laptop Bekas";
-    if (filterCategory === "sparepart") matchCat = item.category !== "Laptop Bekas" && item.category !== "Aksesoris" && item.category !== "Jasa Servis";
-    if (filterCategory === "aksesoris") matchCat = item.category === "Aksesoris";
+  const filteredItems = useMemo(() => {
+    return items.filter((item: any) => {
+      // 1. Search Filter
+      const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // 2. Category Filter
+      let matchCat = true;
+      if (filterCategory === "laptop") matchCat = item.category === "Laptop Bekas";
+      if (filterCategory === "sparepart") matchCat = item.category !== "Laptop Bekas" && item.category !== "Aksesoris" && item.category !== "Jasa Servis";
+      if (filterCategory === "aksesoris") matchCat = item.category === "Aksesoris";
 
-    // 3. Status Filter
-    let matchStatus = true;
-    if (filterStatus === "instock") matchStatus = item.quantity > 0;
-    if (filterStatus === "outofstock") matchStatus = item.quantity === 0;
-    if (filterStatus === "lowstock") matchStatus = item.quantity <= (item.minStock !== undefined ? item.minStock : 2) && item.quantity > 0;
+      // 3. Status Filter
+      let matchStatus = true;
+      if (filterStatus === "instock") matchStatus = item.quantity > 0;
+      if (filterStatus === "outofstock") matchStatus = item.quantity === 0;
+      if (filterStatus === "lowstock") matchStatus = item.quantity <= (item.minStock !== undefined ? item.minStock : 2) && item.quantity > 0;
 
-    return matchSearch && matchCat && matchStatus;
-  })
+      return matchSearch && matchCat && matchStatus;
+    });
+  }, [items, searchTerm, filterCategory, filterStatus]);
 
-  const currentPageItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentPageItems = useMemo(() => {
+    return filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredItems, currentPage, itemsPerPage]);
 
-  const laptopCount = items.filter((i: any) => i.category === "Laptop Bekas").reduce((sum: any, i: any) => sum + i.quantity, 0)
-  const spareCount = items.filter((i: any) => i.category !== "Laptop Bekas" && i.category !== "Aksesoris" && i.category !== "Jasa Servis").reduce((sum: any, i: any) => sum + i.quantity, 0)
-  const aksesorisCount = items.filter((i: any) => i.category === "Aksesoris").reduce((sum: any, i: any) => sum + i.quantity, 0)
-  const totalAssetValue = items.reduce((sum: any, i: any) => sum + (i.costPrice * i.quantity), 0)
+  const { laptopCount, spareCount, aksesorisCount, totalAssetValue } = useMemo(() => {
+    return {
+      laptopCount: items.filter((i: any) => i.category === "Laptop Bekas").reduce((sum: any, i: any) => sum + i.quantity, 0),
+      spareCount: items.filter((i: any) => i.category !== "Laptop Bekas" && i.category !== "Aksesoris" && i.category !== "Jasa Servis").reduce((sum: any, i: any) => sum + i.quantity, 0),
+      aksesorisCount: items.filter((i: any) => i.category === "Aksesoris").reduce((sum: any, i: any) => sum + i.quantity, 0),
+      totalAssetValue: items.reduce((sum: any, i: any) => sum + (i.costPrice * i.quantity), 0)
+    };
+  }, [items]);
 
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
