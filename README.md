@@ -214,17 +214,22 @@ cd backend && node tests/smoke-test.js
 
 ### Required
 ```bash
-TURSO_DATABASE_URL=libsql://xxx.turso.io
+# Primary DB env names (the app also accepts the legacy TURSO_DATABASE_URL / TURSO_AUTH_TOKEN)
+DATABASE_URL=libsql://xxx.turso.io
+DATABASE_AUTH_TOKEN=xxx
 BETTER_AUTH_SECRET=32-char-secret
 NODE_ENV=production
 ```
 
 ### Recommended
 ```bash
+GEMINI_API_KEY=xxx                         # AI parsing / pricing (import-ai, ai/pricing)
 SENTRY_DSN=https://xxx@sentry.io/xxx
-UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
+UPSTASH_REDIS_REST_URL=https://xxx.upstash.io   # enables the distributed rate limiter
 UPSTASH_REDIS_REST_TOKEN=xxx
 ```
+
+> Full list of environment variable names is documented in [CLAUDE.md](./CLAUDE.md#5-environment-variables-nama-saja).
 
 ---
 

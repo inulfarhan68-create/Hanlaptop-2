@@ -1,477 +1,203 @@
-# Financial Management & Accounting Module - Implementation Plan
+# CLAUDE.md
 
-## Decisions Confirmed
-- ✅ COA Format: Custom (sesuai kebutuhan Han Laptop)
-- ✅ Depreciation: On-demand calculation
-- ✅ Closing Period: Included in Phase 1
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
-
-## Phase 1: Foundation & Core Reports
-
-### 1.1 Backend - Database Schema
-
-#### New Files
-
-**[NEW] `backend/src/db/schema/accounting.ts`**
-```
-Tables:
-├── chart_of_accounts
-│   ├── id (UUID, PK)
-│   ├── storeId (FK → stores)
-│   ├── code (TEXT, unique per store, e.g., "1000", "1100", "4110")
-│   ├── name (TEXT, e.g., "Kas", "Pendapatan", "HPP")
-│   ├── type (ENUM: 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense')
-│   ├── subType (TEXT, nullable, e.g., "Bank", "Current", "Fixed")
-│   ├── parentId (FK → chart_of_accounts, nullable, for hierarchy)
-│   ├── openingBalance (REAL, default 0)
-│   ├── isActive (BOOLEAN, default true)
-│   ├── isSystem (BOOLEAN, default false) -- for default accounts
-│   ├── createdAt, updatedAt (timestamps)
-│   └── Indexes: storeId+code (unique), parentId, type
-│
-├── fiscal_periods
-│   ├── id (UUID, PK)
-│   ├── storeId (FK → stores)
-│   ├── year (INTEGER, e.g., 2026)
-│   ├── month (INTEGER, 1-12, nullable for yearly periods)
-│   ├── status (ENUM: 'OPEN', 'CLOSED', 'ARCHIVED')
-│   ├── closedBy (FK → users, nullable)
-│   ├── closedAt (timestamp, nullable)
-│   ├── notes (TEXT, nullable)
-│   ├── createdAt, updatedAt (timestamps)
-│   └── Indexes: storeId+year+month (unique), status
-│
-├── fixed_assets
-│   ├── id (UUID, PK)
-│   ├── storeId (FK → stores)
-│   ├── accountCode (FK → chart_of_accounts) -- aset tetap akun
-│   ├── accumulatedDepreciationAccount (FK → chart_of_accounts) -- akumulasi penyusutan
-│   ├── name (TEXT, e.g., "Laptop Dell XPS 15", "Mobil Avanza")
-│   ├── purchaseDate (DATE)
-│   ├── purchasePrice (REAL)
-│   ├── usefulLifeMonths (INTEGER, e.g., 60 for 5 years)
-│   ├── salvageValue (REAL, default 0)
-│   ├── depreciationMethod (ENUM: 'straight_line', nullable -- future extensibility)
-│   ├── status (ENUM: 'active', 'disposed', 'fully_depreciated')
-│   ├── createdAt, updatedAt (timestamps)
-│   └── Indexes: storeId, accountCode, status
-│
-├── depreciation_entries
-│   ├── id (UUID, PK)
-│   ├── storeId (FK → stores)
-│   ├── fixedAssetId (FK → fixed_assets)
-│   ├── fiscalPeriodId (FK → fiscal_periods)
-│   ├── amount (REAL, monthly depreciation)
-│   ├── cumulativeAmount (REAL, total accumulated to date)
-│   ├── journalEntryId (FK → journal_entries, nullable)
-│   ├── createdAt (timestamp)
-│   └── Indexes: fixedAssetId+fiscalPeriodId (unique), fiscalPeriodId
-│
-└── closing_entries
-    ├── id (UUID, PK)
-    ├── storeId (FK → stores)
-    ├── fiscalPeriodId (FK → fiscal_periods)
-    ├── closingType (ENUM: 'monthly', 'yearly')
-    ├── closedBy (FK → users)
-    ├── incomeSummaryEntries (JSON, array of {accountCode, amount})
-    ├── retainedEarningsEntry (JSON, {accountCode, amount})
-    ├── closedAt (timestamp)
-    └── Indexes: fiscalPeriodId (unique)
-```
-
-#### Modify Existing Files
-
-**[MODIFY] `backend/src/db/schema/transactions.ts`**
-```typescript
-// Add to journalEntries table:
-accountCode: text("account_code").references(() => chartOfAccounts.code, { onDelete: 'set null' })
-```
-
-**[MODIFY] `backend/src/db/schema/schema.ts`**
-```typescript
-// Add exports:
-export { chartOfAccounts, chartOfAccountsRelations } from "./accounting"
-export { fiscalPeriods, fiscalPeriodsRelations } from "./accounting"
-export { fixedAssets, fixedAssetsRelations } from "./accounting"
-export { depreciationEntries, depreciationEntriesRelations } from "./accounting"
-export { closingEntries, closingEntriesRelations } from "./accounting"
-```
+> Konteks permanen untuk semua sesi Claude Code. Dokumen pendukung: [ARCHITECTURE.md](ARCHITECTURE.md), [BUSINESS_RULES.md](BUSINESS_RULES.md), [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md), [ROADMAP.md](ROADMAP.md).
 
 ---
 
-### 1.2 Backend - Migration
+## 1. Ringkasan & Tujuan Proyek
 
-**[MODIFY] `backend/migrate-prd.ts`**
-```typescript
-// Add after existing migrations:
+**Han Laptop ERP & POS** — aplikasi internal back-office + Point of Sale untuk bisnis **Han Laptop** (jual-beli laptop bekas, sparepart, jasa servis, tukar tambah/buyback). Menggabungkan manajemen stok fisik dengan pembukuan akuntansi berpasangan (*double-entry*), lengkap dengan HR, CRM, dan multi-cabang.
 
-// 1. Chart of Accounts
-await runSQL(`
-  CREATE TABLE IF NOT EXISTS chart_of_accounts (
-    id TEXT PRIMARY KEY,
-    store_id TEXT NOT NULL,
-    code TEXT NOT NULL,
-    name TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
-    sub_type TEXT,
-    parent_id TEXT REFERENCES chart_of_accounts(id) ON DELETE SET NULL,
-    opening_balance REAL NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    is_system INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  )
-`);
-await runSQL(`CREATE UNIQUE INDEX IF NOT EXISTS coa_store_code_idx ON chart_of_accounts (store_id, code)`);
-await runSQL(`CREATE INDEX IF NOT EXISTS coa_parent_idx ON chart_of_accounts (parent_id)`);
-await runSQL(`CREATE INDEX IF NOT EXISTS coa_type_idx ON chart_of_accounts (type)`);
-
-// 2. Fiscal Periods
-await runSQL(`
-  CREATE TABLE IF NOT EXISTS fiscal_periods (
-    id TEXT PRIMARY KEY,
-    store_id TEXT NOT NULL,
-    year INTEGER NOT NULL,
-    month INTEGER CHECK (month IS NULL OR (month >= 1 AND month <= 12)),
-    status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED', 'ARCHIVED')),
-    closed_by TEXT,
-    closed_at INTEGER,
-    notes TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  )
-`);
-await runSQL(`CREATE UNIQUE INDEX IF NOT EXISTS fp_store_year_month_idx ON fiscal_periods (store_id, year, month)`);
-await runSQL(`CREATE INDEX IF NOT EXISTS fp_status_idx ON fiscal_periods (status)`);
-
-// 3. Fixed Assets
-await runSQL(`
-  CREATE TABLE IF NOT EXISTS fixed_assets (
-    id TEXT PRIMARY KEY,
-    store_id TEXT NOT NULL,
-    account_code TEXT NOT NULL,
-    accumulated_depr_account TEXT NOT NULL,
-    name TEXT NOT NULL,
-    purchase_date TEXT NOT NULL,
-    purchase_price REAL NOT NULL,
-    useful_life_months INTEGER NOT NULL,
-    salvage_value REAL NOT NULL DEFAULT 0,
-    depreciation_method TEXT DEFAULT 'straight_line',
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disposed', 'fully_depreciated')),
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  )
-`);
-await runSQL(`CREATE INDEX IF NOT EXISTS fa_store_idx ON fixed_assets (store_id)`);
-await runSQL(`CREATE INDEX IF NOT EXISTS fa_status_idx ON fixed_assets (status)`);
-
-// 4. Depreciation Entries
-await runSQL(`
-  CREATE TABLE IF NOT EXISTS depreciation_entries (
-    id TEXT PRIMARY KEY,
-    store_id TEXT NOT NULL,
-    fixed_asset_id TEXT NOT NULL REFERENCES fixed_assets(id) ON DELETE CASCADE,
-    fiscal_period_id TEXT NOT NULL REFERENCES fiscal_periods(id) ON DELETE CASCADE,
-    amount REAL NOT NULL,
-    cumulative_amount REAL NOT NULL,
-    journal_entry_id TEXT,
-    created_at INTEGER NOT NULL
-  )
-`);
-await runSQL(`CREATE UNIQUE INDEX IF NOT EXISTS de_asset_period_idx ON depreciation_entries (fixed_asset_id, fiscal_period_id)`);
-await runSQL(`CREATE INDEX IF NOT EXISTS de_period_idx ON depreciation_entries (fiscal_period_id)`);
-
-// 5. Closing Entries
-await runSQL(`
-  CREATE TABLE IF NOT EXISTS closing_entries (
-    id TEXT PRIMARY KEY,
-    store_id TEXT NOT NULL,
-    fiscal_period_id TEXT NOT NULL UNIQUE REFERENCES fiscal_periods(id) ON DELETE CASCADE,
-    closing_type TEXT NOT NULL CHECK (closing_type IN ('monthly', 'yearly')),
-    closed_by TEXT NOT NULL,
-    income_summary_entries TEXT, -- JSON array
-    retained_earnings_entry TEXT, -- JSON object
-    closed_at INTEGER NOT NULL
-  )
-`);
-
-// 6. Add account_code to journal_entries (backward compatible, nullable)
-await runSQL(`ALTER TABLE journal_entries ADD COLUMN account_code TEXT`);
-
-// 7. Seed default COA for Han Laptop (27 accounts)
-// ... seed data SQL
-```
+- **Bahasa UI & domain:** Indonesia (identifier kode: Inggris).
+- **Pengguna:** owner, manager, kasir, teknisi, investor (multi-toko, akses berbasis peran).
 
 ---
 
-### 1.3 Backend - API Routes
+## 2. Struktur Repo (dua aplikasi, satu direktori)
 
-#### New API Routes
+Ini **bukan** monorepo workspace — dua app terpisah dengan `package.json`/`node_modules` masing-masing:
 
-**[NEW] `backend/src/app/api/accounting/coa/route.ts`**
-```typescript
-// GET /api/accounting/coa?type=Asset&storeId=xxx
-// POST /api/accounting/coa -- Create account (Owner only)
-// PUT /api/accounting/coa/[id] -- Update account
-// DELETE /api/accounting/coa/[id] -- Soft delete (Owner only)
-```
+| | Frontend | Backend |
+| --- | --- | --- |
+| Lokasi | root (`src/`) | `/backend` |
+| Framework | React 19 + Vite 8 SPA | Next.js 16 (App Router) |
+| Port dev | 5173 | 3000 |
 
-**[NEW] `backend/src/app/api/accounting/general-ledger/route.ts`**
-```typescript
-// GET /api/accounting/general-ledger?accountCode=1000&from=2026-01-01&to=2026-01-31
-// Returns: { account, openingBalance, entries[], closingBalance }
-```
+### ⚠️ basePath `/_/backend` (paling mudah bikin bingung)
+Backend Next.js disajikan di **basePath `/_/backend`**, bukan root.
+- Dev: Vite mem-proxy `/api/*` → `http://localhost:3000/_/backend/api/*` (`vite.config.ts`).
+- Prod (Vercel): frontend di `/`, backend di `/_/backend`, dengan rewrite `/api/:match*` → `/_/backend/api/:match*` (`vercel.json`).
+- Health check / smoke test harus menyertakan prefix ini.
 
-**[NEW] `backend/src/app/api/accounting/trial-balance/route.ts`**
-```typescript
-// GET /api/accounting/trial-balance?year=2026&month=1
-// Returns: { accounts[], totalDebit, totalCredit, isBalanced }
-```
-
-**[NEW] `backend/src/app/api/accounting/income-statement/route.ts`**
-```typescript
-// GET /api/accounting/income-statement?year=2026&month=1
-// Returns: structured P&L from General Ledger
-```
-
-**[NEW] `backend/src/app/api/accounting/balance-sheet/route.ts`**
-```typescript
-// GET /api/accounting/balance-sheet?year=2026&month=1
-// Returns: { assets, liabilities, equity, isBalanced }
-```
-
-**[NEW] `backend/src/app/api/accounting/cash-flow/route.ts`**
-```typescript
-// GET /api/accounting/cash-flow?year=2026&month=1
-// Returns: { operating, investing, financing, netChange, openingCash, closingCash }
-```
-
-**[NEW] `backend/src/app/api/accounting/equity-changes/route.ts`**
-```typescript
-// GET /api/accounting/equity-changes?year=2026&month=1
-// Returns: { openingEquity, contributions, withdrawals, netIncome, closingEquity }
-```
-
-**[NEW] `backend/src/app/api/accounting/fixed-assets/route.ts`**
-```typescript
-// GET /api/accounting/fixed-assets
-// POST /api/accounting/fixed-assets
-// PUT /api/accounting/fixed-assets/[id]
-// DELETE /api/accounting/fixed-assets/[id]
-// POST /api/accounting/fixed-assets/[id]/depreciate -- Calculate depreciation
-```
-
-**[NEW] `backend/src/app/api/accounting/fiscal-periods/route.ts`**
-```typescript
-// GET /api/accounting/fiscal-periods
-// POST /api/accounting/fiscal-periods -- Create period (auto on new month)
-// POST /api/accounting/fiscal-periods/[id]/close -- Close period
-// POST /api/accounting/fiscal-periods/[id]/reopen -- Reopen (Owner only)
-```
-
-**[NEW] `backend/src/app/api/accounting/journal-mapping/route.ts`**
-```typescript
-// POST /api/accounting/journal-mapping -- Map existing journal entries to COA
-// Auto-maps by accountName → accountCode for backward compatibility
-```
+Struktur folder lengkap → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
 ---
 
-### 1.4 Frontend - Pages & Components
+## 3. Tech Stack
 
-#### New Files
+**Frontend:** React 19, Vite 8, TypeScript 6, React Router v7 (route lazy di `src/App.tsx`), Tailwind CSS v4 + Radix UI (pola shadcn), SWR (data fetching), Recharts, Lucide, `jspdf`, `xlsx`, `framer-motion`, `sonner`, `better-auth/react` (client), `vite-plugin-pwa`.
 
-**[NEW] `src/pages/FinancialManagement.tsx`**
-```
-Main page with tabs:
-├── Tab: Dashboard
-│   └── KPI cards + summary charts
-├── Tab: Bagan Akun (COA)
-│   └── CRUD table with hierarchical view
-├── Tab: Buku Besar (General Ledger)
-│   └── Per-account ledger view
-├── Tab: Neraca Saldo (Trial Balance)
-│   └── Debit/Credit balance table
-├── Tab: Laba Rugi (Income Statement)
-│   └── Structured P&L report
-├── Tab: Neraca (Balance Sheet)
-│   └── Assets = Liabilities + Equity
-├── Tab: Arus Kas (Cash Flow)
-│   └── Operating/Investing/Financing
-├── Tab: Perubahan Ekuitas (Equity Changes)
-│   └── Equity movement report
-└── Tab: Aset Tetap (Fixed Assets)
-    └── Asset list + depreciation
+**Backend:** Next.js 16 (App Router), Drizzle ORM + `@libsql/client` (Turso/SQLite), Kysely (via Better-Auth), Better-Auth (email+password), Zod (validasi), `@google/genai` (Gemini `gemini-2.5-flash`), Vercel Blob (upload), Pino (log), Sentry, Upstash Redis/Ratelimit (dependency; **rate limiter aktif masih LRU in-memory**).
+
+**Database:** SQLite lokal saat dev, Turso (libSQL) di produksi. Skema Drizzle di `backend/src/db/schema/`.
+
+**Deployment:** Vercel (dual-service frontend+backend, region `hnd1`), Vercel Cron untuk backup/cleanup.
+
+---
+
+## 4. Cara Menjalankan
+
+Install terpisah di root dan `/backend`.
+
+### Frontend (root)
+```bash
+npm install
+npm run dev       # Vite dev server, port 5173
+npm run build     # tsc -b && vite build
+npm run lint      # eslint
+npm run preview
 ```
 
-**[NEW] `src/components/accounting/COATable.tsx`**
-- Table with columns: Kode, Nama, Tipe, Saldo Awal, Status
-- Inline edit capability
-- Hierarchical indentation
-
-**[NEW] `src/components/accounting/GeneralLedgerView.tsx`**
-- Account selector dropdown
-- Period selector
-- Transactions list with running balance
-
-**[NEW] `src/components/accounting/TrialBalanceTable.tsx`**
-- Two-column (Debit/Credit) balance sheet
-- Validation indicator (✅ Seimbang / ❌ Tidak Seimbang)
-
-**[NEW] `src/components/accounting/IncomeStatementReport.tsx`**
-- Hierarchical P&L structure
-- Expandable sections
-
-**[NEW] `src/components/accounting/BalanceSheetReport.tsx`**
-- Current/Fixed Assets breakdown
-- Liabilities breakdown
-- Equity section
-
-**[NEW] `src/components/accounting/CashFlowReport.tsx`**
-- Three sections (Operating, Investing, Financing)
-- Net change calculation
-
-**[NEW] `src/components/accounting/FixedAssetsTable.tsx`**
-- Asset list with depreciation status
-- Add/Edit/Dispose functionality
-- Depreciation schedule view
-
----
-
-#### Modify Existing Files
-
-**[MODIFY] `src/App.tsx`**
-```tsx
-// Add route:
-const FinancialManagement = lazy(() => import("@/pages/FinancialManagement").then(m => ({ default: m.FinancialManagement })))
-
-<Route path="/financial" element={<FinancialManagement />} />
+### Backend (`cd backend`)
+```bash
+npm install       # menjalankan postinstall: node patch-kysely.js
+npm run dev       # next dev, port 3000 (basePath /_/backend)
+npm run build     # next build
+npm run start
+npm run lint      # next lint
+npm run seed      # tsx src/db/seed.ts (seed data contoh)
 ```
 
-**[MODIFY] `src/components/layout/Sidebar.tsx`**
-```tsx
-// Add "Keuangan" group with:
-{ group: "Keuangan", items: [
-  { title: "Manajemen Keuangan", href: "/financial", icon: Wallet },
-  { title: "Piutang", href: "/piutang", icon: Receipt },
-  { title: "Hutang", href: "/hutang", icon: CreditCard },
-]}
+### Database (di `/backend`)
+```bash
+npx drizzle-kit push          # sinkron skema ke DB (edit backend/src/db/schema/ dulu)
+npx tsx src/db/check-db.ts    # inspeksi kolom/isi DB lokal
+# skrip one-off lain: npx tsx src/db/migrate-*.ts  (lihat ROADMAP: perlu dirapikan)
 ```
 
----
-
-## Phase 2: Advanced Features (Future)
-
-### 2.1 Inventory Valuation
-- Moving Average calculation
-- Dedicated inventory valuation report
-
-### 2.2 Financial Analytics
-- Margin produk, margin merek
-- Profit teknisi, profit cabang
-
-### 2.3 Export Capabilities
-- PDF/Excel/CSV for all financial reports
-
-### 2.4 Audit Trail
-- Old value/new value logging for financial changes
+### Test (di `/backend`, butuh server jalan)
+```bash
+node tests/smoke-test.js --prefix=/_/backend/api   # smoke HTTP; flags: --verbose --skip=e2e --port= --base=
+npx playwright test tests/e2e                       # semua e2e
+npx playwright test tests/e2e/multi-tenant.spec.ts  # satu file (isolasi tenant)
+```
+> Belum ada `format` khusus (mengandalkan ESLint) dan belum ada pipeline CI.
 
 ---
 
-## Phase 3: Polish & Optimization (Future)
+## 5. Environment Variables (nama saja)
 
-### 3.1 Interactive Dashboard
-- Recharts integration
-- Draggable KPI cards
+> Isi/value TIDAK ditampilkan. Set di `.env.local` (dev) / Vercel (prod).
 
-### 3.2 Multi-Period Comparison
-- Side-by-side period comparison
+**Database:** `DATABASE_URL`, `DATABASE_AUTH_TOKEN` — dipakai `db/index.ts`. `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` — dipakai sebagian skrip/health (⚠️ konvensi ganda, perlu distandarkan).
 
-### 3.3 Print Optimization
-- Store branding on prints
+**Auth:** `BETTER_AUTH_SECRET` (wajib di runtime produksi), `BETTER_AUTH_URL`, `FRONTEND_URL`, `VERCEL_URL`.
 
----
+**AI:** `GEMINI_API_KEY`.
 
-## Implementation Sequence
+**Frontend:** `VITE_API_URL`.
 
-### Step 1: Database & Migration
-1. Create `accounting.ts` schema
-2. Modify `transactions.ts` and `schema.ts`
-3. Run migration `migrate-prd.ts`
-4. Seed default COA (27 accounts)
+**Upload/Storage:** `BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY`.
 
-### Step 2: Core API Services
-1. Create `AccountingService.ts` for calculations
-2. Create `/api/accounting/coa` CRUD
-3. Create `/api/accounting/general-ledger`
-4. Create `/api/accounting/trial-balance`
-5. Create `/api/accounting/income-statement`
-6. Create `/api/accounting/balance-sheet`
+**Backup:** `BACKUP_STORAGE`, `BACKUP_LOCAL_PATH`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_BUCKET`.
 
-### Step 3: Financial Reports API
-1. Create `/api/accounting/cash-flow`
-2. Create `/api/accounting/equity-changes`
-3. Create `/api/accounting/fiscal-periods` with closing
+**Rate limit / cache:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 
-### Step 4: Fixed Assets Module
-1. Create `/api/accounting/fixed-assets`
-2. Create depreciation calculation logic
+**Observability:** `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `LOG_LEVEL`.
 
-### Step 5: Frontend Core
-1. Create `FinancialManagement.tsx` page structure
-2. Create COA management table
-3. Create General Ledger view
-4. Create Trial Balance table
-
-### Step 6: Financial Report Views
-1. Income Statement report
-2. Balance Sheet report
-3. Cash Flow report
-4. Equity Changes report
-
-### Step 7: Fixed Assets UI
-1. Fixed Assets table
-2. Depreciation schedule view
-3. Add/Edit/Dispose modals
-
-### Step 8: Navigation & Polish
-1. Update Sidebar
-2. Add to App.tsx routes
-3. Connect to existing Reports page
+**Ops/flags:** `CRON_SECRET`, `ENABLE_FACTORY_RESET`, `ADMIN_DEFAULT_EMAIL`, `ADMIN_DEFAULT_PASSWORD`, `NODE_ENV`, `GIT_SHA`/`VERCEL_GIT_COMMIT_SHA`, `VERCEL`, `NEXT_PHASE`.
 
 ---
 
-## Verification Checklist
+## 6. Coding Convention (ikuti pola yang sudah ada)
 
-### Database
-- [ ] All tables created
-- [ ] Indexes created
-- [ ] Foreign keys working
-- [ ] Default COA seeded
-
-### API
-- [ ] COA CRUD working
-- [ ] General Ledger calculates correctly
-- [ ] Trial Balance validates (Debit = Credit)
-- [ ] Income Statement matches General Ledger
-- [ ] Balance Sheet validates (A = L + E)
-- [ ] Period closing prevents new transactions
-- [ ] Fixed assets depreciation calculates correctly
-
-### Frontend
-- [ ] All tabs render correctly
-- [ ] Tables are sortable/filterable
-- [ ] Forms validate input
-- [ ] Print functionality works
-- [ ] Mobile responsive
-
-### Integration
-- [ ] New journal entries use accountCode
-- [ ] Existing journals backward compatible
-- [ ] Dashboard KPIs match reports
+- **TypeScript** di seluruh kode; hindari `any` (walau kode lama masih ada `any`/`as any` — jangan menirunya).
+- **Route handler backend** selalu:
+  1. `export const dynamic = 'force-dynamic'`,
+  2. panggil guard: `const authResult = await requirePermission(...)` lalu `if (authResult instanceof NextResponse) return authResult;`,
+  3. validasi body dengan Zod `safeParse` (skema di `lib/validators.ts`),
+  4. filter query dengan `authResult.storeId` (kecuali `"all"`),
+  5. delegasikan logika lintas-entitas ke `services/` dalam `db.transaction()`.
+- **Logika bisnis** di `backend/src/services/`, **bukan** di route handler.
+- **Jurnal akuntansi** dibuat via nama akun standar; `accountCode` dipetakan otomatis oleh `JournalMappingService` — jangan hard-code kode akun.
+- **Frontend:** panggil API hanya lewat `apiFetch` (`src/lib/api.ts`), jangan `fetch` mentah. Tambah halaman baru sebagai lazy import + `<Route>` di `src/App.tsx`. Pakai komponen `src/components/ui/`, ikon Lucide, kelas Tailwind.
+- **Error handling:** kembalikan `NextResponse.json({ error }, { status })` dengan pesan jelas; validasi gagal → 400 dengan `error.format()`.
+- **Audit:** aksi kritikal menulis ke `auditLogs`/`activityLogs`.
+- **Naming:** tabel & kolom `camelCase` di Drizzle (mapping ke `snake_case` DB); komponen React `PascalCase`; file util `camelCase`.
 
 ---
 
-## Soft Delete Policy
-For instructions and rules on soft deleting transactions and journal entries, refer to the [Soft Delete Policy Specification](file:///c:/Users/inulf/OneDrive/Documents/Hanlaptop-2/backend/SoftDeletePolicy.md).
+## 7. Business Modules
+
+| Modul | File utama | Kelengkapan |
+| --- | --- | --- |
+| Dashboard & KPI | `src/pages/Dashboard.tsx`, `api/dashboard`, `api/inventory/kpi` | ✅ |
+| Inventory (stok, kondisi, konsinyasi) | `src/pages/Inventory.tsx`, `api/inventory/*`, `services/InventoryService` | ✅ |
+| Digital Passport (Serial Number) | `src/pages/DigitalPassport.tsx`, `lib/digital-passport.ts`, `api/inventory/passports/*` | ✅ |
+| QC & Stock Opname | `api/inventory/[id]/qc`, `api/inventory/opname/*`, `QCDetailForm.tsx` | ✅ |
+| Stock Transfer antar cabang | `src/pages/StockTransfer.tsx`, `api/inventory/transfers/*` | ✅ (pakai approval) |
+| Transaksi / POS | `src/pages/Transactions.tsx`, `api/transactions/*`, `services/TransactionService` | ✅ (inti) |
+| Retur & Tukar Tambah/Buyback | `api/transactions/[id]/return`, `api/transactions/trade-in-buyback` | ✅ |
+| Service Order | `src/pages/Services.tsx`, `api/services/*` | ✅ |
+| Warranty | `api/warranty/*`, `api/warranty-claims/*` | ✅ |
+| Accounting (COA, ledger, laporan) | `src/pages/Reports.tsx`, `api/accounting/*`, `services/AccountingService`, `PeriodClosingService` | ✅ |
+| Piutang / Hutang | `src/pages/Piutang.tsx`, `Hutang.tsx`, `api/consignment/*` | ✅ |
+| Reconciliation (bank) | `src/pages/Reconciliation.tsx`, `api/financials/reconciliation/*` | ✅ |
+| CRM (customer, poin, reminder, lead) | `src/pages/CrmManagement.tsx`, `api/crm/*`, `api/customers/*` | ✅ |
+| Supplier | `src/pages/Suppliers.tsx`, `api/suppliers/*` | ✅ |
+| HR (karyawan, payroll, absensi, kasbon, komisi) | `src/pages/Payroll.tsx`, `api/employees/*`, `api/payrolls/*`, `api/technicians/*` | ✅ |
+| Procurement (requisition) | `src/pages/Procurement.tsx`, `api/procurement/*` | ✅ |
+| Approvals workflow | `src/pages/Approvals.tsx`, `api/approvals/*`, `lib/workflow.ts` | ✅ |
+| Shift Kasir | `ShiftModal.tsx`, `api/shifts/*` | ✅ |
+| User & Store Management | `src/pages/Settings.tsx`, `api/users/*`, `api/stores/*` | ✅ (owner) |
+| Audit Logs | `src/pages/AuditLogs.tsx`, `api/logs/*` | ✅ |
+| Settings | `src/pages/Settings.tsx`, `api/settings/*` | ✅ |
+| AI Features (import nota, pricing, buyback) | `AIPricingWidget.tsx`, `api/inventory/import-ai`, `api/ai/pricing`, `api/public/buyback/estimate` | ✅ |
+| Public (katalog, nota, booking servis) | `src/pages/Public*.tsx`, `api/public/*` | ✅ (tanpa auth) |
+
+Detail keterhubungan antar modul → [ARCHITECTURE.md](ARCHITECTURE.md).
+
+---
+
+## 8. Business Rules (ringkas)
+
+Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
+
+- **Penjualan** mengurangi stok (aman-konkuren), membuat jurnal double-entry (Penjualan/HPP/Persediaan/Kas/Piutang), memproses SN → passport `SOLD`, dan menangani konsinyasi — semuanya atomik.
+- **Item `IN_INSPECTION` tidak boleh dijual.** Item `tracksSerialNumber` wajib jumlah SN = kuantitas.
+- **Pembelian Stok** memakai **HPP rata-rata bergerak** (moving weighted average).
+- **HPP** = `costPrice × quantity`.
+- **DP/Piutang:** `paymentStatus === "Belum Lunas"` → sisa jadi Piutang Usaha.
+- **Invoice** `INV/YYYY/MM/XXX`, sekuensial per store per bulan.
+- **Kasir** wajib buka **shift** dulu (bila `enableCashierShift`) & harus pilih store spesifik (bukan `"all"`).
+- **Markdown** harga turun membuat jurnal "Beban Penurunan Nilai Persediaan".
+- **Passport lifecycle:** PROCURED → INBOUND_QC → READY_FOR_SALE → RESERVED → SOLD / UNDER_SERVICE / TRADED_IN / WRITTEN_OFF.
+- **Import nota AI** menyarankan harga jual = `costPrice × 1.25` (markup 25%).
+
+---
+
+## 9. Hal Penting yang WAJIB Diketahui Sebelum Mengubah Kode
+
+1. **basePath `/_/backend`** — jangan asumsikan backend di root. Frontend memanggil `/api`, Vite/Vercel yang me-rewrite.
+2. **Pola guard route:** guard mengembalikan `NextResponse` (error) **atau** hasil auth — selalu narrow dengan `instanceof NextResponse` sebelum memakai hasilnya.
+3. **Selalu filter `storeId`** pada query data milik store (isolasi tenant/IDOR). Ada e2e test yang menjaga ini — jangan sampai bocor antar-store.
+4. **ACID:** operasi yang menyentuh inventory **dan** accounting harus dalam satu `db.transaction()`. Logika ini hidup di `services/`, bukan di handler.
+5. **Jurnal via nama akun standar** (dipetakan `JournalMappingService`), jangan tulis kode akun manual.
+6. **Frontend pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate).
+7. **Ubah skema DB:** edit `backend/src/db/schema/*` dulu, lalu `npx drizzle-kit push`. Import tabel dari `@/db/schema` (barrel + relations).
+8. **Konvensi env DB ganda** (`DATABASE_URL` vs `TURSO_DATABASE_URL`) — hati-hati saat menyentuh koneksi DB (lihat ROADMAP, item Critical).
+9. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
+10. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
+11. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.
+12. Banyak **skrip one-off** di `backend/` & `backend/src/db/` dan **DB SQLite ter-commit** — jangan jadikan acuan; lihat ROADMAP untuk rencana pembersihan.
+
+---
+
+## 10. Referensi Dokumen
+- [ARCHITECTURE.md](ARCHITECTURE.md) — arsitektur, auth/authz, integrasi.
+- [BUSINESS_RULES.md](BUSINESS_RULES.md) — aturan bisnis dari kode.
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) — peta folder & schema.
+- [ROADMAP.md](ROADMAP.md) — security/performance review, technical debt, skor SaaS.
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md), [README.md](README.md), [DEPLOYMENT.md](DEPLOYMENT.md), [prd.md](prd.md) — dokumen lama/pendukung (sebagian nama env sudah stale).
