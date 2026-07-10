@@ -47,10 +47,13 @@ export async function GET() {
 
   // 2. Environment Variables Check
   const requiredEnvVars = [
-    "TURSO_DATABASE_URL",
     "BETTER_AUTH_SECRET",
   ];
   const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
+  // Database URL may be provided under either the DATABASE_* or legacy TURSO_* name.
+  if (!process.env.DATABASE_URL && !process.env.TURSO_DATABASE_URL) {
+    missingVars.push("DATABASE_URL (or TURSO_DATABASE_URL)");
+  }
   if (missingVars.length > 0) {
     checks.push({
       name: "environment",

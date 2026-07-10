@@ -2,21 +2,22 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-export const dynamic = 'force-dynamic';
+// Bypass auth untuk health check
+export const dynamic = "force-dynamic";
 
 /**
  * Health Check Endpoint — /api/health
- * 
+ *
  * Returns system health status including:
  * - API availability
  * - Database connectivity
  * - Uptime and memory usage
- * 
+ *
  * Use with monitoring services (UptimeRobot, Vercel Monitoring, etc.)
  */
 export async function GET() {
     const start = Date.now();
-    
+
     // Check database connectivity
     let dbStatus = "healthy";
     let dbLatencyMs = 0;
@@ -32,7 +33,8 @@ export async function GET() {
     const memUsage = process.memoryUsage();
     const isHealthy = dbStatus === "healthy";
 
-    return NextResponse.json({
+    // Return JSON directly without going through auth
+    return new NextResponse(JSON.stringify({
         status: isHealthy ? "healthy" : "degraded",
         timestamp: new Date().toISOString(),
         version: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || "dev",
@@ -52,5 +54,11 @@ export async function GET() {
             heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
             rssMB: Math.round(memUsage.rss / 1024 / 1024),
         },
-    }, { status: isHealthy ? 200 : 503 });
+    }), {
+        status: isHealthy ? 200 : 503,
+        headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+        }
+    });
 }

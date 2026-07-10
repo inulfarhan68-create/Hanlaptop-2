@@ -15,19 +15,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stores } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { verifyCronRequest } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes max
 
 export async function GET(request: Request) {
-    // Verify cron secret if configured
-    const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret) {
-        const authHeader = request.headers.get("authorization");
-        if (authHeader !== `Bearer ${cronSecret}`) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-    }
+    // Verify cron secret (fail-closed in production)
+    const denied = verifyCronRequest(request);
+    if (denied) return denied;
 
     const startTime = Date.now();
     console.log("🚀 [CRON] Starting automated backup...");
