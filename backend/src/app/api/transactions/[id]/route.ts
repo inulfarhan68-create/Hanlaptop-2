@@ -28,7 +28,7 @@ function createJournalEntry(storeId: string, transactionId: string, accountName:
  */
 async function verifyTransactionAccess(authResult: any, transactionId: string) {
     // Owner (global) can access all transactions
-    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+    if (authResult.user.role === "owner" || authResult.storeId === "all") {
         const tx = await db.query.transactions.findFirst({
             where: eq(transactions.id, transactionId)
         });

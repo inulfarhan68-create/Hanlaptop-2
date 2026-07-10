@@ -69,7 +69,7 @@ export async function POST(request: Request) {
             )
         });
 
-        const isKasir = authResult.storeRole === "kasir" || (authResult.user as any).role === "kasir";
+        const isKasir = authResult.storeRole === "kasir" || authResult.user.role === "kasir";
         if (isShiftEnabled && isKasir && !activeShift) {
             return NextResponse.json({ error: "Anda harus membuka shift kasir terlebih dahulu sebelum memproses pencairan komisi" }, { status: 400 });
         }

@@ -47,7 +47,7 @@ export async function POST(
 
         // 2. Auth Check: Only Owner or Manager from the target store can approve
         const isAuthorized = 
-            (authResult.user as any).role === "owner" || 
+            authResult.user.role === "owner" || 
             authResult.storeRole === "owner" ||
             (authResult.storeId === transfer.targetStoreId && authResult.storeRole === "manager");
 

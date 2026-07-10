@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 async function verifyServiceOrderAccess(authResult: any, serviceOrderId: string) {
     // Owner (global) can access all service orders
-    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+    if (authResult.user.role === "owner" || authResult.storeId === "all") {
         const serviceOrder = await db.query.serviceOrders.findFirst({
             where: eq(serviceOrders.id, serviceOrderId)
         });
@@ -151,7 +151,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 )
             });
 
-            const isKasir = authResult.storeRole === "kasir" || (authResult.user as any).role === "kasir";
+            const isKasir = authResult.storeRole === "kasir" || authResult.user.role === "kasir";
             if (isShiftEnabled && isKasir && !activeShift) {
                 return NextResponse.json({ error: "Anda harus membuka shift kasir terlebih dahulu sebelum menyelesaikan pembayaran servis" }, { status: 400 });
             }

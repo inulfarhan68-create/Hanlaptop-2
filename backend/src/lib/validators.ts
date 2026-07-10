@@ -68,6 +68,11 @@ export const transactionSchema = z.object({
     items: z.array(transactionItemSchema).optional().default([]),
 });
 
+/** Validated transaction payload — the output type of {@link transactionSchema}. */
+export type TransactionInput = z.infer<typeof transactionSchema>;
+/** Validated single line-item — the output type of {@link transactionItemSchema}. */
+export type TransactionItemInput = z.infer<typeof transactionItemSchema>;
+
 // 4. Customer Validation Schema
 export const customerSchema = z.object({
     name: z.string().min(1, "Nama pelanggan wajib diisi"),

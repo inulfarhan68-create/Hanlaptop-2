@@ -31,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             authResult.storeRole !== "owner" &&
             authResult.storeRole !== "manager" &&
             authResult.storeRole !== "investor" &&
-            (authResult.user as any).role !== "owner"
+            authResult.user.role !== "owner"
         ) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }

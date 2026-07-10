@@ -39,8 +39,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (status === "APPROVED" || status === "REJECTED") {
             const isOwnerOrManager = authResult.storeRole === "owner" ||
                                      authResult.storeRole === "manager" ||
-                                     (authResult.user as any).role === "owner" ||
-                                     (authResult.user as any).role === "manager";
+                                     authResult.user.role === "owner" ||
+                                     authResult.user.role === "manager";
             if (!isOwnerOrManager) {
                 return NextResponse.json({ error: "Hanya Owner atau Manager yang dapat menyetujui pengajuan pembelian." }, { status: 403 });
             }

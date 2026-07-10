@@ -141,7 +141,7 @@ export async function POST(
                 passportId: id,
                 fromStatus: passport.status,
                 toStatus: passport.status, // Status doesn't change on refurbishment
-                actorId: (authResult.user as any)?.id || null,
+                actorId: authResult.user?.id || null,
                 referenceId: refurbishment.id,
                 notes: logNotes
             });

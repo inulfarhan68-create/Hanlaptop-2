@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     // Verify Owner or Manager role
     const isOwnerOrManager = authResult.storeRole === "owner" || 
                              authResult.storeRole === "manager" || 
-                             (authResult.user as any).role === "owner" || 
-                             (authResult.user as any).role === "manager";
+                             authResult.user.role === "owner" || 
+                             authResult.user.role === "manager";
 
     if (!isOwnerOrManager) {
         return NextResponse.json({ error: "Hanya Owner atau Manager yang memiliki akses ini." }, { status: 403 });
@@ -113,8 +113,8 @@ export async function DELETE(request: Request) {
 
     const isOwnerOrManager = authResult.storeRole === "owner" || 
                              authResult.storeRole === "manager" || 
-                             (authResult.user as any).role === "owner" || 
-                             (authResult.user as any).role === "manager";
+                             authResult.user.role === "owner" || 
+                             authResult.user.role === "manager";
 
     if (!isOwnerOrManager) {
         return NextResponse.json({ error: "Hanya Owner atau Manager yang memiliki akses ini." }, { status: 403 });

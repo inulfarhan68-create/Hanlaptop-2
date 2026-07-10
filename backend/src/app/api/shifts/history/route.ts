@@ -22,7 +22,7 @@ export async function GET() {
             authResult.storeRole === "owner" || 
             authResult.storeRole === "manager" || 
             authResult.storeRole === "investor" || 
-            (authResult.user as any).role === "owner"
+            authResult.user.role === "owner"
         ) {
             shifts = await db.query.cashierShifts.findMany({
                 where: eq(cashierShifts.storeId, authResult.storeId),

@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
  */
 async function verifyWarrantyClaimAccess(authResult: any, claimId: string) {
     // Owner (global) can access all claims
-    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+    if (authResult.user.role === "owner" || authResult.storeId === "all") {
         const claim = await db.query.warrantyClaims.findFirst({
             where: eq(warrantyClaims.id, claimId)
         });
