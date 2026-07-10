@@ -50,6 +50,12 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        run: npm test
+
+      - name: Integration tests
+        run: npm run test:integration
+
       - name: Build backend
         run: npm run build
         env:
