@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { journalEntries, transactions, inventory, transactionItems, warrantyClaims } from "@/db/schema";
-import { count, and, gte, lte, desc, eq, sum } from "drizzle-orm";
+import { count, and, gte, lte, desc, eq, sum, isNull } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
 import { withActiveTransactions, withActiveJournalEntries } from "@/db/query-helpers";
 
@@ -136,7 +136,11 @@ export async function GET(request: Request) {
 
         const storeCond = authResult.storeId !== "all" ? eq(journalEntries.storeId, authResult.storeId) : undefined;
         const txStoreCond = authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined;
-        const invStoreCond = authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined;
+        // Exclude soft-deleted items — otherwise deleted stock still counts toward
+        // "Aset Persediaan" / total inventory value on the dashboard.
+        const invStoreCond = authResult.storeId !== "all"
+            ? and(eq(inventory.storeId, authResult.storeId), isNull(inventory.deletedAt))
+            : isNull(inventory.deletedAt);
 
         const { prevFrom, prevTo } = getPreviousPeriod(from, to);
         
