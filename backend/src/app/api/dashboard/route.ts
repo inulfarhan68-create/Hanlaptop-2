@@ -308,10 +308,12 @@ export async function GET(request: Request) {
             const key = `${d.getFullYear()}-${d.getMonth()}`;
             if (monthlyDataMap.has(key)) {
                 const data = monthlyDataMap.get(key);
-                if (entry.accountName === "Pendapatan") {
-                    data.sales += (entry.credit - entry.debit);
-                } else if (entry.accountName === "Pendapatan Servis") {
-                    data.service += (entry.credit - entry.debit);
+                if (entry.accountName.includes("Pendapatan") || entry.accountName.includes("Penjualan")) {
+                    if (entry.accountName === "Pendapatan Servis" || entry.accountName.includes("Servis") || entry.accountName.includes("Service")) {
+                        data.service += (entry.credit - entry.debit);
+                    } else {
+                        data.sales += (entry.credit - entry.debit);
+                    }
                 } else if (entry.accountName.includes("Beban")) {
                     data.expense += (entry.debit - entry.credit);
                 } else if (entry.accountName.startsWith("HPP")) {
