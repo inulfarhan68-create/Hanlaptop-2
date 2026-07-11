@@ -14,6 +14,8 @@ Rencana migrasi **database dari SQLite/Turso → Supabase (Postgres)**, dengan *
 2. Set keduanya di `.env.local` (dev) dan Vercel (prod).
 
 > ⚠️ **Gotcha #1 (paling sering bikin gagal):** di serverless **wajib** pakai pooler transaction mode (6543). Koneksi langsung (5432) akan menghabiskan slot koneksi Postgres → API 500. Prepared statement tidak didukung di transaction pooling → klien harus `prepare: false`.
+>
+> ⚠️ **Gotcha #1b — koneksi DIRECT sering IPv6-only:** host `db.<ref>.supabase.co:5432` biasanya hanya IPv6. Di jaringan IPv4-only, `drizzle-kit push` akan **hang di "Pulling schema…" lalu gagal**. Solusi: pakai **session pooler** untuk migrasi — host pooler yang sama tapi **port 5432** (bukan 6543): `postgresql://postgres.<ref>:PW@aws-0-<region>.pooler.supabase.com:5432/postgres`. IPv4-compatible & mendukung prepared statement. (Inilah nilai `DIRECT_URL` yang dipakai saat migrasi ini berhasil.)
 
 ---
 
