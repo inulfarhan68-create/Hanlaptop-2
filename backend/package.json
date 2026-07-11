@@ -17,13 +17,11 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.12",
     "@google/genai": "^2.10.0",
-    "@libsql/client": "^0.17.3",
     "@sentry/nextjs": "^10.64.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.5.0",
     "better-auth": "^1.6.12",
-    "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "isomorphic-dompurify": "^3.18.0",
@@ -37,7 +35,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
