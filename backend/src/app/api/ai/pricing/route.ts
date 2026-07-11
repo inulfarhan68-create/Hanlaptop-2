@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { aiPricingLogs } from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
+import { checkRateLimitTier } from "@/lib/rate-limit";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
@@ -30,6 +31,10 @@ Follow these rules:
 `;
 
 export async function POST(request: Request) {
+    // AI calls hit a paid Gemini API — cap per-IP usage (30/hour) to prevent cost abuse.
+    const rateLimitResponse = await checkRateLimitTier(request, "ai");
+    if (rateLimitResponse) return rateLimitResponse;
+
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
