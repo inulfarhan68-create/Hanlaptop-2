@@ -57,7 +57,7 @@ Condition: ${parsed.data.condition}
 Additional Notes (Accessories, minus, etc.): ${parsed.data.additionalNotes || 'None'}`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: {
                 systemInstruction: AI_SYSTEM_PROMPT,

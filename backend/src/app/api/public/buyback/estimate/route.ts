@@ -62,7 +62,7 @@ IMPORTANT RULES:
 - Make sure the JSON output is valid and contains no other text or markdown block wrappers. Do not include markdown code block syntax (like \`\`\`json) in your raw output.`;
 
         // Call Gemini 2.5 Flash API with Search Grounding & Temperature 0.0 for consistency
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         
         const geminiResponse = await fetch(geminiUrl, {
             method: "POST",
