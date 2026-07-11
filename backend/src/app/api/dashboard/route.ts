@@ -427,7 +427,7 @@ export async function GET(request: Request) {
             d.margin = totalRev > 0 ? parseFloat(((grossProfit / totalRev) * 100).toFixed(1)) : 0;
             return {
                 name: d.name,
-                sales: Math.round((d.sales - d.aksesoris) / 1000),
+                sales: Math.round(d.sales / 1000),
                 service: Math.round(d.service / 1000),
                 aksesoris: Math.round(d.aksesoris / 1000),
                 totalRevenue: Math.round(totalRev / 1000),

@@ -258,7 +258,7 @@ export function AnalyticsTab({ data, formatCurrency }: AnalyticsTabProps) {
         <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle className="text-base">Revenue Overview</CardTitle>
-            <CardDescription>Monthly comparison of Sales (Laptop & Sparepart), Services, and Aksesoris</CardDescription>
+            <CardDescription>Perbandingan bulanan Sales (Laptop, Sparepart, Aksesoris) vs Service</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[260px] w-full">
@@ -268,9 +268,8 @@ export function AnalyticsTab({ data, formatCurrency }: AnalyticsTabProps) {
                   <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
                   <Tooltip cursor={{fill: 'hsl(var(--muted) / 0.5)'}} contentStyle={{backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px', fontSize: '12px'}} formatter={(v: any) => formatCurrency(Math.round(v * 1000))} />
-                  <Bar dataKey="sales" name="Sales (Lpt & Sprpt)" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="sales" name="Sales (Laptop, Sprpt, Aks)" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                   <Bar dataKey="service" name="Service" fill="hsl(var(--primary) / 0.4)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="aksesoris" name="Aksesoris" fill="#3b82f6" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

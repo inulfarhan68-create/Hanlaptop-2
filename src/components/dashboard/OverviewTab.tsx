@@ -129,7 +129,7 @@ export function OverviewTab({ data, inventoryStats, inventoryKpi, isOwner, forma
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} dy={5} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '11px', padding: '6px 10px' }} formatter={(v) => [`${v}k`, 'Sales']} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '11px', padding: '6px 10px' }} formatter={(v: any) => [`Rp ${(v * 1000).toLocaleString('id-ID')}`, 'Sales']} />
                       <Area type="monotone" dataKey="sales" stroke="#06b6d4" strokeWidth={2.5} fill="url(#heroGrad)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
