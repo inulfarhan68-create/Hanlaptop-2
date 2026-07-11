@@ -103,7 +103,7 @@ export async function middleware(request: NextRequest) {
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.public.blob.vercel-storage.com;
         font-src 'self' data:;
-        connect-src 'self' https://*.turso.io;
+        connect-src 'self' https://*.supabase.com;
         frame-ancestors 'none';
     `.replace(/\s{2,}/g, ' ').trim();
     

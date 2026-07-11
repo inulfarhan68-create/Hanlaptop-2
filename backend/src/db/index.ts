@@ -2,9 +2,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-// Supabase/Postgres connection. Accept the legacy TURSO_* name too during the
-// migration window, but the value must now be a Postgres URL.
-const connectionString = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL;
+// Supabase/Postgres connection via postgres-js.
+const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL (Postgres connection string) is required");
 }

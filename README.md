@@ -78,7 +78,7 @@ Sistem Manajemen Toko Komputer dengan fitur lengkap untuk UMKM Indonesia.
 - [x] ESLint Configuration
 
 ### Database
-- [x] SQLite (Turso)
+- [x] PostgreSQL (Supabase)
 - [x] Database Indexing for Performance
 - [x] Soft Delete Pattern
 - [x] Audit Trail
@@ -97,7 +97,7 @@ Sistem Manajemen Toko Komputer dengan fitur lengkap untuk UMKM Indonesia.
 |-------|------------|
 | Frontend | React + Vite + TypeScript |
 | Backend | Next.js (App Router) |
-| Database | SQLite + Turso |
+| Database | PostgreSQL (Supabase) |
 | Auth | Better Auth |
 | ORM | Drizzle |
 | UI | shadcn/ui |
@@ -113,7 +113,7 @@ Sistem Manajemen Toko Komputer dengan fitur lengkap untuk UMKM Indonesia.
 
 - Node.js 20+
 - npm or pnpm
-- Turso CLI (optional, for local DB)
+- Supabase project (or local PostgreSQL for dev)
 
 ### Installation
 
@@ -214,9 +214,10 @@ cd backend && node tests/smoke-test.js
 
 ### Required
 ```bash
-# Primary DB env names (the app also accepts the legacy TURSO_DATABASE_URL / TURSO_AUTH_TOKEN)
-DATABASE_URL=libsql://xxx.turso.io
-DATABASE_AUTH_TOKEN=xxx
+# Supabase Postgres connection (transaction pooler, port 6543)
+DATABASE_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
+# Direct connection for migrations (port 5432)
+DIRECT_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:5432/postgres
 BETTER_AUTH_SECRET=32-char-secret
 NODE_ENV=production
 ```

@@ -184,14 +184,14 @@ Verify all required environment variables are set:
 
 ```bash
 # Required for production
-echo $TURSO_DATABASE_URL
+echo $DATABASE_URL
 echo $BETTER_AUTH_SECRET
 echo $SENTRY_DSN
 echo $NODE_ENV  # Should be "production"
 ```
 
 ### Checklist
-- [ ] `TURSO_DATABASE_URL` is set
+- [ ] `DATABASE_URL` is set (Supabase Postgres pooler)
 - [ ] `BETTER_AUTH_SECRET` is set (32+ chars)
 - [ ] `SENTRY_DSN` is set (optional but recommended)
 - [ ] `NODE_ENV=production`

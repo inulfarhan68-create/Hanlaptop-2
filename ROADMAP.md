@@ -50,7 +50,7 @@ Detail per aspek di bawah.
 
 ### Sudah baik ✅
 - Route frontend **lazy-loaded** + **manual vendor chunks** (xlsx/recharts/framer-motion/jspdf/radix/icons).
-- SWR: `dedupingInterval`, `revalidateOnFocus: false` (hemat baca Turso).
+- SWR: `dedupingInterval`, `revalidateOnFocus: false` (hemat koneksi DB).
 - PWA: API `NetworkOnly` (tidak cache basi).
 - Index DB via `migrate-add-indexes.ts`; soft-delete lewat query-helper.
 - Transaksi DB atomik dengan pengurangan stok aman-konkuren.
@@ -70,7 +70,7 @@ Detail per aspek di bawah.
 
 ### 🔴 Critical
 1. ✔️ **SUDAH DIPERBAIKI** — **Rate limiter in-memory di lingkungan serverless.** Ditambahkan `lib/rate-limiter/redis-adapter.ts` (Upstash Redis, fixed-window, fail-open); `index.ts` memakai Redis bila `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` ada, jika tidak fallback ke LRU. *Tindak lanjut: set env Upstash di produksi agar adapter Redis aktif.*
-2. ✔️ **SUDAH DIPERBAIKI** — **Konvensi env DB ganda.** `db/index.ts` kini menerima `DATABASE_URL || TURSO_DATABASE_URL` dan `DATABASE_AUTH_TOKEN || TURSO_AUTH_TOKEN`; `health/ready` menerima keduanya. *Tindak lanjut: pilih satu konvensi kanonik lalu bersihkan sisanya di kemudian hari.*
+2. ✔️ **SUDAH DIPERBAIKI** — **Konvensi env DB.** Sekarang hanya `DATABASE_URL` (Supabase Postgres pooler) + `DIRECT_URL` (direct connection untuk migrasi). Legacy `TURSO_*` sudah dihapus.
 
 ### 🟠 High
 3. ✔️ **SEBAGIAN DIPERBAIKI** — **Sanitasi XSS lemah** (regex). `lib/sanitize.ts` kini menghapus blok `<script>`/`<style>` beserta isinya sebelum strip tag. *Catatan: tetap bukan pengganti sanitizer teruji; untuk keamanan penuh andalkan output-encoding React + pertimbangkan library server yang edge-safe.*
@@ -81,7 +81,7 @@ Detail per aspek di bawah.
 6. **Puluhan skrip one-off** bertebaran di `backend/` dan `backend/src/db/` (`inspect_*.js/ts`, `debug-*.ts`, `test-*.ts`, `fix-*.ts`, `migrate-*.ts`, `find_dbs_old.cjs`, dll.) — sebaiknya dipindah ke `backend/scripts/` dan didokumentasikan/dibersihkan. (`backend/`, `backend/src/db/`)
 7. **Typing longgar** — `data: any` di `TransactionService`, banyak `as any` untuk `user.role`/`storeRole`. Definisikan tipe `AuthResult` yang benar. (`services/`, `lib/auth-guard.ts`)
 8. **File besar / monolitik** — `AccountingService.ts` (1120), `validators.ts` (346), `TransactionService.ts` (489). Pertimbangkan pemecahan.
-9. **Dokumen env stale** — README menyebut `TURSO_DATABASE_URL` sedangkan kode utama pakai `DATABASE_URL`.
+9. ✔️ **SUDAH DIPERBAIKI** — **Dokumen env sudah diperbarui** — README, CLAUDE.md, DEPLOYMENT.md sekarang hanya menyebut `DATABASE_URL` (Supabase).
 10. **Folder `app/api/debug-db` kosong** — hapus bila tak dipakai. (`app/api/debug-db/`)
 
 ### 🟢 Low
@@ -96,7 +96,7 @@ Detail per aspek di bawah.
 | Dimensi | Status | Catatan |
 | --- | --- | --- |
 | Multi-tenancy | 🟢 Kuat | Store scoping + PBAC + tes isolasi. Model data siap multi-store/organisasi. |
-| Scalability | 🟠 Sedang | Turso/serverless bagus, tapi rate limiter in-memory & beberapa query full-fetch jadi penghambat. |
+| Scalability | 🟢 Baik | Supabase Postgres + serverless, tapi rate limiter in-memory & beberapa query full-fetch jadi penghambat. |
 | Maintainability | 🟠 Sedang | Service layer & validasi rapi; terkotori skrip one-off & `any`. |
 | Extensibility | 🟢 Baik | PBAC matrix, journal mapping, dan schema modular mudah diperluas. |
 | Observability | 🟢 Baik | Pino, request-id, Sentry, structured log. |

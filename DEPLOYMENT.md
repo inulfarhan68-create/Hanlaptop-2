@@ -12,7 +12,7 @@
    vercel login
    ```
 
-3. Turso database created and URL available
+3. Supabase project created with PostgreSQL database
 
 ---
 
@@ -21,9 +21,9 @@
 ### Required
 
 ```bash
-# Database
-TURSO_DATABASE_URL=libsql://your-database.turso.io
-TURSO_AUTH_TOKEN=turso_xxx
+# Database (Supabase Postgres)
+DATABASE_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:5432/postgres
 
 # Authentication
 BETTER_AUTH_SECRET=your-32-character-secret-key-here
@@ -92,8 +92,8 @@ cd backend
 vercel link
 
 # Set environment variables
-vercel env add TURSO_DATABASE_URL
-vercel env add TURSO_AUTH_TOKEN
+vercel env add DATABASE_URL
+vercel env add DIRECT_URL
 vercel env add BETTER_AUTH_SECRET
 # ... add other variables
 
@@ -243,7 +243,7 @@ curl -X POST https://staging.your-app.vercel.app/api/settings/backup/restore \
 
 ### "Connection refused" errors
 
-Check `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are correct.
+Check `DATABASE_URL` is correct and your Supabase project is running.
 
 ### "Better Auth" errors
 
@@ -264,7 +264,7 @@ In-memory rate limiting resets on serverless cold starts. For consistent limits 
 
 1. Check `/api/health/ready` for database latency
 2. Review `/api/health` memory usage
-3. Check Turso dashboard for slow queries
+3. Check Supabase dashboard for slow queries
 
 ---
 
@@ -285,5 +285,5 @@ Before going live:
 ## Support
 
 - Vercel Docs: [vercel.com/docs](https://vercel.com/docs)
-- Turso Docs: [turso.tech/docs](https://turso.tech/docs)
+- Supabase Docs: [supabase.com/docs](https://supabase.com/docs)
 - Sentry Docs: [sentry.io/docs](https://docs.sentry.io)

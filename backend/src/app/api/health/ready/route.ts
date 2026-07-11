@@ -50,9 +50,9 @@ export async function GET() {
     "BETTER_AUTH_SECRET",
   ];
   const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
-  // Database URL may be provided under either the DATABASE_* or legacy TURSO_* name.
-  if (!process.env.DATABASE_URL && !process.env.TURSO_DATABASE_URL) {
-    missingVars.push("DATABASE_URL (or TURSO_DATABASE_URL)");
+  // Database URL check
+  if (!process.env.DATABASE_URL) {
+    missingVars.push("DATABASE_URL");
   }
   if (missingVars.length > 0) {
     checks.push({

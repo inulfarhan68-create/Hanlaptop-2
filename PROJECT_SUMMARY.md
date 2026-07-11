@@ -38,8 +38,7 @@ Aplikasi ini menggunakan struktur monorepo lokal dengan pembagian yang jelas ant
 * **Framework:** Next.js 16 (App Router) sebagai backend service dan API layer.
 * **Database ORM:** Drizzle ORM & Kysely (query builder).
 * **Database Engines:**
-  * **Development:** SQLite (`local.db` atau `sqlite.db` di folder `/backend`).
-  * **Production:** PostgreSQL (menjamin kepatuhan prinsip ACID akuntansi).
+  * **Development & Production:** PostgreSQL (Supabase) — menjamin kepatuhan prinsip ACID akuntansi.
 * **Authentication:** Better-Auth dengan adapter Drizzle.
 * **Integrasi AI:** `@google/genai` untuk otomatisasi estimasi harga (*ai pricing*) dan parsing dokumen.
 * **Caching & Rate Limiter:** Upstash Redis & Upstash Ratelimit.
@@ -73,7 +72,7 @@ Hanlaptop-2/
 │   │   ├── app/api/              # REST API Routes (CRM, HR, Accounting, dll.)
 │   │   ├── db/                   # Database (Schema Drizzle, Seeds, Migrations)
 │   │   └── services/             # Logika bisnis & integrasi AI
-│   ├── local.db / sqlite.db      # SQLite database file untuk dev
+│   ├── .env.local                # Konfigurasi database Supabase (gitignored)
 │   └── package.json
 ├── src/                          # Frontend React SPA
 │   ├── components/               # Komponen UI modular per kategori bisnis
@@ -104,6 +103,6 @@ npm run dev
 ```
 
 ### Script Terkait Database (di folder `/backend`)
-* Sinkronisasi skema ke SQLite local: `npx drizzle-kit push`
+* Sinkronisasi skema ke Postgres: `npx drizzle-kit push`
 * Melakukan seeding data contoh/dummy: `npm run seed`
 * Memeriksa isi database local: `npx tsx src/db/check-db.ts`

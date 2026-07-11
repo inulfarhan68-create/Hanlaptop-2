@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
       }
     ]
   },
-  serverExternalPackages: ["better-auth", "kysely", "@better-auth/core", "better-sqlite3", "@libsql/client", "drizzle-orm", "@better-auth/kysely-adapter"]
+  serverExternalPackages: ["better-auth", "kysely", "@better-auth/core", "drizzle-orm", "@better-auth/kysely-adapter"]
 };
 
 export default nextConfig;

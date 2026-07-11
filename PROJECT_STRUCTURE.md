@@ -101,7 +101,7 @@ backend/
 │   │   ├── backup-service.ts  # Backup ke S3/R2/local
 │   │   ├── logger.ts (Pino), request-id.ts, sentry.ts
 │   ├── db/
-│   │   ├── index.ts           # Klien Drizzle tunggal (libsql/Turso, fallback file lokal)
+│   │   ├── index.ts           # Klien Drizzle tunggal (postgres-js/Supabase)
 │   │   ├── schema.ts          # Barrel: re-export semua schema/* + definisi relations
 │   │   ├── schema/            # Definisi tabel per modul (lihat tabel di bawah)
 │   │   ├── query-helpers.ts   # withActiveTransactions dll. (helper soft-delete)

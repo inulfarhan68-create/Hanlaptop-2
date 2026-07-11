@@ -69,7 +69,7 @@ function App() {
       <SWRConfig 
         value={{ 
           fetcher: swrFetcher,
-          revalidateOnFocus: false, // MATIKAN auto-refresh saat pindah tab (Hemat Turso Reads)
+          revalidateOnFocus: false, // Hemat koneksi DB — hindari refetch saat pindah tab
           revalidateOnReconnect: true,
           dedupingInterval: 5000,
           onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {

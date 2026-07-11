@@ -23,7 +23,7 @@ Frontend memanggil backend lewat prefix `/api`. **Backend disajikan di basePath 
 Browser ──/api/*──▶ Vite dev server (5173)
                      └─ proxy ke ──▶ http://localhost:3000/_/backend/api/*  (Next.js)
                                       └─ middleware.ts (rate limit, CSRF, headers)
-                                         └─ route handler ── auth-guard ── service ── Drizzle ── SQLite/Turso
+                                         └─ route handler ── auth-guard ── service ── Drizzle ── Supabase (Postgres)
 ```
 
 ### Alur request (produksi — Vercel, `vercel.json`)
@@ -48,7 +48,7 @@ Browser ──/api/*──▶ Vite dev server (5173)
   - `credentials: 'include'` (cookie session),
   - header `x-store-id` (dari `localStorage.selectedStoreId`, default `"all"`),
   - `Content-Type: application/json` untuk mutasi (kecuali FormData).
-- Config SWR global (`src/App.tsx`): `revalidateOnFocus: false` (hemat baca Turso), `dedupingInterval: 5000`, tidak retry pada 401/403.
+- Config SWR global (`src/App.tsx`): `revalidateOnFocus: false` (hemat koneksi DB), `dedupingInterval: 5000`, tidak retry pada 401/403.
 
 ### Sinkronisasi antar-tab
 - Setiap mutasi (`POST/PUT/PATCH/DELETE`) yang sukses menyiarkan pesan lewat `BroadcastChannel` (`src/lib/broadcast.ts`).
@@ -107,9 +107,8 @@ Logika bisnis yang menyentuh banyak tabel **tidak** ditulis inline di route — 
 Aturan ACID: operasi yang mengubah **inventory + accounting bersamaan wajib** dalam satu blok `db.transaction(async (tx) => { ... })`.
 
 ### Database
-- Klien tunggal di `backend/src/db/index.ts` (di-cache di `globalThis` untuk hot-reload). Memakai `@libsql/client` + `drizzle-orm/libsql`.
-- Env `DATABASE_URL` (`libsql://…` Turso) + `DATABASE_AUTH_TOKEN`. Bila bukan URL libsql → fallback file lokal `data/han-laptop.db`.
-- **Catatan:** ada dua konvensi env yang bercampur di kode — `DATABASE_URL`/`DATABASE_AUTH_TOKEN` (dipakai `db/index.ts`) dan `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (dipakai `migrate-add-indexes.ts`, `migrate-prd`, health `ready`). Perlu distandarkan.
+- Klien tunggal di `backend/src/db/index.ts` (di-cache di `globalThis` untuk hot-reload). Memakai `postgres` (postgres-js) + `drizzle-orm/postgres-js`.
+- Env `DATABASE_URL` (Supabase Postgres pooler, port 6543). `DIRECT_URL` untuk migrasi via `drizzle-kit push` (port 5432).
 - `backend/src/db/schema.ts` adalah barrel: re-export semua `schema/*` + definisi Drizzle `relations`. Import tabel dari `@/db/schema`.
 - Soft delete: query dibungkus helper seperti `withActiveTransactions` (`db/query-helpers.ts`).
 
@@ -117,7 +116,7 @@ Aturan ACID: operasi yang mengubah **inventory + accounting bersamaan wajib** da
 
 ## 4. Authentication Flow
 
-Menggunakan **Better-Auth** (email + password), adapter Drizzle (provider `sqlite`).
+Menggunakan **Better-Auth** (email + password), adapter Drizzle (provider `pg`).
 
 ```
 1. User submit login (frontend authClient.signIn → POST /api/auth/...)
@@ -164,7 +163,7 @@ Contoh di `transactions/route.ts`: bila `storeRole === "kasir"`, `costPrice` ite
 
 | Layanan | Kegunaan | Env terkait |
 | --- | --- | --- |
-| Turso (libSQL) | Database produksi | `DATABASE_URL`, `DATABASE_AUTH_TOKEN` |
+| Supabase (Postgres) | Database produksi & dev | `DATABASE_URL`, `DIRECT_URL` |
 | Google Gemini (`@google/genai`, `gemini-2.5-flash`) | Parsing nota/invoice (import-ai), estimasi harga (ai/pricing), estimasi buyback | `GEMINI_API_KEY` |
 | Vercel Blob | Upload gambar/file (`app/api/upload`) | `BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID` |
 | Sentry | Error monitoring (frontend + backend) | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` |

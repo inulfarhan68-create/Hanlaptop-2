@@ -39,9 +39,9 @@ Struktur folder lengkap → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
 **Frontend:** React 19, Vite 8, TypeScript 6, React Router v7 (route lazy di `src/App.tsx`), Tailwind CSS v4 + Radix UI (pola shadcn), SWR (data fetching), Recharts, Lucide, `jspdf`, `xlsx`, `framer-motion`, `sonner`, `better-auth/react` (client), `vite-plugin-pwa`.
 
-**Backend:** Next.js 16 (App Router), Drizzle ORM + `@libsql/client` (Turso/SQLite), Kysely (via Better-Auth), Better-Auth (email+password), Zod (validasi), `@google/genai` (Gemini `gemini-2.5-flash`), Vercel Blob (upload), Pino (log), Sentry, Upstash Redis/Ratelimit (dependency; **rate limiter aktif masih LRU in-memory**).
+**Backend:** Next.js 16 (App Router), Drizzle ORM + `postgres` (postgres-js, Supabase/Postgres), Kysely (via Better-Auth), Better-Auth (email+password), Zod (validasi), `@google/genai` (Gemini `gemini-2.5-flash`), Vercel Blob (upload), Pino (log), Sentry, Upstash Redis/Ratelimit (dependency; **rate limiter aktif masih LRU in-memory**).
 
-**Database:** SQLite lokal saat dev, Turso (libSQL) di produksi. Skema Drizzle di `backend/src/db/schema/`.
+**Database:** PostgreSQL (Supabase) untuk dev & produksi. Skema Drizzle di `backend/src/db/schema/`.
 
 **Deployment:** Vercel (dual-service frontend+backend, region `hnd1`), Vercel Cron untuk backup/cleanup.
 
@@ -91,7 +91,7 @@ npx playwright test tests/e2e/multi-tenant.spec.ts  # satu file (isolasi tenant)
 
 > Isi/value TIDAK ditampilkan. Set di `.env.local` (dev) / Vercel (prod).
 
-**Database:** `DATABASE_URL`, `DATABASE_AUTH_TOKEN` — dipakai `db/index.ts`. `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` — dipakai sebagian skrip/health (⚠️ konvensi ganda, perlu distandarkan).
+**Database:** `DATABASE_URL` (Supabase pooler, port 6543) — dipakai `db/index.ts`. `DIRECT_URL` (Supabase direct, port 5432) — dipakai `drizzle-kit push`.
 
 **Auth:** `BETTER_AUTH_SECRET` (wajib di runtime produksi), `BETTER_AUTH_URL`, `FRONTEND_URL`, `VERCEL_URL`.
 
@@ -187,11 +187,9 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 5. **Jurnal via nama akun standar** (dipetakan `JournalMappingService`), jangan tulis kode akun manual.
 6. **Frontend pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate).
 7. **Ubah skema DB:** edit `backend/src/db/schema/*` dulu, lalu `npx drizzle-kit push`. Import tabel dari `@/db/schema` (barrel + relations).
-8. **Konvensi env DB ganda** (`DATABASE_URL` vs `TURSO_DATABASE_URL`) — hati-hati saat menyentuh koneksi DB (lihat ROADMAP, item Critical).
-9. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
-10. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
-11. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.
-12. Banyak **skrip one-off** di `backend/` & `backend/src/db/` dan **DB SQLite ter-commit** — jangan jadikan acuan; lihat ROADMAP untuk rencana pembersihan.
+8. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
+9. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
+10. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.
 
 ---
 
