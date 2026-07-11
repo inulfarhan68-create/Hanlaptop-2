@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 
 // Point @/db at the throwaway SQLite file built by the global setup, instead of
 // the real local data/han-laptop.db. Must be a real Drizzle instance because
@@ -31,19 +31,29 @@ const STORE_ID = "store-test-1";
 const USER_ID = "user-test-1";
 const ITEM_ID = "inv-test-1";
 
-/** Wipe the tables each test writes to (parents are kept — FKs stay valid). */
-async function resetTables() {
-    await db.delete(journalEntries);
-    await db.delete(transactionItems);
-    await db.delete(transactions);
-    await db.delete(inventory);
+/**
+ * Delete ONLY this test's data (scoped to the test store/org/user ids).
+ * Deleting the store cascades to its inventory/transactions/journal_entries/items.
+ * Scoped deletes keep the suite safe to run against a shared/populated database.
+ */
+async function cleanupTestData() {
+    await db.delete(stores).where(eq(stores.id, STORE_ID));
+    await db.delete(organizations).where(eq(organizations.id, ORG_ID));
+    await db.delete(user).where(eq(user.id, USER_ID));
+}
+
+/** Reset only the test store's operational rows between tests (scoped). */
+async function resetStoreTables() {
+    // Deleting the store's transactions cascades to journal_entries + transaction_items.
+    await db.delete(transactions).where(eq(transactions.storeId, STORE_ID));
+    await db.delete(inventory).where(eq(inventory.storeId, STORE_ID));
 }
 
 describe("TransactionService.createTransaction — Penjualan (sale)", () => {
     // Seed the FK parent chain once. FK enforcement stays ON, so this also
     // verifies the service only writes valid store/user references.
     beforeAll(async () => {
-        await db.delete(organizations).catch(() => {});
+        await cleanupTestData(); // clear any leftovers from a prior run (scoped)
         await db.insert(organizations).values({ id: ORG_ID, name: "Test Org" });
         await db.insert(stores).values({ id: STORE_ID, organizationId: ORG_ID, name: "Test Store" });
         await db.insert(user).values({
@@ -56,8 +66,12 @@ describe("TransactionService.createTransaction — Penjualan (sale)", () => {
         });
     });
 
+    afterAll(async () => {
+        await cleanupTestData(); // leave no test data behind (safe on shared DBs)
+    });
+
     beforeEach(async () => {
-        await resetTables();
+        await resetStoreTables();
         await db.insert(inventory).values({
             id: ITEM_ID,
             storeId: STORE_ID,
