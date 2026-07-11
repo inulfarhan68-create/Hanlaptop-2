@@ -79,11 +79,6 @@ IMPORTANT RULES:
                         ]
                     }
                 ],
-                tools: [
-                    {
-                        googleSearch: {}
-                    }
-                ],
                 generationConfig: {
                     temperature: 0.0
                 }
