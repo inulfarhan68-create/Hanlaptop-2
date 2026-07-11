@@ -1,40 +1,40 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, timestamp, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { user } from '@/db/schema/users';
 
-export const organizations = sqliteTable("organizations", {
+export const organizations = pgTable("organizations", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     name: text("name").notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 });
 
-export const stores = sqliteTable("stores", {
+export const stores = pgTable("stores", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: 'cascade' }),
     name: text("name").notNull(),
     address: text("address"),
     phone: text("phone"),
     slug: text("slug"),
-    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     slugIdx: uniqueIndex("store_slug_idx").on(table.slug),
 }));
 
-export const userStoreAccess = sqliteTable("user_store_access", {
+export const userStoreAccess = pgTable("user_store_access", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: 'cascade' }),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     role: text("role").notNull().default('kasir'),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     userIdIdx: index("user_store_access_user_idx").on(table.userId),
     storeIdIdx: index("user_store_access_store_idx").on(table.storeId),
 }));
 
-export const storeSettings = sqliteTable("store_settings", {
+export const storeSettings = pgTable("store_settings", {
     storeId: text("store_id").primaryKey().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     storeName: text("store_name").notNull().default("HanLaptop"),
     storeAddress: text("store_address").notNull().default("Jl. Komputer Raya No.123"),
@@ -51,13 +51,13 @@ export const storeSettings = sqliteTable("store_settings", {
     waTemplateServiceSelesai: text("wa_template_service_selesai"),
     waTemplateServiceBatal: text("wa_template_service_batal"),
     storeBanks: text("store_banks"),
-    enableCashierShift: integer("enable_cashier_shift", { mode: "boolean" }).notNull().default(true),
+    enableCashierShift: boolean("enable_cashier_shift").notNull().default(true),
     expenseCategories: text("expense_categories"),
     serviceIssues: text("service_issues"),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 });
 
-export const activityLogs = sqliteTable("activity_logs", {
+export const activityLogs = pgTable("activity_logs", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     userId: text("user_id").notNull(),
@@ -66,7 +66,7 @@ export const activityLogs = sqliteTable("activity_logs", {
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id"),
     details: text("details"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("activity_logs_store_id_idx").on(table.storeId),
 }));

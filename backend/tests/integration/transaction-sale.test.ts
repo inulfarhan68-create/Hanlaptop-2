@@ -4,10 +4,11 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 // the real local data/han-laptop.db. Must be a real Drizzle instance because
 // TransactionService uses db.transaction(), db.query.*, insert/select/update.
 vi.mock("@/db", async () => {
-    const { createClient } = await import("@libsql/client");
-    const { drizzle } = await import("drizzle-orm/libsql");
+    const postgres = (await import("postgres")).default;
+    const { drizzle } = await import("drizzle-orm/postgres-js");
     const schema = await import("@/db/schema");
-    const client = createClient({ url: "file:./data/vitest.db" });
+    const url = process.env.TEST_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/postgres";
+    const client = postgres(url, { max: 1 });
     return { db: drizzle(client, { schema }) };
 });
 

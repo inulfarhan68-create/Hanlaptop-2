@@ -36,7 +36,7 @@ if (!authSecret && process.env.NODE_ENV === 'production') {
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
-        provider: "sqlite",
+        provider: "pg",
         schema: {
             user: schema.user,
             session: schema.session,

@@ -1,53 +1,53 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, doublePrecision, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { stores } from '@/db/schema/store';
 import { user } from '@/db/schema/users';
 import { serviceOrders } from '@/db/schema/crm';
 import { transactions } from '@/db/schema/transactions';
 
-export const technicians = sqliteTable("technicians", {
+export const technicians = pgTable("technicians", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     name: text("name").notNull(),
     phone: text("phone"),
-    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    isActive: boolean('is_active').notNull().default(true),
     commissionType: text("commission_type").notNull().default('percentage'),
-    commissionValue: real("commission_value").notNull().default(0),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    commissionValue: doublePrecision("commission_value").notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("technician_store_id_idx").on(table.storeId),
 }));
 
-export const technicianCommissions = sqliteTable("technician_commissions", {
+export const technicianCommissions = pgTable("technician_commissions", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     technicianId: text("technician_id").notNull().references(() => technicians.id, { onDelete: 'cascade' }),
     serviceOrderId: text("service_order_id").notNull().references(() => serviceOrders.id, { onDelete: 'cascade' }),
     transactionId: text("transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
-    serviceAmount: real("service_amount").notNull().default(0),
-    partsAmount: real("parts_amount").notNull().default(0),
-    commissionAmount: real("commission_amount").notNull().default(0),
+    serviceAmount: doublePrecision("service_amount").notNull().default(0),
+    partsAmount: doublePrecision("parts_amount").notNull().default(0),
+    commissionAmount: doublePrecision("commission_amount").notNull().default(0),
     status: text("status").notNull().default('UNPAID'),
-    paidAt: integer('paid_at', { mode: 'timestamp' }),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
     payoutTransactionId: text("payout_transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("technician_commission_store_id_idx").on(table.storeId),
     technicianIdIdx: index("technician_commission_tech_id_idx").on(table.technicianId),
     serviceOrderIdIdx: index("technician_commission_so_id_idx").on(table.serviceOrderId),
 }));
 
-export const cashierShifts = sqliteTable("cashier_shifts", {
+export const cashierShifts = pgTable("cashier_shifts", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: 'cascade' }),
     userName: text("user_name").notNull(),
-    openedAt: integer('opened_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    closedAt: integer('closed_at', { mode: 'timestamp' }),
-    openingBalance: real("opening_balance").notNull().default(0),
-    closingBalance: real("closing_balance"),
-    expectedBalance: real("expected_balance"),
-    difference: real("difference"),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    openingBalance: doublePrecision("opening_balance").notNull().default(0),
+    closingBalance: doublePrecision("closing_balance"),
+    expectedBalance: doublePrecision("expected_balance"),
+    difference: doublePrecision("difference"),
     status: text("status").notNull().default("OPEN"),
     notes: text("notes"),
 }, (table) => ({
@@ -55,7 +55,7 @@ export const cashierShifts = sqliteTable("cashier_shifts", {
     userIdIdx: index("cashier_shifts_user_id_idx").on(table.userId),
 }));
 
-export const employees = sqliteTable("employees", {
+export const employees = pgTable("employees", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     name: text("name").notNull(),
@@ -64,88 +64,88 @@ export const employees = sqliteTable("employees", {
     role: text("role").notNull().default('Lainnya'),
     userId: text("user_id").references(() => user.id, { onDelete: 'set null' }),
     technicianId: text("technician_id").references(() => technicians.id, { onDelete: 'set null' }),
-    basicSalary: real("basic_salary").notNull().default(0),
-    allowance: real("allowance").notNull().default(0),
-    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    basicSalary: doublePrecision("basic_salary").notNull().default(0),
+    allowance: doublePrecision("allowance").notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("employees_store_id_idx").on(table.storeId),
     userIdIdx: index("employees_user_id_idx").on(table.userId),
     techIdIdx: index("employees_tech_id_idx").on(table.technicianId),
 }));
 
-export const employeeLoans = sqliteTable("employee_loans", {
+export const employeeLoans = pgTable("employee_loans", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     employeeId: text("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
-    amount: real("amount").notNull().default(0),
-    paidAmount: real("paid_amount").notNull().default(0),
+    amount: doublePrecision("amount").notNull().default(0),
+    paidAmount: doublePrecision("paid_amount").notNull().default(0),
     status: text("status").notNull().default('UNPAID'),
     description: text("description"),
-    loanDate: integer('loan_date', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    loanDate: timestamp('loan_date', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("employee_loans_store_id_idx").on(table.storeId),
     employeeIdIdx: index("employee_loans_employee_id_idx").on(table.employeeId),
 }));
 
-export const payrolls = sqliteTable("payrolls", {
+export const payrolls = pgTable("payrolls", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     employeeId: text("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
     period: text("period").notNull(),
-    basicSalary: real("basic_salary").notNull().default(0),
-    allowance: real("allowance").notNull().default(0),
-    commissions: real("commissions").notNull().default(0),
-    overtime: real("overtime").notNull().default(0),
-    deductions: real("deductions").notNull().default(0),
-    netSalary: real("net_salary").notNull().default(0),
+    basicSalary: doublePrecision("basic_salary").notNull().default(0),
+    allowance: doublePrecision("allowance").notNull().default(0),
+    commissions: doublePrecision("commissions").notNull().default(0),
+    overtime: doublePrecision("overtime").notNull().default(0),
+    deductions: doublePrecision("deductions").notNull().default(0),
+    netSalary: doublePrecision("net_salary").notNull().default(0),
     paymentMethod: text("payment_method").notNull().default('Cash'),
     paymentStatus: text("payment_status").notNull().default('UNPAID'),
-    paidAt: integer('paid_at', { mode: 'timestamp' }),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
     payoutTransactionId: text("payout_transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
     notes: text("notes"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("payrolls_store_id_idx").on(table.storeId),
     employeeIdIdx: index("payrolls_employee_id_idx").on(table.employeeId),
     periodIdx: index("payrolls_period_idx").on(table.period),
 }));
 
-export const attendances = sqliteTable("attendances", {
+export const attendances = pgTable("attendances", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     employeeId: text("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
     date: text("date").notNull(),
-    clockIn: integer('clock_in', { mode: 'timestamp' }),
-    clockOut: integer('clock_out', { mode: 'timestamp' }),
+    clockIn: timestamp('clock_in', { withTimezone: true }),
+    clockOut: timestamp('clock_out', { withTimezone: true }),
     status: text("status").notNull().default('HADIR'),
     photoIn: text("photo_in"),
     photoOut: text("photo_out"),
     locationIn: text("location_in"),
     locationOut: text("location_out"),
     notes: text("notes"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("attendances_store_id_idx").on(table.storeId),
     employeeIdIdx: index("attendances_employee_id_idx").on(table.employeeId),
     dateIdx: index("attendances_date_idx").on(table.date),
 }));
 
-export const purchaseRequisitions = sqliteTable("purchase_requisitions", {
+export const purchaseRequisitions = pgTable("purchase_requisitions", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
     requesterId: text("requester_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
     itemName: text("item_name").notNull(),
-    quantity: real("quantity").notNull(),
-    estimatedCost: real("estimated_cost").notNull(),
+    quantity: doublePrecision("quantity").notNull(),
+    estimatedCost: doublePrecision("estimated_cost").notNull(),
     supplierName: text("supplier_name"),
     status: text("status").notNull().default('PENDING'),
     notes: text("notes"),
     approvedBy: text("approved_by"),
-    approvedAt: integer('approved_at', { mode: 'timestamp' }),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("purchase_requisitions_store_id_idx").on(table.storeId),
     statusIdx: index("purchase_requisitions_status_idx").on(table.status),

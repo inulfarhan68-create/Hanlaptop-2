@@ -1,9 +1,9 @@
-import { sqliteTable, text, integer, real, index, check } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, doublePrecision, boolean, timestamp, index, check } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { stores } from '@/db/schema/store';
 import { technicians } from '@/db/schema/hr';
 
-export const inventory = sqliteTable("inventory", {
+export const inventory = pgTable("inventory", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     itemName: text("item_name").notNull(),
@@ -12,17 +12,17 @@ export const inventory = sqliteTable("inventory", {
     barcode: text("barcode"),
     quantity: integer("quantity").notNull().default(0),
     minStock: integer("min_stock").notNull().default(2),
-    costPrice: real("cost_price").notNull().default(0),
-    sellingPrice: real("selling_price").notNull().default(0),
-    isPublished: integer('is_published', { mode: 'boolean' }).notNull().default(false),
+    costPrice: doublePrecision("cost_price").notNull().default(0),
+    sellingPrice: doublePrecision("selling_price").notNull().default(0),
+    isPublished: boolean('is_published').notNull().default(false),
     condition: text("condition").notNull().default('NEW'),
-    isConsignment: integer('is_consignment', { mode: 'boolean' }).notNull().default(false),
-    consignmentCommissionRate: real("consignment_commission_rate").default(10),
+    isConsignment: boolean('is_consignment').notNull().default(false),
+    consignmentCommissionRate: doublePrecision("consignment_commission_rate").default(10),
     supplierId: text("supplier_id"),
     imageUrl: text("image_url"),
-    tracksSerialNumber: integer('tracks_serial_number', { mode: 'boolean' }).notNull().default(false),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    deletedAt: integer('deleted_at', { mode: 'timestamp' }), // SOFT DELETE
+    tracksSerialNumber: boolean('tracks_serial_number').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }), // SOFT DELETE
 }, (table) => ({
     storeIdIdx: index("inventory_store_id_idx").on(table.storeId),
     categoryIdx: index("inventory_category_idx").on(table.category),
@@ -35,7 +35,7 @@ export const inventory = sqliteTable("inventory", {
     quantityCheck: check("quantity_check", sql`${table.quantity} >= 0`),
 }));
 
-export const qcInspections = sqliteTable("qc_inspections", {
+export const qcInspections = pgTable("qc_inspections", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     inventoryId: text("inventory_id").notNull().references(() => inventory.id, { onDelete: 'cascade' }),
     passportId: text("passport_id"), // References devicePassports.id (set dynamically)
@@ -58,10 +58,10 @@ export const qcInspections = sqliteTable("qc_inspections", {
     hdmiStatus: text("hdmi_status").default('NOT_TESTED'),
     chargingStatus: text("charging_status").default('NOT_TESTED'),
     fingerprintStatus: text("fingerprint_status").default('NOT_TESTED'),
-    maxSellingPrice: real("max_selling_price"),
+    maxSellingPrice: doublePrecision("max_selling_price"),
     warrantyDays: integer("warranty_days"),
     notes: text("notes"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     inventoryIdIdx: index("qc_inspections_inventory_id_idx").on(table.inventoryId),
     passportIdIdx: index("qc_inspections_passport_id_idx").on(table.passportId),
@@ -70,20 +70,20 @@ export const qcInspections = sqliteTable("qc_inspections", {
     createdAtIdx: index("qc_inspections_created_at_idx").on(table.createdAt),
 }));
 
-export const stockOpnames = sqliteTable("stock_opnames", {
+export const stockOpnames = pgTable("stock_opnames", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     userId: text("user_id").notNull(),
     userName: text("user_name").notNull(),
     status: text("status").notNull().default("DRAFT"),
     notes: text("notes"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    completedAt: integer('completed_at', { mode: 'timestamp' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
 }, (table) => ({
     storeIdIdx: index("stock_opnames_store_id_idx").on(table.storeId),
 }));
 
-export const stockOpnameItems = sqliteTable("stock_opname_items", {
+export const stockOpnameItems = pgTable("stock_opname_items", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     opnameId: text("opname_id").notNull().references(() => stockOpnames.id, { onDelete: 'cascade' }),
     inventoryId: text("inventory_id").notNull().references(() => inventory.id, { onDelete: 'cascade' }),

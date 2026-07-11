@@ -1,10 +1,10 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, doublePrecision, boolean, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { stores } from '@/db/schema/store';
 import { user } from '@/db/schema/users';
 
 // ── Chart of Accounts (Bagan Akun) ──────────────────────────────────────────
-export const chartOfAccounts = sqliteTable("chart_of_accounts", {
+export const chartOfAccounts = pgTable("chart_of_accounts", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     code: text("code").notNull(),                    // e.g., "1000", "1100", "4110"
@@ -12,12 +12,12 @@ export const chartOfAccounts = sqliteTable("chart_of_accounts", {
     type: text("type").notNull(),                   // 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense'
     subType: text("sub_type"),                       // nullable, e.g., "Bank", "Current", "Fixed"
     parentId: text("parent_id"),                     // FK to parent chart_of_accounts for hierarchy
-    openingBalance: real("opening_balance").notNull().default(0),
-    isActive: integer("is_active", { mode: 'boolean' }).notNull().default(true),
-    isSystem: integer("is_system", { mode: 'boolean' }).notNull().default(false),  // default accounts
+    openingBalance: doublePrecision("opening_balance").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    isSystem: boolean("is_system").notNull().default(false),  // default accounts
     normalBalance: text("normal_balance").notNull().default('Debit'),  // 'Debit' | 'Credit'
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("coa_store_id_idx").on(table.storeId),
     storeCodeIdx: uniqueIndex("coa_store_code_idx").on(table.storeId, table.code),
@@ -40,17 +40,17 @@ export const chartOfAccountsRelations = relations(chartOfAccounts, ({ one, many 
 }));
 
 // ── Fiscal Periods (Periode Fiskal) ─────────────────────────────────────────
-export const fiscalPeriods = sqliteTable("fiscal_periods", {
+export const fiscalPeriods = pgTable("fiscal_periods", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     year: integer("year").notNull(),
     month: integer("month"),                        // nullable for yearly periods, 1-12
     status: text("status").notNull().default('OPEN'),  // 'OPEN' | 'CLOSED' | 'ARCHIVED'
     closedBy: text("closed_by").references(() => user.id, { onDelete: 'set null' }),
-    closedAt: integer('closed_at', { mode: 'timestamp' }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
     notes: text("notes"),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("fp_store_id_idx").on(table.storeId),
     yearMonthIdx: uniqueIndex("fp_store_year_month_idx").on(table.storeId, table.year, table.month),
@@ -75,7 +75,7 @@ export const fiscalPeriodsRelations = relations(fiscalPeriods, ({ one, many }) =
 }));
 
 // ── Fixed Assets (Aset Tetap) ───────────────────────────────────────────────
-export const fixedAssets = sqliteTable("fixed_assets", {
+export const fixedAssets = pgTable("fixed_assets", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     code: text("code").notNull(),                   // e.g., "ATL-001"
@@ -85,16 +85,16 @@ export const fixedAssets = sqliteTable("fixed_assets", {
     accumulatedDepreciationAccount: text("accumulated_depreciation_account").notNull(),  // COA code
     depreciationExpenseAccount: text("depreciation_expense_account").notNull(),            // COA code
     purchaseDate: text("purchase_date").notNull(),  // ISO date string
-    purchasePrice: real("purchase_price").notNull(),
+    purchasePrice: doublePrecision("purchase_price").notNull(),
     usefulLifeMonths: integer("useful_life_months").notNull(),  // e.g., 60 for 5 years
-    salvageValue: real("salvage_value").notNull().default(0),
+    salvageValue: doublePrecision("salvage_value").notNull().default(0),
     depreciationMethod: text("depreciation_method").notNull().default('straight_line'),
     status: text("status").notNull().default('active'),  // 'active' | 'disposed' | 'fully_depreciated'
     disposedDate: text("disposed_date"),
     disposedNotes: text("disposed_notes"),
-    disposedProceeds: real("disposed_proceeds").default(0),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    disposedProceeds: doublePrecision("disposed_proceeds").default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("fa_store_id_idx").on(table.storeId),
     codeIdx: uniqueIndex("fa_code_idx").on(table.storeId, table.code),
@@ -111,16 +111,16 @@ export const fixedAssetsRelations = relations(fixedAssets, ({ one, many }) => ({
 }));
 
 // ── Depreciation Entries (Entri Penyusutan) ─────────────────────────────────
-export const depreciationEntries = sqliteTable("depreciation_entries", {
+export const depreciationEntries = pgTable("depreciation_entries", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     fixedAssetId: text("fixed_asset_id").notNull().references(() => fixedAssets.id, { onDelete: 'cascade' }),
     fiscalPeriodId: text("fiscal_period_id").notNull().references(() => fiscalPeriods.id, { onDelete: 'cascade' }),
-    amount: real("amount").notNull(),               // Monthly depreciation amount
-    cumulativeAmount: real("cumulative_amount").notNull(),  // Total accumulated to date
-    netBookValue: real("net_book_value").notNull(), // Remaining book value
+    amount: doublePrecision("amount").notNull(),               // Monthly depreciation amount
+    cumulativeAmount: doublePrecision("cumulative_amount").notNull(),  // Total accumulated to date
+    netBookValue: doublePrecision("net_book_value").notNull(), // Remaining book value
     journalEntryId: text("journal_entry_id"),       // Reference to generated journal entry
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
     storeIdIdx: index("de_store_id_idx").on(table.storeId),
     assetPeriodIdx: uniqueIndex("de_asset_period_idx").on(table.fixedAssetId, table.fiscalPeriodId),
@@ -144,7 +144,7 @@ export const depreciationEntriesRelations = relations(depreciationEntries, ({ on
 }));
 
 // ── Closing Entries (Entri Penutupan) ──────────────────────────────────────
-export const closingEntries = sqliteTable("closing_entries", {
+export const closingEntries = pgTable("closing_entries", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().default("default").references(() => stores.id, { onDelete: 'cascade' }),
     fiscalPeriodId: text("fiscal_period_id").notNull().unique().references(() => fiscalPeriods.id, { onDelete: 'cascade' }),
@@ -155,13 +155,13 @@ export const closingEntries = sqliteTable("closing_entries", {
     // Expense entries closed to income summary
     expenseEntries: text("expense_entries"),        // JSON: [{accountCode, amount}]
     // Net income transferred to retained earnings
-    netIncome: real("net_income").notNull().default(0),
+    netIncome: doublePrecision("net_income").notNull().default(0),
     incomeSummaryAccount: text("income_summary_account").notNull(),  // COA code
     retainedEarningsAccount: text("retained_earnings_account").notNull(),  // COA code
     // Journal entry IDs for audit trail
     closingJournalEntryId: text("closing_journal_entry_id"),
     retainedEarningsJournalEntryId: text("retained_earnings_journal_entry_id"),
-    closedAt: integer('closed_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+    closedAt: timestamp('closed_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
     notes: text("notes"),
 }, (table) => ({
     storeIdIdx: index("ce_store_id_idx").on(table.storeId),

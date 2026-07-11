@@ -30,7 +30,7 @@ export async function GET() {
   // 1. Database Check
   try {
     const dbStart = Date.now();
-    await db.run(sql`SELECT 1`);
+    await db.execute(sql`SELECT 1`);
     checks.push({
       name: "database",
       status: "healthy",

@@ -1,9 +1,9 @@
-import { text, sqliteTable, index } from 'drizzle-orm/sqlite-core';
+import { text, pgTable, index } from 'drizzle-orm/pg-core';
 import crypto from 'crypto';
 import { stores } from './store';
 import { user } from './users';
 
-export const auditLogs = sqliteTable('audit_logs', {
+export const auditLogs = pgTable('audit_logs', {
     id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text('store_id').notNull().references(() => stores.id),
     userId: text('user_id').notNull().references(() => user.id),

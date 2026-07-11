@@ -90,15 +90,15 @@ Ganti import `drizzle-orm/sqlite-core` → `drizzle-orm/pg-core` dan fungsi `sql
 | `text("x")` | `text("x")` | sama |
 | `integer("x", { mode: "timestamp" })` | `timestamp("x", { withTimezone: true })` | `$defaultFn(() => new Date())` tetap; atau `.defaultNow()` |
 | `integer("x", { mode: "boolean" })` | `boolean("x")` | |
-| `integer("x")` **untuk UANG/nominal** | **`bigint("x", { mode: "number" })`** | **KRITIS — lihat Gotcha #2** |
+| `real("x")` **untuk UANG/nominal** | **`doublePrecision("x")`** | drop-in, tetap `number` (lihat Gotcha #2) |
 | `integer("x")` untuk kuantitas kecil (qty, minStock, skor QC) | `integer("x")` | aman (< 2,1 miliar) |
 | `text().primaryKey().$defaultFn(() => crypto.randomUUID())` | sama, atau `.default(sql\`gen_random_uuid()\`)` | Supabase punya `pgcrypto` |
 | `uniqueIndex(...)` / `index(...)` | sama di `pg-core` (API mirip) | |
 
-> ### ⚠️ Gotcha #2 — KRITIS: uang harus `bigint`, bukan `integer`
-> Postgres `integer` = **32-bit** (maks **2.147.483.647** ≈ **Rp 2,14 miliar**). SQLite `integer` = 64-bit, jadi kode sekarang menampung nilai besar tanpa masalah. Jika kolom nominal dibiarkan `integer` di Postgres, transaksi besar (batch laptop, aset tetap, modal) akan **overflow**. **Semua kolom uang → `bigint({ mode: "number" })`** (`mode: "number"` → tetap `number` di JS, aman s/d ~9 kuadriliun).
+> ### ✅ Gotcha #2 — uang di schema ini ternyata `real`, bukan `integer`
+> Ternyata semua kolom nominal (`amount`, `costPrice`, `sellingPrice`, `unitPrice`, `debit`, `credit`, `dpAmount`, `openingBalance`, dst.) sudah bertipe **`real`** di SQLite (mis. `costPrice` sengaja pecahan karena rata-rata bergerak). Jadi konversi yang benar & drop-in adalah **`real` → `doublePrecision`** (float8) — tetap `number` di JS, perilaku identik. **Tidak perlu `bigint`** (yang hanya relevan jika uang disimpan sebagai `integer`). Kolom `integer` yang tersisa semuanya hitungan kecil (qty, skor QC 0–100, cycle) → tetap `integer`.
 >
-> Kolom yang harus `bigint`: `amount`, `costPrice`, `sellingPrice`, `unitPrice`, `debit`, `credit`, `dpAmount`, `discountAmount`, `amountDue`, `openingBalance`, `closingBalance`, `estimatedCost`, `finalCost`, `basicSalary`, `allowance`, `commissions`, `overtime`, `deductions`, nilai aset/penyusutan, dsb. (audit tiap schema file).
+> *Peningkatan masa depan (opsional): pindah uang ke `numeric` untuk presisi desimal eksak — perlu penanganan tipe string Drizzle, jadi bukan drop-in.*
 
 **Contoh konversi (`schema/store.ts` — tabel `stores`):**
 ```ts
@@ -170,7 +170,7 @@ Harness integrasi sekarang push skema SQLite. Untuk Postgres:
 ## 7. Gotchas Wajib Dicek (ringkasan)
 
 1. **Connection pooler (6543, `prepare:false`) untuk runtime; DIRECT (5432) untuk migrasi.** #1 penyebab gagal di Vercel.
-2. **Uang → `bigint`** (Postgres `integer` overflow di ~Rp 2,14 miliar).
+2. **Uang → `doublePrecision`** (kolom nominal sudah `real` di SQLite, jadi drop-in; `bigint` tidak diperlukan).
 3. **`LIKE` case-sensitivity:** SQLite `LIKE` *case-insensitive* (ASCII); Postgres `LIKE` *case-sensitive*. Nomor invoice (`INV/...`, huruf besar) aman, tapi **pencarian nama/teks user → ganti `like()` → `ilike()`** agar perilaku tetap. Audit semua pemakaian `like(`.
 4. **`db.run()` → `db.execute()`** (health check, dan skrip lain yang pakai `db.run`).
 5. **Boolean & timestamp** kini tipe asli Postgres — filter `eq(col, true)` dan perbandingan tanggal tetap jalan via mode Drizzle.

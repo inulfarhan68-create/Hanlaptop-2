@@ -23,7 +23,7 @@ export async function GET() {
     let dbLatencyMs = 0;
     try {
         const dbStart = Date.now();
-        await db.run(sql`SELECT 1`);
+        await db.execute(sql`SELECT 1`);
         dbLatencyMs = Date.now() - dbStart;
     } catch (err: any) {
         dbStatus = `unhealthy: ${err.message?.substring(0, 100)}`;
