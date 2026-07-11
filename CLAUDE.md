@@ -70,20 +70,23 @@ npm run lint      # next lint
 npm run seed      # tsx src/db/seed.ts (seed data contoh)
 ```
 
-### Database (di `/backend`)
+### Database (di `/backend`) — workflow migrasi berversi
+Alur standar (produksi & shared DB): edit `src/db/schema/*` → generate migrasi → apply.
 ```bash
-npx drizzle-kit push          # sinkron skema ke DB (edit backend/src/db/schema/ dulu)
-npx tsx src/db/check-db.ts    # inspeksi kolom/isi DB lokal
-# skrip one-off lain: npx tsx src/db/migrate-*.ts  (lihat ROADMAP: perlu dirapikan)
+npm run db:generate   # buat file migrasi SQL dari perubahan schema (commit file-nya)
+npm run db:migrate    # apply migrasi pending ke DB (pakai DIRECT_URL, tracking di schema `drizzle`)
 ```
+> ⚠️ **Jangan `db:push` ke DB produksi/shared.** `push` = diff destruktif tanpa riwayat/rollback. `push` hanya untuk **DB throwaway lokal** (mis. harness integration test lewat `drizzle.config.test.ts`). DB produksi sudah di-baseline ke workflow `migrate` (migrasi `0000` tercatat sebagai applied di `drizzle.__drizzle_migrations`).
 
-### Test (di `/backend`, butuh server jalan)
+### Seed & Test (di `/backend`)
 ```bash
-node tests/smoke-test.js --prefix=/_/backend/api   # smoke HTTP; flags: --verbose --skip=e2e --port= --base=
-npx playwright test tests/e2e                       # semua e2e
-npx playwright test tests/e2e/multi-tenant.spec.ts  # satu file (isolasi tenant)
+npm run seed             # data contoh (tsx src/db/seed.ts)
+npm test                 # unit test (Vitest)
+npm run test:integration # integration test (butuh Postgres; CI pakai service container)
+node tests/smoke-test.js --prefix=/_/backend/api   # smoke HTTP (butuh server jalan)
+npx playwright test tests/e2e                       # e2e (butuh server jalan)
 ```
-> Belum ada `format` khusus (mengandalkan ESLint) dan belum ada pipeline CI.
+> CI (`.github/workflows/ci.yml`) menjalankan tsc + build + unit + integration test di tiap PR/push ke `main`.
 
 ---
 
