@@ -448,7 +448,7 @@ export async function GET(request: Request) {
         let prevOpex = 0;
 
         prevPeriodJournals.forEach(entry => {
-            if (entry.accountName.includes("Pendapatan")) {
+            if (entry.accountName.includes("Pendapatan") || entry.accountName.includes("Penjualan")) {
                 prevRevenue += entry.credit - entry.debit;
             } else if (entry.accountName.startsWith("HPP")) {
                 prevCogs += entry.debit - entry.credit;
