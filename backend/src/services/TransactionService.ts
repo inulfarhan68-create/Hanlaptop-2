@@ -2,13 +2,14 @@ import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables } from "@/db/schema";
 import { desc, eq, and, gte, like, sql, isNull } from "drizzle-orm";
 import { getAccountCodeFromName } from "./JournalMappingService";
+import type { TransactionInput } from "@/lib/validators";
 
 interface CreateTransactionParams {
     storeId: string;
     userId: string;
     userName: string;
     activeShiftId: string | null;
-    data: any; // Ideally typed with transactionSchema
+    data: TransactionInput;
 }
 
 /**
@@ -399,7 +400,7 @@ export class TransactionService {
                 
                 await tx.insert(journalEntries).values(entries);
 
-            } else if (transactionType === "Pengeluaran Operasional" || transactionType === "Operasional") {
+            } else if (transactionType === "Operasional") {
                 let accountName = "Beban Lain-lain";
                 const descStr = description || "";
                 const categories = [

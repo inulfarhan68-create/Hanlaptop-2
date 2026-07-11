@@ -35,7 +35,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             )
         });
 
-        const isKasir = authResult.storeRole === "kasir" || (authResult.user as any).role === "kasir";
+        const isKasir = authResult.storeRole === "kasir" || authResult.user.role === "kasir";
         if (isShiftEnabled && isKasir && !activeShift) {
             return NextResponse.json({ error: "Anda harus membuka shift kasir terlebih dahulu sebelum melakukan transaksi" }, { status: 400 });
         }

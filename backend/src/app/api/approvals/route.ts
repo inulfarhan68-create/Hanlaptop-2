@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     if (authResult instanceof NextResponse) return authResult;
 
     // Only managers or owners can view approvals
-    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && (authResult.user as any).role !== "owner") {
+    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner") {
         return NextResponse.json({ error: "Akses ditolak. Anda bukan Manager/Owner." }, { status: 403 });
     }
 

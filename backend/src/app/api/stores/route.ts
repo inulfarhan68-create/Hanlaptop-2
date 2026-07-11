@@ -6,6 +6,7 @@ import { requireOwner } from "@/lib/auth-guard";
 import { createStoreSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
+import { seedStoreCoa } from "@/db/seed-coa";
 // using global crypto for randomUUID() instead of importing Node's crypto
 
 export const dynamic = 'force-dynamic';
@@ -85,6 +86,14 @@ export async function POST(request: Request) {
             role: 'owner',
             createdAt: new Date(),
         });
+
+        // Seed the default Chart of Accounts + current fiscal period so accounting
+        // works out-of-the-box. Best-effort: never block store creation on this.
+        try {
+            await seedStoreCoa(newStore.id);
+        } catch (coaErr: any) {
+            console.error("Failed to seed default COA for new store:", coaErr?.message);
+        }
 
         // Log activity
         await db.insert(activityLogs).values({

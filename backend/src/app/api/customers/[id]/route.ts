@@ -10,7 +10,7 @@ import { eq, and } from 'drizzle-orm';
  */
 async function verifyCustomerAccess(authResult: any, customerId: string) {
     // Owner (global) can access all customers
-    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+    if (authResult.user.role === "owner" || authResult.storeId === "all") {
         const customer = await db.query.customers.findFirst({
             where: eq(customers.id, customerId)
         });
@@ -103,7 +103,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (authResult instanceof NextResponse) return authResult;
 
     // Only owner or manager can delete customers
-    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && (authResult.user as any).role !== 'owner') {
+    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner') {
         return NextResponse.json({ error: "Forbidden. Only owner or manager can delete customers." }, { status: 403 });
     }
 

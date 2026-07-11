@@ -18,8 +18,8 @@ export async function GET(request: Request) {
         
         const isOwnerOrManager = authResult.storeRole === "owner" || 
                                  authResult.storeRole === "manager" || 
-                                 (authResult.user as any).role === "owner" || 
-                                 (authResult.user as any).role === "manager";
+                                 authResult.user.role === "owner" || 
+                                 authResult.user.role === "manager";
 
         // Find employee record mapped to this user
         const currentEmployee = await db.query.employees.findFirst({

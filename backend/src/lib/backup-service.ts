@@ -13,7 +13,6 @@
  *   - Dedicated server: crontab -e
  */
 
-import { createClient } from "@libsql/client";
 import { db } from "@/db";
 import {
     storeSettings, customers, inventory, transactions,

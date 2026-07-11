@@ -99,7 +99,7 @@ export async function middleware(request: NextRequest) {
     // Only applied to HTML routes ideally, but putting it globally for strictness
     const csp = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        script-src 'self' 'unsafe-inline';
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.public.blob.vercel-storage.com;
         font-src 'self' data:;
@@ -115,13 +115,8 @@ export async function middleware(request: NextRequest) {
 // Ensure middleware runs only on relevant paths
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public images/assets
-         */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        // Match all paths EXCEPT health check endpoints (negative lookahead)
+        // This regex: (?!) is negative lookahead - matches everything EXCEPT api/health
+        '/((?!api/health).*)',
     ],
 };

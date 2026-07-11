@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { activityLogs, auditLogs } from "@/db/schema";
 import { lt, and, sql } from "drizzle-orm";
+import { verifyCronRequest } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120; // 2 minutes max
@@ -19,14 +20,9 @@ const AUDIT_LOG_RETENTION_DAYS = 365; // Keep audit logs for 1 year
 const SESSION_CLEANUP_THRESHOLD_HOURS = 24; // Clean sessions that expired 24+ hours ago
 
 export async function GET(request: Request) {
-    // Verify cron secret if configured
-    const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret) {
-        const authHeader = request.headers.get("authorization");
-        if (authHeader !== `Bearer ${cronSecret}`) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-    }
+    // Verify cron secret (fail-closed in production)
+    const denied = verifyCronRequest(request);
+    if (denied) return denied;
 
     const startTime = Date.now();
     console.log("🧹 [CRON] Starting database cleanup...");

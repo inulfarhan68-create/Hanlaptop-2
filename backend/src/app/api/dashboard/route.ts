@@ -89,7 +89,7 @@ async function getAssetsAtDate(storeId: string, dateLimit: Date) {
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
-    const userRole = (authResult.user as any).role || "kasir";
+    const userRole = authResult.user.role || "kasir";
 
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");

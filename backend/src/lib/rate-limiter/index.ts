@@ -1,8 +1,17 @@
 import { LRURateLimiter } from './lru-adapter';
+import { RedisRateLimiter } from './redis-adapter';
 import { RateLimiterAdapter, RateLimitResult } from './types';
 
-// Use LRU cache by default. In the future, this can be swapped with a RedisAdapter
-const adapter: RateLimiterAdapter = new LRURateLimiter();
+// Prefer a distributed Upstash Redis limiter when configured — its counters are
+// shared across serverless instances, so limits hold globally. Fall back to the
+// in-memory LRU adapter (per-instance) when Upstash env vars are absent, e.g.
+// local development.
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const adapter: RateLimiterAdapter =
+    redisUrl && redisToken
+        ? new RedisRateLimiter(redisUrl, redisToken)
+        : new LRURateLimiter();
 
 export type RateLimitCategory = 'auth' | 'mutations' | 'public';
 

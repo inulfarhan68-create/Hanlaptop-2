@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { OPERATIONAL_TABLES } from "@/db/reset-tables";
-import { sql } from "drizzle-orm";
 import { requireOwnerOnly } from "@/lib/auth-guard";
 import { resetDbSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -28,20 +27,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Invalid confirmation string", details: parsed.error.format() }, { status: 400 });
         }
 
-        // Delete all operational tables in strict FK dependency order within a transaction
+        // Delete all operational tables in strict FK dependency order within a transaction.
+        // (Postgres uses UUID primary keys, so there are no autoincrement sequences to reset.)
         await db.transaction(async (tx) => {
             for (const table of OPERATIONAL_TABLES) {
                 await tx.delete(table);
-            }
-            
-            // Clear auto-increment sequences safely (only if sqlite_sequence table exists in the database)
-            try {
-                const checkTable = await tx.run(sql`SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence';`);
-                if (checkTable.rows && checkTable.rows.length > 0) {
-                    await tx.run(sql`DELETE FROM sqlite_sequence;`);
-                }
-            } catch (e) {
-                console.log("Could not clear sqlite_sequence, skipping:", e);
             }
         });
 

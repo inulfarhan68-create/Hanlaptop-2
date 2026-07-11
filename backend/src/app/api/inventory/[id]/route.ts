@@ -13,7 +13,7 @@ import { del } from "@vercel/blob";
  */
 async function verifyInventoryAccess(authResult: any, inventoryId: string) {
     // Owner (global) can access all inventory items
-    if ((authResult.user as any).role === "owner" || authResult.storeId === "all") {
+    if (authResult.user.role === "owner" || authResult.storeId === "all") {
         const item = await db.query.inventory.findFirst({
             where: eq(inventory.id, inventoryId)
         });

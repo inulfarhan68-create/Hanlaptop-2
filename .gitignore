@@ -25,3 +25,9 @@ dist-ssr
 
 .vercel
 .env*
+
+# Local SQLite databases (never commit — regenerated via seed/drizzle)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal

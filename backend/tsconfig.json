@@ -30,12 +30,21 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tests",
+    "src/db/migrate-*.ts",
+    "src/db/check-*.ts",
+    "src/db/check.ts",
+    "src/db/inspect-*.ts",
+    "src/db/inspect_*.ts",
+    "src/db/list-tables.ts",
+    "src/db/drop.ts",
+    "src/db/query-logs.ts"
   ]
 }
