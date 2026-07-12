@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables, storeSettings } from "@/db/schema";
 import { desc, eq, and, gte, like, sql, isNull } from "drizzle-orm";
 import { getAccountCodeFromName } from "./JournalMappingService";
+import { generateInvoiceNumber } from "@/lib/invoice-number";
 import type { TransactionInput } from "@/lib/validators";
 
 interface CreateTransactionParams {
@@ -45,36 +46,9 @@ export class TransactionService {
         } = data;
 
         return await db.transaction(async (tx) => {
-            // Generate invoice number: INV/YYYY/MM/XXX
+            // Sequential invoice number (INV/YYYY/MM/XXX) via the shared helper.
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, "0");
-            
-            const startOfMonth = new Date(year, now.getMonth(), 1);
-            
-            let invConditions = [gte(transactions.transactionDate, startOfMonth)];
-            if (storeId !== "all") {
-                invConditions.push(eq(transactions.storeId, storeId));
-            }
-
-            const prefix = `INV/${year}/${month}/`;
-            invConditions.push(like(transactions.invoiceNumber, `${prefix}%`));
-
-            const latestTx = await tx.select({ invoiceNumber: transactions.invoiceNumber })
-                .from(transactions)
-                .where(and(...invConditions))
-                .orderBy(desc(transactions.invoiceNumber))
-                .limit(1);
-                
-            let seq = 1;
-            if (latestTx.length > 0 && latestTx[0].invoiceNumber) {
-                const parts = latestTx[0].invoiceNumber.split('/');
-                const lastNum = parseInt(parts[parts.length - 1], 10);
-                if (!isNaN(lastNum)) seq = lastNum + 1;
-            }
-            
-            const sequence = String(seq).padStart(3, "0");
-            const invoiceNumber = `INV/${year}/${month}/${sequence}`;
+            const invoiceNumber = await generateInvoiceNumber(tx, storeId, "INV", now);
 
             const paymentAccountMap: Record<string, string> = {
                 'Cash': 'Kas',
