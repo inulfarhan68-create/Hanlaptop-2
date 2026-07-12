@@ -77,6 +77,7 @@ export async function GET() {
                 expenseCategories: defaultExpenseCategories,
                 serviceIssues: defaultServiceIssues,
                 enableCashierShift: true,
+                requireInboundQc: false,
                 userRole: authResult.storeRole
             }, { status: 200 });
         }
@@ -115,6 +116,7 @@ export async function GET() {
             expenseCategories: parsedExpenseCategories || defaultExpenseCategories,
             serviceIssues: parsedServiceIssues || defaultServiceIssues,
             enableCashierShift: settings.enableCashierShift !== false,
+            requireInboundQc: settings.requireInboundQc === true,
             userRole: authResult.storeRole
         }, { status: 200 });
     } catch (error: any) {
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
         if (!parsed.success) {
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
         }
-        const { storeName, storeAddress, storePhone, storeLogo, storeSignature, storeFooter, storeBanks, waTemplatePiutang, waTemplateUmum, waTemplateNota, waTemplateServiceDiterima, waTemplateServiceDikerjakan, waTemplateServiceMenungguPart, waTemplateServiceSelesai, waTemplateServiceBatal, enableCashierShift, expenseCategories, serviceIssues, applyToAllBranches } = parsed.data;
+        const { storeName, storeAddress, storePhone, storeLogo, storeSignature, storeFooter, storeBanks, waTemplatePiutang, waTemplateUmum, waTemplateNota, waTemplateServiceDiterima, waTemplateServiceDikerjakan, waTemplateServiceMenungguPart, waTemplateServiceSelesai, waTemplateServiceBatal, enableCashierShift, requireInboundQc, expenseCategories, serviceIssues, applyToAllBranches } = parsed.data;
 
         const tx = db;
         const existing = await tx.query.storeSettings.findFirst({
@@ -163,6 +165,7 @@ export async function POST(request: Request) {
             waTemplateServiceBatal: waTemplateServiceBatal || "",
             storeBanks: banksJson,
             enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : true,
+            requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : false,
             expenseCategories: expenseCategoriesJson,
             serviceIssues: serviceIssuesJson,
             updatedAt: new Date()
@@ -185,6 +188,7 @@ export async function POST(request: Request) {
                 waTemplateServiceBatal: waTemplateServiceBatal !== undefined ? waTemplateServiceBatal : (existing?.waTemplateServiceBatal ?? ""),
                 storeBanks: banksJson !== null ? banksJson : (existing?.storeBanks ?? null),
                 enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : (existing?.enableCashierShift ?? true),
+                requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : (existing?.requireInboundQc ?? false),
                 expenseCategories: expenseCategoriesJson !== null ? expenseCategoriesJson : (existing?.expenseCategories ?? null),
                 serviceIssues: serviceIssuesJson !== null ? serviceIssuesJson : (existing?.serviceIssues ?? null),
                 updatedAt: new Date()
@@ -236,6 +240,7 @@ export async function POST(request: Request) {
                     waTemplateServiceBatal: waTemplateServiceBatal || "",
                     storeBanks: banksJson,
                     enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : true,
+                    requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : false,
                     expenseCategories: expenseCategoriesJson,
                     serviceIssues: serviceIssuesJson,
                     updatedAt: new Date()
@@ -255,6 +260,7 @@ export async function POST(request: Request) {
                         waTemplateServiceBatal: waTemplateServiceBatal !== undefined ? waTemplateServiceBatal : (existingBranchSettings?.waTemplateServiceBatal ?? ""),
                         storeBanks: banksJson !== null ? banksJson : (existingBranchSettings?.storeBanks ?? null),
                         enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : (existingBranchSettings?.enableCashierShift ?? true),
+                        requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : (existingBranchSettings?.requireInboundQc ?? false),
                         expenseCategories: expenseCategoriesJson !== null ? expenseCategoriesJson : (existingBranchSettings?.expenseCategories ?? null),
                         serviceIssues: serviceIssuesJson !== null ? serviceIssuesJson : (existingBranchSettings?.serviceIssues ?? null),
                         updatedAt: new Date()

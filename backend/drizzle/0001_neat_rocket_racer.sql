@@ -1,0 +1,1 @@
+ALTER TABLE "store_settings" ADD COLUMN "require_inbound_qc" boolean DEFAULT false NOT NULL;

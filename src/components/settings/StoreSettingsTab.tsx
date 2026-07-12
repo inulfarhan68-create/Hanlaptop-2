@@ -38,6 +38,7 @@ export function StoreSettingsTab() {
   const [waTemplateServiceSelesai, setWaTemplateServiceSelesai] = useState("Halo Kak {nama}, kabar baik! Laptop *{unit}* di *{toko}* selesai diperbaiki. Total Biaya: *{biaya}*. Silakan diambil. Cek detail: {link}")
   const [waTemplateServiceBatal, setWaTemplateServiceBatal] = useState("Halo Kak {nama}, mohon maaf perbaikan laptop *{unit}* di *{toko}* dibatalkan karena tidak memungkinkan untuk diperbaiki/suku cadang tidak tersedia. Cek status: {link}")
   const [enableCashierShift, setEnableCashierShift] = useState(true)
+  const [requireInboundQc, setRequireInboundQc] = useState(false)
   const [savedInfo, setSavedInfo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [expenseCategories, setExpenseCategories] = useState<string[]>([])
@@ -79,7 +80,8 @@ export function StoreSettingsTab() {
           setStoreInstagram(parsedInstagram)
           
           setEnableCashierShift(data.enableCashierShift !== false)
-          
+          setRequireInboundQc(data.requireInboundQc === true)
+
           localStorage.setItem("storeName", data.storeName || "HanLaptop")
           localStorage.setItem("storeLogo", data.storeLogo || "")
           localStorage.setItem("storeSignature", data.storeSignature || "")
@@ -88,7 +90,8 @@ export function StoreSettingsTab() {
           localStorage.setItem("storeFooter", rawFooter)
           localStorage.setItem("storeInstagram", parsedInstagram)
           localStorage.setItem("enableCashierShift", data.enableCashierShift !== false ? "true" : "false")
-          
+          localStorage.setItem("requireInboundQc", data.requireInboundQc === true ? "true" : "false")
+
           if (data.waTemplatePiutang) {
             setWaTemplatePiutang(data.waTemplatePiutang)
             localStorage.setItem("waTemplatePiutang", data.waTemplatePiutang)
@@ -197,6 +200,7 @@ export function StoreSettingsTab() {
           waTemplateServiceSelesai,
           waTemplateServiceBatal,
           enableCashierShift,
+          requireInboundQc,
           expenseCategories,
           serviceIssues,
           applyToAllBranches
@@ -220,6 +224,7 @@ export function StoreSettingsTab() {
         localStorage.setItem("waTemplateServiceSelesai", waTemplateServiceSelesai)
         localStorage.setItem("waTemplateServiceBatal", waTemplateServiceBatal)
         localStorage.setItem("enableCashierShift", enableCashierShift ? "true" : "false")
+        localStorage.setItem("requireInboundQc", requireInboundQc ? "true" : "false")
         localStorage.setItem("expenseCategories", JSON.stringify(expenseCategories))
         localStorage.setItem("serviceIssues", JSON.stringify(serviceIssues))
         setSavedInfo(true)
@@ -618,6 +623,23 @@ export function StoreSettingsTab() {
               >
                 <span
                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out ${enableCashierShift ? "translate-x-5" : "translate-x-0"}`}
+                />
+              </button>
+            </div>
+
+            {/* Inbound QC Toggle Card */}
+            <div className="flex items-center justify-between p-4 rounded-2xl border border-border/80 bg-muted/10 my-2">
+              <div className="space-y-0.5 max-w-[80%] text-left">
+                <label className="text-sm font-semibold text-foreground">Wajib QC saat Pembelian Stok</label>
+                <p className="text-xs text-muted-foreground">Barang baru dari Pembelian Stok masuk sebagai "Inspeksi" dan belum bisa dijual sampai QC selesai. Cocok untuk laptop bekas agar diperiksa dulu sebelum dijual.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRequireInboundQc(!requireInboundQc)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${requireInboundQc ? "bg-primary" : "bg-muted"}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out ${requireInboundQc ? "translate-x-5" : "translate-x-0"}`}
                 />
               </button>
             </div>
