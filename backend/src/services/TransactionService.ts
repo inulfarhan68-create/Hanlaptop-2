@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables } from "@/db/schema";
+import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, consignmentPayables, storeSettings } from "@/db/schema";
 import { desc, eq, and, gte, like, sql, isNull } from "drizzle-orm";
 import { getAccountCodeFromName } from "./JournalMappingService";
 import type { TransactionInput } from "@/lib/validators";
@@ -260,6 +260,17 @@ export class TransactionService {
                 await tx.insert(journalEntries).values(entries);
                 
             } else if (transactionType === "Pembelian Stok") {
+                // If the store requires inbound QC, brand-new items enter as IN_INSPECTION
+                // (blocked from sale by the guard above) with an INBOUND_QC passport, until
+                // QC is completed. Restocking an existing item is not re-gated — its condition
+                // is shared across all units, so re-flagging would freeze already-sellable stock.
+                const storeSettingsRow = await tx.query.storeSettings.findFirst({
+                    where: eq(storeSettings.storeId, storeId)
+                });
+                const requireInboundQc = storeSettingsRow?.requireInboundQc === true;
+                const newItemCondition = requireInboundQc ? 'IN_INSPECTION' : 'NEW';
+                const newItemPassportStatus: 'INBOUND_QC' | 'READY_FOR_SALE' =
+                    requireInboundQc ? 'INBOUND_QC' : 'READY_FOR_SALE';
                 for (const item of items) {
                     if (item.inventoryId) {
                         const invItem = await tx.query.inventory.findFirst({
@@ -332,7 +343,8 @@ export class TransactionService {
                             costPrice: item.unitPrice,
                             sellingPrice: item.sellingPrice || 0,
                             specs: item.specs || null,
-                            tracksSerialNumber: tracksSN
+                            tracksSerialNumber: tracksSN,
+                            condition: newItemCondition
                         }).returning();
 
                         let validSNs: string[] = [];
@@ -347,7 +359,7 @@ export class TransactionService {
                                         storeId,
                                         newInv.id,
                                         sn,
-                                        'READY_FOR_SALE',
+                                        newItemPassportStatus,
                                         item.unitPrice,
                                         userId,
                                         tx
