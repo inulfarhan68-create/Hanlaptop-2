@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { normalizeServiceParts } from '@/lib/serviceParts';
 
 export interface StoreProfile {
     name: string;
@@ -112,17 +113,11 @@ const writePrintContent = (
         }
     }
 
-    // Parse Spareparts for print display
-    const partsMatch = rawNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
-    if (partsMatch) {
-        try {
-            const sparepartsData = JSON.parse(partsMatch[1]);
-            if (Array.isArray(sparepartsData) && sparepartsData.length > 0) {
-                sparepartsText = sparepartsData.map((p: any) => `${p.name} (x${p.qty})`).join(", ");
-            }
-        } catch (e) {
-            console.error("Failed to parse spareparts JSON", e);
-        }
+    // Spareparts for print display — from the relational `parts` array, with the
+    // legacy notes fallback handled by the normalizer.
+    const sparepartsData = normalizeServiceParts(service);
+    if (sparepartsData.length > 0) {
+        sparepartsText = sparepartsData.map((p) => `${p.name} (x${p.qty})`).join(", ");
     }
 
     const htmlContent = `

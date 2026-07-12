@@ -10,7 +10,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     try {
         const serviceOrder = await db.query.serviceOrders.findFirst({
             where: eq(serviceOrders.id, id),
-            with: { customer: true }
+            with: { customer: true, parts: true }
         });
         
         if (!serviceOrder) {

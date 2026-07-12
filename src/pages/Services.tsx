@@ -10,6 +10,7 @@ import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
 import { LAPTOP_MODELS } from "@/data/laptop-models"
 import { printServiceLabel } from "@/lib/printServiceLabel"
+import { normalizeServiceParts } from "@/lib/serviceParts"
 
 
 
@@ -331,16 +332,15 @@ export function Services() {
     let kelengkapanObj = { charger: false, tas: false, dus: false, lainnya: "" };
     
     if (service) {
-      // Parse spareparts
-      const partsMatch = rawNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
-      if (partsMatch) {
-        try {
-          partsList = JSON.parse(partsMatch[1]);
-        } catch (e) {
-          console.error("Failed to parse spareparts JSON", e);
-        }
-      }
-      
+      // Spareparts now come from the relational `parts` array (with a legacy
+      // notes fallback via the normalizer). Enrich with maxStock from inventory
+      // for the qty cap in the editor.
+      const invList = Array.isArray(inventoryData) ? inventoryData : [];
+      partsList = normalizeServiceParts(service).map((p: any) => ({
+        ...p,
+        maxStock: invList.find((i: any) => i.id === p.id)?.quantity ?? p.qty,
+      }));
+
       // Parse QC
       const qcMatch = rawNotes.match(/\[QC:\s*(\{[\s\S]*?\})\]/);
       if (qcMatch) {
@@ -403,10 +403,8 @@ export function Services() {
       
       const kelengkapanObj = { charger: kelengkapanCharger, tas: kelengkapanTas, dus: kelengkapanDus, lainnya: kelengkapanLainnya };
       finalNotes = `${finalNotes}\n[Kelengkapan: ${JSON.stringify(kelengkapanObj)}]`.trim();
-      
-      if (selectedParts.length > 0) {
-        finalNotes = `${finalNotes}\n[Spareparts: ${JSON.stringify(selectedParts)}]`.trim();
-      }
+      // Spareparts are no longer embedded in notes — they are sent as `spareparts`
+      // and persisted to the relational service_parts table by the backend.
 
       const matchedTech = Array.isArray(techniciansData) 
         ? techniciansData.find((t: any) => t.name.trim().toLowerCase() === technicianName.trim().toLowerCase())
@@ -430,6 +428,7 @@ export function Services() {
           notes: finalNotes,
           warrantyClaimed: isWarrantyClaim,
           originalTransactionId: originalTxId || null,
+          spareparts: selectedParts.map((p) => ({ id: p.id, name: p.name, price: p.price, qty: p.qty })),
         })
       });
 
@@ -477,10 +476,11 @@ export function Services() {
         
         const serviceObj = (Array.isArray(services) ? services : []).find((s: any) => s.id === id);
         if (serviceObj) {
-          const partsMatch = (serviceObj.notes || "").match(/\[Spareparts:\s*(.*?)\]$/);
-          if (partsMatch) {
+          // Deduct sparepart stock. Parts come from the relational `parts` array
+          // (legacy notes fallback handled by the normalizer).
+          const partsList = normalizeServiceParts(serviceObj);
+          if (partsList.length > 0) {
             try {
-              const partsList = JSON.parse(partsMatch[1]);
               const invList = Array.isArray(inventoryData) ? inventoryData : [];
               for (const part of partsList) {
                 const invItem = invList.find((i: any) => i.id === part.id);

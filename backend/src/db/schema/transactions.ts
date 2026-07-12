@@ -175,6 +175,24 @@ export const warrantyClaimParts = pgTable("warranty_claim_parts", {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 });
 
+// Spareparts consumed by a service order, as a proper relation (replaces the legacy
+// `[Spareparts: [...]]` JSON-in-notes hack). itemName/unitPrice/costPrice are snapshots
+// taken at time of use so the record survives inventory edits/deletes. inventoryId is
+// nullable so off-catalog or later-deleted parts don't break the history.
+export const serviceParts = pgTable("service_parts", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    serviceOrderId: text("service_order_id").notNull().references(() => serviceOrders.id, { onDelete: 'cascade' }),
+    inventoryId: text("inventory_id").references(() => inventory.id, { onDelete: 'set null' }),
+    itemName: text("item_name").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unitPrice: doublePrecision("unit_price").notNull().default(0),
+    costPrice: doublePrecision("cost_price").notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+    serviceOrderIdx: index("service_parts_service_order_idx").on(table.serviceOrderId),
+    inventoryIdx: index("service_parts_inventory_idx").on(table.inventoryId),
+}));
+
 export const consignmentPayables = pgTable("consignment_payables", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     storeId: text("store_id").notNull().references(() => stores.id, { onDelete: 'cascade' }),
