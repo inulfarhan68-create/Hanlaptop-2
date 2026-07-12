@@ -52,6 +52,9 @@ export const storeSettings = pgTable("store_settings", {
     waTemplateServiceBatal: text("wa_template_service_batal"),
     storeBanks: text("store_banks"),
     enableCashierShift: boolean("enable_cashier_shift").notNull().default(true),
+    // When true, items received via "Pembelian Stok" enter as IN_INSPECTION (blocked
+    // from sale) until QC is completed. Off by default to preserve existing behavior.
+    requireInboundQc: boolean("require_inbound_qc").notNull().default(false),
     expenseCategories: text("expense_categories"),
     serviceIssues: text("service_issues"),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
