@@ -1,0 +1,82 @@
+name: Migrate DB on main
+
+# Auto-applies PENDING Drizzle migrations to production whenever a migration
+# SQL file lands on main. Only ADDITIVE / backward-compatible changes are
+# allowed through automatically — anything destructive is blocked and must be
+# applied by hand using an expand/contract sequence (see BUSINESS_RULES/CLAUDE).
+#
+# Requires a repo Actions secret DIRECT_URL (Supabase session pooler, port 5432).
+# Without it the job no-ops with a warning instead of failing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/drizzle/**.sql"
+
+# Never let two migration runs overlap — queue them instead.
+concurrency:
+  group: db-migrate-main
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need history to diff the pushed migration files
+
+      - name: Detect newly added migration SQL
+        id: detect
+        run: |
+          BEFORE='${{ github.event.before }}'
+          if [ -z "$BEFORE" ] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            BEFORE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+          fi
+          if [ -z "$BEFORE" ]; then
+            FILES="$(git show --name-only --pretty=format: HEAD -- 'backend/drizzle/*.sql' | grep -E '\.sql$' || true)"
+          else
+            FILES="$(git diff --name-only "$BEFORE" '${{ github.sha }}' -- 'backend/drizzle/*.sql' || true)"
+          fi
+          {
+            echo "files<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Detected migration files:"; echo "$FILES"
+
+      - name: Guardrail — additive migrations only
+        if: steps.detect.outputs.files != ''
+        run: |
+          FILES='${{ steps.detect.outputs.files }}'
+          # Destructive / backward-incompatible DDL must NOT auto-run: during a
+          # deploy old and new app code coexist, and these break the old code.
+          # Apply them manually with expand/contract across releases.
+          if grep -Ein 'DROP[[:space:]]+TABLE|DROP[[:space:]]+COLUMN|DROP[[:space:]]+CONSTRAINT|ALTER[[:space:]]+COLUMN|[[:space:]]RENAME[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE' $FILES; then
+            echo "::error::Destructive or backward-incompatible DDL detected in a pending migration. This job only auto-applies additive changes. Apply it manually: cd backend && npm run db:migrate (after deploying dual-write/compatible code first)."
+            exit 1
+          fi
+          echo "Migrations are additive / backward-compatible — proceeding."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Apply pending migrations
+        working-directory: backend
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DIRECT_URL" ] && [ -z "$DATABASE_URL" ]; then
+            echo "::warning::Neither DIRECT_URL nor DATABASE_URL secret is set — skipping auto-migrate. Add DIRECT_URL (Supabase session pooler, port 5432) in Settings → Secrets and variables → Actions to enable."
+            exit 0
+          fi
+          npm run db:migrate
