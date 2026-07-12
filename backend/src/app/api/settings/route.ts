@@ -260,6 +260,7 @@ export async function POST(request: Request) {
                         waTemplateServiceBatal: waTemplateServiceBatal !== undefined ? waTemplateServiceBatal : (existingBranchSettings?.waTemplateServiceBatal ?? ""),
                         storeBanks: banksJson !== null ? banksJson : (existingBranchSettings?.storeBanks ?? null),
                         enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : (existingBranchSettings?.enableCashierShift ?? true),
+                        requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : (existingBranchSettings?.requireInboundQc ?? false),
                         expenseCategories: expenseCategoriesJson !== null ? expenseCategoriesJson : (existingBranchSettings?.expenseCategories ?? null),
                         serviceIssues: serviceIssuesJson !== null ? serviceIssuesJson : (existingBranchSettings?.serviceIssues ?? null),
                         updatedAt: new Date()

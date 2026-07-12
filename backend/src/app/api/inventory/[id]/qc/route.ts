@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { inventory, qcInspections, activityLogs } from "@/db/schema";
+import { inventory, qcInspections, activityLogs, devicePassports } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
 import { qcInspectionSchema } from "@/lib/validators";
+import { transitionDeviceStatus } from "@/lib/digital-passport";
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +170,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             await tx.update(inventory)
                 .set(updateData)
                 .where(eq(inventory.id, parsed.inventoryId));
+
+            // If this item was received under the "inbound QC required" flow, its device
+            // passports are still parked at INBOUND_QC. Now that QC is done, release them:
+            // a passing grade goes to READY_FOR_SALE, a REJECT is written off. Items that
+            // never went through inbound QC simply have no INBOUND_QC passports here (no-op).
+            const inboundPassports = await tx
+                .select({ serialNumber: devicePassports.serialNumber })
+                .from(devicePassports)
+                .where(and(
+                    eq(devicePassports.inventoryId, parsed.inventoryId),
+                    eq(devicePassports.status, 'INBOUND_QC')
+                ));
+            const postQcStatus = finalGrade === 'REJECT' ? 'WRITTEN_OFF' : 'READY_FOR_SALE';
+            for (const p of inboundPassports) {
+                await transitionDeviceStatus(
+                    item.storeId,
+                    p.serialNumber,
+                    postQcStatus,
+                    authResult.user.id,
+                    qcRecord.id,
+                    `QC ${finalGrade}: released from inbound inspection`,
+                    tx
+                );
+            }
 
             // Log activity
             await tx.insert(activityLogs).values({
