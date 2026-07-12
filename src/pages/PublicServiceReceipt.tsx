@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 import { Printer, AlertCircle, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { normalizeServiceParts } from "@/lib/serviceParts"
 
 export function PublicServiceReceipt() {
   const { id } = useParams()
@@ -203,15 +204,8 @@ export function PublicServiceReceipt() {
     }
   }
 
-  // Parse Spareparts
-  const partsMatch = rawNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
-  if (partsMatch) {
-    try {
-      sparepartsData = JSON.parse(partsMatch[1]);
-    } catch (e) {
-      console.error("Failed to parse spareparts JSON in receipt", e);
-    }
-  }
+  // Spareparts from the relational `parts` array (legacy notes fallback in the normalizer).
+  sparepartsData = normalizeServiceParts(printData);
 
   // Parse Kelengkapan
   const kelengkapanMatch = rawNotes.match(/\[Kelengkapan:\s*(\{[\s\S]*?\})\]/);

@@ -9,6 +9,7 @@ import { z } from "zod";
 import { serviceOrderSchema } from "@/lib/validators";
 import crypto from "crypto";
 import { awardPoints, scheduleServiceReminder } from "@/lib/crm-helper";
+import { syncServiceParts, getSparepartsAmount } from "@/services/ServicePartsService";
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     try {
         const data = await db.query.serviceOrders.findFirst({
             where: eq(serviceOrders.id, params.id),
-            with: { customer: true, technician: true }
+            with: { customer: true, technician: true, parts: true }
         });
 
         if (!data) return NextResponse.json({ error: "Service order not found" }, { status: 404 });
@@ -89,7 +90,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         if (!parsed.success) {
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
         }
-        const { status, finalCost, notes, technicianName, technicianId, createTransaction, customerName, customerPhone, customerAddress, deviceName, issue, estimatedCost } = parsed.data;
+        const { status, finalCost, notes, technicianName, technicianId, createTransaction, customerName, customerPhone, customerAddress, deviceName, issue, estimatedCost, spareparts } = parsed.data;
 
         // Re-fetch with storeId check for security
         const existingSO = await db.query.serviceOrders.findFirst({
@@ -197,6 +198,12 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
             ))
             .returning();
+
+        // Persist spareparts to the relational table — only when a list was actually
+        // supplied, so status-only PATCHes (e.g. "Diambil") never wipe existing parts.
+        if (spareparts !== undefined) {
+            await syncServiceParts(params.id, spareparts);
+        }
 
         // If finalCost, estimatedCost, deviceName, issue, or customerName is updated, sync it with the transaction history
         if (body.finalCost !== undefined || body.estimatedCost !== undefined || body.deviceName !== undefined || body.issue !== undefined || body.customerName !== undefined) {
@@ -354,26 +361,11 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                 where: eq(technicians.id, finalTechnicianId)
             });
             if (tech) {
-                // Parse spareparts
+                // Spareparts total is netted out of the technician's commission.
+                // Read from the relational service_parts table, falling back to the
+                // legacy [Spareparts: ...] JSON in notes for pre-migration orders.
                 const finalNotes = notes !== undefined ? notes : existingSO.notes;
-                let partsAmount = 0;
-                if (finalNotes) {
-                    const partsMatch = finalNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
-                    if (partsMatch) {
-                        try {
-                            const partsList = JSON.parse(partsMatch[1]);
-                            if (Array.isArray(partsList)) {
-                                for (const part of partsList) {
-                                    const price = Number(part.price) || 0;
-                                    const qty = Number(part.qty) || 1;
-                                    partsAmount += price * qty;
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Failed to parse spareparts from notes for commission:", e);
-                        }
-                    }
-                }
+                const partsAmount = await getSparepartsAmount(params.id, finalNotes);
 
                 const serviceAmount = finalCost !== undefined ? finalCost : (existingSO.finalCost || existingSO.estimatedCost || 0);
                 const netServiceAmount = Math.max(0, serviceAmount - partsAmount);

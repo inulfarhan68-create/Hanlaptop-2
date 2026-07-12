@@ -13,7 +13,7 @@ import { user, session, account, verification } from './schema/users';
 import { inventory, qcInspections, stockOpnames, stockOpnameItems } from './schema/inventory';
 import { customers, suppliers, serviceOrders, buybackLeads, membershipPoints, crmReminders } from './schema/crm';
 import { technicians, technicianCommissions, cashierShifts, employees, employeeLoans, payrolls, attendances, purchaseRequisitions } from './schema/hr';
-import { transactions, transactionItems, journalEntries, aiPricingLogs, approvalRequests, stockTransfers, stockTransferItems, bankMutations, warrantyClaims, warrantyClaimParts, consignmentPayables, devicePassports, deviceLifecycleLogs } from './schema/transactions';
+import { transactions, transactionItems, journalEntries, aiPricingLogs, approvalRequests, stockTransfers, stockTransferItems, bankMutations, warrantyClaims, warrantyClaimParts, serviceParts, consignmentPayables, devicePassports, deviceLifecycleLogs } from './schema/transactions';
 import { chartOfAccounts, fiscalPeriods, fixedAssets, depreciationEntries, closingEntries } from './schema/accounting';
 import { deviceRefurbishments } from './schema/refurbish';
 import { auditLogs } from './schema/audit';
@@ -187,6 +187,18 @@ export const serviceOrdersRelations = relations(serviceOrders, ({ one, many }) =
     technician: one(technicians, {
         fields: [serviceOrders.technicianId],
         references: [technicians.id],
+    }),
+    parts: many(serviceParts),
+}));
+
+export const servicePartsRelations = relations(serviceParts, ({ one }) => ({
+    serviceOrder: one(serviceOrders, {
+        fields: [serviceParts.serviceOrderId],
+        references: [serviceOrders.id],
+    }),
+    inventory: one(inventory, {
+        fields: [serviceParts.inventoryId],
+        references: [inventory.id],
     }),
 }));
 

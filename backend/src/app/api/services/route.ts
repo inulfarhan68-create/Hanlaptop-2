@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { serviceOrderSchema } from "@/lib/validators";
+import { syncServiceParts } from "@/services/ServicePartsService";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
             orderBy: [desc(serviceOrders.receivedDate)],
             with: {
                 customer: true,
-                technician: true
+                technician: true,
+                parts: true
             }
         });
         return NextResponse.json(data);
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
             notes,
             warrantyClaimed,
             originalTransactionId,
+            spareparts,
         } = parsed.data;
 
         const id = crypto.randomUUID();
@@ -81,6 +84,11 @@ export async function POST(request: Request) {
             warrantyClaimed: warrantyClaimed ?? false,
             originalTransactionId: originalTransactionId || null,
         }).returning();
+
+        // Persist spareparts to the relational table (if any were provided).
+        if (spareparts !== undefined) {
+            await syncServiceParts(id, spareparts);
+        }
 
         // Log activity
         await db.insert(activityLogs).values({

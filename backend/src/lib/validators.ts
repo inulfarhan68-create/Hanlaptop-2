@@ -117,6 +117,15 @@ export const serviceOrderSchema = z.object({
     originalTransactionId: z.string().nullable().optional(),
     completedDate: z.string().nullable().optional().transform(val => val ? new Date(val) : null),
     warrantyUntil: z.string().nullable().optional().transform(val => val ? new Date(val) : null),
+    // Spareparts consumed by the service, persisted to the relational service_parts
+    // table (replaces the legacy [Spareparts: ...] JSON embedded in notes).
+    spareparts: z.array(z.object({
+        id: z.string().nullable().optional(),
+        name: z.string().min(1),
+        price: z.number().nonnegative().optional().default(0),
+        qty: z.number().int().positive().optional().default(1),
+        maxStock: z.number().optional(),
+    })).optional(),
 });
 
 // 6. Store Settings Validation Schema
