@@ -10,6 +10,7 @@ import { serviceOrderSchema } from "@/lib/validators";
 import crypto from "crypto";
 import { awardPoints, scheduleServiceReminder } from "@/lib/crm-helper";
 import { syncServiceParts, getSparepartsAmount, deductServicePartsStock } from "@/services/ServicePartsService";
+import { generateInvoiceNumber } from "@/lib/invoice-number";
 
 export const dynamic = 'force-dynamic';
 
@@ -271,15 +272,16 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
         // Auto-create transaction if requested and status is Diambil
         let createdTxId: string | null = null;
+        let createdInvoiceNumber: string | null = null;
         if (createTransaction && status === 'Diambil') {
             const txId = crypto.randomUUID();
             createdTxId = txId;
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const randomCode = Math.floor(100 + Math.random() * 900);
             const serviceAmount = finalCost || existingSO.estimatedCost || 0;
             const isWarranty = existingSO.warrantyClaimed === true;
+            // One sequential number for this pickup — GRN for warranty claims, SRV otherwise.
+            const txInvoiceNumber = await generateInvoiceNumber(db, existingSO.storeId, isWarranty ? "GRN" : "SRV", now);
+            createdInvoiceNumber = txInvoiceNumber;
 
             if (isWarranty) {
                 // ── Klaim Garansi: catat sebagai BEBAN (pengeluaran toko) ──
@@ -293,7 +295,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                         amount: serviceAmount,
                         description: `Klaim Garansi: ${existingSO.deviceName} - ${existingSO.issue} [ID: ${params.id}]`,
                         transactionDate: now,
-                        invoiceNumber: `GRN/${year}/${month}/${randomCode}`,
+                        invoiceNumber: txInvoiceNumber,
                         customerName: existingSO.customerName,
                         customerId: existingSO.customerId,
                         paymentMethod: "Cash",
@@ -319,7 +321,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                     amount: serviceAmount,
                     description: `Servis: ${existingSO.deviceName} - ${existingSO.issue} [ID: ${params.id}]`,
                     transactionDate: now,
-                    invoiceNumber: `SRV/${year}/${month}/${randomCode}`,
+                    invoiceNumber: txInvoiceNumber,
                     customerName: existingSO.customerName,
                     customerId: existingSO.customerId,
                     paymentMethod: "Cash",
@@ -353,9 +355,11 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         // Award points and schedule reminder on collection
         if (status === 'Diambil' && existingSO.customerId) {
             try {
-                const now = new Date();
-                const srvInvoiceNumber = `SRV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`;
                 const serviceAmount = finalCost || existingSO.estimatedCost || 0;
+                // Reference the actual pickup invoice; fall back to a sequential SRV
+                // number only if no transaction was created for this collection.
+                const srvInvoiceNumber = createdInvoiceNumber
+                    ?? await generateInvoiceNumber(db, existingSO.storeId, "SRV", new Date());
 
                 await awardPoints(db, existingSO.customerId, serviceAmount, srvInvoiceNumber);
                 await scheduleServiceReminder(db, existingSO.storeId, existingSO.customerId, existingSO.customerPhone || "", existingSO.deviceName);
