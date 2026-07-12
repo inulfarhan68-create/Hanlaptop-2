@@ -9,7 +9,7 @@ import { z } from "zod";
 import { serviceOrderSchema } from "@/lib/validators";
 import crypto from "crypto";
 import { awardPoints, scheduleServiceReminder } from "@/lib/crm-helper";
-import { syncServiceParts, getSparepartsAmount } from "@/services/ServicePartsService";
+import { syncServiceParts, getSparepartsAmount, deductServicePartsStock } from "@/services/ServicePartsService";
 
 export const dynamic = 'force-dynamic';
 
@@ -336,6 +336,17 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
                         { storeId: existingSO.storeId, transactionId: txId, accountName: "Kas", debit: serviceAmount, credit: 0 }
                     ]);
                 }
+            }
+        }
+
+        // Deduct sparepart stock server-side, once, on the transition into "Diambil"
+        // (pickup). Moved off the client so a closed tab / failed request can no
+        // longer skip it. The status guard makes it idempotent (Diambil is terminal).
+        if (status === 'Diambil' && existingSO.status !== 'Diambil') {
+            try {
+                await deductServicePartsStock(params.id, existingSO.storeId, existingSO.notes);
+            } catch (dedErr) {
+                console.error("Failed to deduct sparepart stock on pickup:", dedErr);
             }
         }
 
