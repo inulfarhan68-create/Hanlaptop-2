@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { serviceParts, inventory } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 /**
  * Shape sent by the frontend service form (`selectedParts`): the inventory id,
@@ -94,4 +94,54 @@ export async function getSparepartsAmount(
         }
     }
     return 0;
+}
+
+/**
+ * Deduct sparepart stock for a service order when it is picked up ("Diambil").
+ * Parts come from the relational table (legacy notes fallback). Each inventory
+ * row is decremented atomically and never taken below zero, scoped to the store
+ * for tenant safety. Returns what was deducted. Call exactly once, on the
+ * transition into Diambil — moving this server-side means a closed tab or a
+ * failed client request can no longer skip the deduction.
+ */
+export async function deductServicePartsStock(
+    serviceOrderId: string,
+    storeId: string,
+    legacyNotes: string | null | undefined,
+    client: any = db
+): Promise<{ inventoryId: string; quantity: number }[]> {
+    let parts: { inventoryId: string; quantity: number }[] = (
+        await client
+            .select({ inventoryId: serviceParts.inventoryId, quantity: serviceParts.quantity })
+            .from(serviceParts)
+            .where(eq(serviceParts.serviceOrderId, serviceOrderId))
+    )
+        .filter((p: any) => p.inventoryId && Number(p.quantity) > 0)
+        .map((p: any) => ({ inventoryId: p.inventoryId, quantity: Number(p.quantity) }));
+
+    // Legacy fallback: parts still embedded in notes for pre-migration orders.
+    if (parts.length === 0 && legacyNotes) {
+        const m = legacyNotes.match(/\[Spareparts:\s*(\[[\s\S]*?\])\]/);
+        if (m) {
+            try {
+                const list = JSON.parse(m[1]);
+                if (Array.isArray(list)) {
+                    parts = list
+                        .filter((p: any) => p.id && (Number(p.qty) || 0) > 0)
+                        .map((p: any) => ({ inventoryId: p.id, quantity: Number(p.qty) }));
+                }
+            } catch {
+                /* ignore malformed legacy JSON */
+            }
+        }
+    }
+    if (parts.length === 0) return [];
+
+    for (const p of parts) {
+        await client
+            .update(inventory)
+            .set({ quantity: sql`GREATEST(0, ${inventory.quantity} - ${p.quantity})` })
+            .where(and(eq(inventory.id, p.inventoryId), eq(inventory.storeId, storeId)));
+    }
+    return parts;
 }

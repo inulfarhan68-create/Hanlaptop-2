@@ -474,38 +474,10 @@ export function Services() {
           }
         });
         
-        const serviceObj = (Array.isArray(services) ? services : []).find((s: any) => s.id === id);
-        if (serviceObj) {
-          // Deduct sparepart stock. Parts come from the relational `parts` array
-          // (legacy notes fallback handled by the normalizer).
-          const partsList = normalizeServiceParts(serviceObj);
-          if (partsList.length > 0) {
-            try {
-              const invList = Array.isArray(inventoryData) ? inventoryData : [];
-              for (const part of partsList) {
-                const invItem = invList.find((i: any) => i.id === part.id);
-                if (invItem) {
-                  const newQty = Math.max(0, invItem.quantity - part.qty);
-                  await fetch((import.meta.env.VITE_API_URL || '') + `/api/inventory/${part.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      itemName: invItem.itemName,
-                      category: invItem.category,
-                      sellingPrice: invItem.sellingPrice,
-                      quantity: newQty,
-                      specs: invItem.specs || undefined,
-                      barcode: invItem.barcode || undefined
-                    })
-                  });
-                }
-              }
-              mutateInventory();
-            } catch (e) {
-              console.error("Failed to deduct spareparts stock", e);
-            }
-          }
-        }
+        // Sparepart stock is deducted server-side on the Diambil transition
+        // (see api/services/[id] → deductServicePartsStock). Just refresh the
+        // inventory view so the reduced quantities show immediately.
+        mutateInventory();
         mutate();
       } else {
         const err = await res.json().catch(() => ({}));
