@@ -15,6 +15,13 @@
       "when": 1783828284744,
       "tag": "0001_neat_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783856005521,
+      "tag": "0002_ordinary_puck",
+      "breakpoints": true
     }
   ]
 }

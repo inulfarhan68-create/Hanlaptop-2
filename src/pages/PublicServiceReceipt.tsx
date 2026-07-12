@@ -561,7 +561,7 @@ export function PublicServiceReceipt() {
               <div className="text-[9px] text-slate-600 space-y-1.5 leading-relaxed text-justify">
                 <div className="grid grid-cols-[100px_1fr] gap-1.5">
                   <span className="font-semibold text-slate-800">Masa Berlaku</span>
-                  <span><span className="font-medium text-slate-700">Unit Laptop:</span> Garansi Hardware 1 Bulan & Garansi Software 6 Bulan sejak tanggal pembelian.<br/><span className="font-medium text-slate-700">Layanan Service:</span> Garansi 1 Minggu untuk kerusakan/gejala yang sama.</span>
+                  <span><span className="font-medium text-slate-700">Unit Laptop:</span> Garansi Hardware 1 Bulan & Garansi Software 6 Bulan sejak tanggal pembelian.<br/><span className="font-medium text-slate-700">Layanan Service:</span> Garansi jasa servis berlaku hingga tanggal yang tertera pada nota ini, untuk kerusakan/gejala yang sama.</span>
                 </div>
                 <div className="grid grid-cols-[100px_1fr] gap-1.5">
                   <span className="font-semibold text-slate-800">Syarat Utama</span>
@@ -595,6 +595,12 @@ export function PublicServiceReceipt() {
                   <div className="flex justify-between text-[12px] border-t border-dashed border-slate-200 pt-2">
                     <span className="text-slate-600">Tgl Selesai</span>
                     <span className="font-bold text-slate-900">{new Date(printData.completedDate).toLocaleDateString('id-ID')}</span>
+                  </div>
+                )}
+                {printData.warrantyUntil && (
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-slate-600">Garansi Servis s/d</span>
+                    <span className="font-bold text-emerald-700">{new Date(printData.warrantyUntil).toLocaleDateString('id-ID')}</span>
                   </div>
                 )}
                 {printData.technicianName && (

@@ -78,6 +78,7 @@ export async function GET() {
                 serviceIssues: defaultServiceIssues,
                 enableCashierShift: true,
                 requireInboundQc: false,
+                serviceWarrantyDays: 30,
                 userRole: authResult.storeRole
             }, { status: 200 });
         }
@@ -117,6 +118,7 @@ export async function GET() {
             serviceIssues: parsedServiceIssues || defaultServiceIssues,
             enableCashierShift: settings.enableCashierShift !== false,
             requireInboundQc: settings.requireInboundQc === true,
+            serviceWarrantyDays: settings.serviceWarrantyDays ?? 30,
             userRole: authResult.storeRole
         }, { status: 200 });
     } catch (error: any) {
@@ -134,7 +136,7 @@ export async function POST(request: Request) {
         if (!parsed.success) {
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
         }
-        const { storeName, storeAddress, storePhone, storeLogo, storeSignature, storeFooter, storeBanks, waTemplatePiutang, waTemplateUmum, waTemplateNota, waTemplateServiceDiterima, waTemplateServiceDikerjakan, waTemplateServiceMenungguPart, waTemplateServiceSelesai, waTemplateServiceBatal, enableCashierShift, requireInboundQc, expenseCategories, serviceIssues, applyToAllBranches } = parsed.data;
+        const { storeName, storeAddress, storePhone, storeLogo, storeSignature, storeFooter, storeBanks, waTemplatePiutang, waTemplateUmum, waTemplateNota, waTemplateServiceDiterima, waTemplateServiceDikerjakan, waTemplateServiceMenungguPart, waTemplateServiceSelesai, waTemplateServiceBatal, enableCashierShift, requireInboundQc, serviceWarrantyDays, expenseCategories, serviceIssues, applyToAllBranches } = parsed.data;
 
         const tx = db;
         const existing = await tx.query.storeSettings.findFirst({
@@ -166,6 +168,7 @@ export async function POST(request: Request) {
             storeBanks: banksJson,
             enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : true,
             requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : false,
+            serviceWarrantyDays: serviceWarrantyDays !== undefined ? serviceWarrantyDays : 30,
             expenseCategories: expenseCategoriesJson,
             serviceIssues: serviceIssuesJson,
             updatedAt: new Date()
@@ -189,6 +192,7 @@ export async function POST(request: Request) {
                 storeBanks: banksJson !== null ? banksJson : (existing?.storeBanks ?? null),
                 enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : (existing?.enableCashierShift ?? true),
                 requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : (existing?.requireInboundQc ?? false),
+                serviceWarrantyDays: serviceWarrantyDays !== undefined ? serviceWarrantyDays : (existing?.serviceWarrantyDays ?? 30),
                 expenseCategories: expenseCategoriesJson !== null ? expenseCategoriesJson : (existing?.expenseCategories ?? null),
                 serviceIssues: serviceIssuesJson !== null ? serviceIssuesJson : (existing?.serviceIssues ?? null),
                 updatedAt: new Date()
@@ -241,6 +245,7 @@ export async function POST(request: Request) {
                     storeBanks: banksJson,
                     enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : true,
                     requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : false,
+                    serviceWarrantyDays: serviceWarrantyDays !== undefined ? serviceWarrantyDays : 30,
                     expenseCategories: expenseCategoriesJson,
                     serviceIssues: serviceIssuesJson,
                     updatedAt: new Date()
@@ -261,6 +266,7 @@ export async function POST(request: Request) {
                         storeBanks: banksJson !== null ? banksJson : (existingBranchSettings?.storeBanks ?? null),
                         enableCashierShift: enableCashierShift !== undefined ? enableCashierShift : (existingBranchSettings?.enableCashierShift ?? true),
                         requireInboundQc: requireInboundQc !== undefined ? requireInboundQc : (existingBranchSettings?.requireInboundQc ?? false),
+                        serviceWarrantyDays: serviceWarrantyDays !== undefined ? serviceWarrantyDays : (existingBranchSettings?.serviceWarrantyDays ?? 30),
                         expenseCategories: expenseCategoriesJson !== null ? expenseCategoriesJson : (existingBranchSettings?.expenseCategories ?? null),
                         serviceIssues: serviceIssuesJson !== null ? serviceIssuesJson : (existingBranchSettings?.serviceIssues ?? null),
                         updatedAt: new Date()

@@ -39,6 +39,7 @@ export function StoreSettingsTab() {
   const [waTemplateServiceBatal, setWaTemplateServiceBatal] = useState("Halo Kak {nama}, mohon maaf perbaikan laptop *{unit}* di *{toko}* dibatalkan karena tidak memungkinkan untuk diperbaiki/suku cadang tidak tersedia. Cek status: {link}")
   const [enableCashierShift, setEnableCashierShift] = useState(true)
   const [requireInboundQc, setRequireInboundQc] = useState(false)
+  const [serviceWarrantyDays, setServiceWarrantyDays] = useState(30)
   const [savedInfo, setSavedInfo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [expenseCategories, setExpenseCategories] = useState<string[]>([])
@@ -81,6 +82,7 @@ export function StoreSettingsTab() {
           
           setEnableCashierShift(data.enableCashierShift !== false)
           setRequireInboundQc(data.requireInboundQc === true)
+          setServiceWarrantyDays(typeof data.serviceWarrantyDays === "number" ? data.serviceWarrantyDays : 30)
 
           localStorage.setItem("storeName", data.storeName || "HanLaptop")
           localStorage.setItem("storeLogo", data.storeLogo || "")
@@ -91,6 +93,7 @@ export function StoreSettingsTab() {
           localStorage.setItem("storeInstagram", parsedInstagram)
           localStorage.setItem("enableCashierShift", data.enableCashierShift !== false ? "true" : "false")
           localStorage.setItem("requireInboundQc", data.requireInboundQc === true ? "true" : "false")
+          localStorage.setItem("serviceWarrantyDays", String(typeof data.serviceWarrantyDays === "number" ? data.serviceWarrantyDays : 30))
 
           if (data.waTemplatePiutang) {
             setWaTemplatePiutang(data.waTemplatePiutang)
@@ -201,6 +204,7 @@ export function StoreSettingsTab() {
           waTemplateServiceBatal,
           enableCashierShift,
           requireInboundQc,
+          serviceWarrantyDays,
           expenseCategories,
           serviceIssues,
           applyToAllBranches
@@ -225,6 +229,7 @@ export function StoreSettingsTab() {
         localStorage.setItem("waTemplateServiceBatal", waTemplateServiceBatal)
         localStorage.setItem("enableCashierShift", enableCashierShift ? "true" : "false")
         localStorage.setItem("requireInboundQc", requireInboundQc ? "true" : "false")
+        localStorage.setItem("serviceWarrantyDays", String(serviceWarrantyDays))
         localStorage.setItem("expenseCategories", JSON.stringify(expenseCategories))
         localStorage.setItem("serviceIssues", JSON.stringify(serviceIssues))
         setSavedInfo(true)
@@ -642,6 +647,25 @@ export function StoreSettingsTab() {
                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out ${requireInboundQc ? "translate-x-5" : "translate-x-0"}`}
                 />
               </button>
+            </div>
+
+            {/* Service Warranty Period Card */}
+            <div className="flex items-center justify-between p-4 rounded-2xl border border-border/80 bg-muted/10 my-2 gap-3">
+              <div className="space-y-0.5 max-w-[70%] text-left">
+                <label className="text-sm font-semibold text-foreground">Garansi Servis (hari)</label>
+                <p className="text-xs text-muted-foreground">Lama garansi jasa servis, dihitung sejak unit diambil pelanggan. Ditampilkan di nota servis. Isi 0 untuk menonaktifkan.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Input
+                  type="number"
+                  min={0}
+                  max={3650}
+                  value={serviceWarrantyDays}
+                  onChange={e => setServiceWarrantyDays(Math.max(0, Math.min(3650, parseInt(e.target.value || "0", 10))))}
+                  className="w-20 text-center rounded-xl border-border/80"
+                />
+                <span className="text-xs text-muted-foreground">hari</span>
+              </div>
             </div>
 
             {/* Receipt Footer Message */}

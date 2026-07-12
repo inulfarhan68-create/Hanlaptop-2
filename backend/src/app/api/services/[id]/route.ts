@@ -172,7 +172,21 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
         if (status === 'Selesai' && existingSO.status !== 'Selesai') {
             updateData.completedDate = new Date();
-            // Automatically set warranty if not set? We'll let the user do it via notes or UI.
+        }
+
+        // Start the service (workmanship) warranty when the customer picks the unit up.
+        // Length comes from the store's serviceWarrantyDays setting (default 30; 0 = off).
+        // Only set once, and never overwrite an existing warranty date.
+        if (status === 'Diambil' && existingSO.status !== 'Diambil' && !existingSO.warrantyUntil) {
+            const warrantySettings = await db.query.storeSettings.findFirst({
+                where: eq(storeSettings.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId)
+            });
+            const warrantyDays = warrantySettings?.serviceWarrantyDays ?? 30;
+            if (warrantyDays > 0) {
+                const until = new Date();
+                until.setDate(until.getDate() + warrantyDays);
+                updateData.warrantyUntil = until;
+            }
         }
 
         const result = await db.update(serviceOrders)
