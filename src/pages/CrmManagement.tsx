@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import useSWR from "swr"
 import { ModernSelect } from "@/components/ui/modern-select"
 
-export function CrmManagement() {
+export function CrmManagement({ embedded = false }: { embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<"membership" | "reminders" | "warranty" | "leads">("membership")
   const [searchQuery, setSearchQuery] = useState("")
   
@@ -176,14 +176,16 @@ export function CrmManagement() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 text-left">
-      <div className="sticky top-0 z-40 shrink-0 flex flex-col md:flex-row justify-between gap-2 md:items-center p-3 md:px-5 md:py-3 bg-white/80 dark:bg-card backdrop-blur-xl rounded-xl md:rounded-[2rem] border border-border shadow-sm mt-0 mb-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Percent className="h-6 w-6 text-primary" /> CRM & Loyalitas Member
-          </h2>
-          <p className="text-muted-foreground text-xs md:text-sm">Kelola poin loyalitas pelanggan dan pengingat servis otomatis.</p>
-        </div>
-        <div className="flex gap-1.5 p-1 bg-muted/40 rounded-xl border">
+      <div className={`sticky top-0 z-40 shrink-0 flex flex-col md:flex-row ${embedded ? 'justify-end' : 'justify-between'} gap-2 md:items-center ${embedded ? 'mb-2' : 'p-3 md:px-5 md:py-3 bg-white/80 dark:bg-card backdrop-blur-xl rounded-xl md:rounded-[2rem] border border-border shadow-sm mt-0 mb-4'}`}>
+        {!embedded && (
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Percent className="h-6 w-6 text-primary" /> CRM & Loyalitas Member
+            </h2>
+            <p className="text-muted-foreground text-xs md:text-sm">Kelola poin loyalitas pelanggan dan pengingat servis otomatis.</p>
+          </div>
+        )}
+        <div className={`flex gap-1.5 p-1 bg-muted/40 rounded-xl border ${embedded ? 'w-full md:w-auto overflow-x-auto overflow-y-hidden whitespace-nowrap' : ''}`}>
           <Button 
             size="sm" 
             variant={activeTab === "membership" ? "default" : "ghost"}

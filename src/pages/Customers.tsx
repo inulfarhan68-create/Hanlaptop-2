@@ -3,16 +3,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Users, MessageCircle, MapPin, Phone, Star, UserPlus, X, Edit2, Trash2 } from "lucide-react"
+import { Search, Users, MessageCircle, MapPin, Phone, Star, UserPlus, X, Edit2, Trash2, Database, Percent } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
-
-
+import { CrmManagement } from "./CrmManagement"
 
 export function Customers() {
   const { isOwner, isInvestor } = useUserRole()
+  const [mainTab, setMainTab] = useState<"database" | "crm">("database")
   const [searchQuery, setSearchQuery] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<any>(null)
@@ -135,21 +135,44 @@ export function Customers() {
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       {dialog}
-      <div className="sticky top-0 z-40 shrink-0 flex flex-col gap-2 p-3 md:px-5 md:py-3 bg-white/80 light-blue:bg-white dark:bg-card backdrop-blur-xl rounded-xl md:rounded-[2rem] border border-border shadow-sm mt-0 mb-4">
-        <div className="flex justify-between items-start">
+      <div className="sticky top-0 z-40 shrink-0 flex flex-col gap-3 p-3 md:px-5 md:py-3 bg-white/80 light-blue:bg-white dark:bg-card backdrop-blur-xl rounded-xl md:rounded-[2rem] border border-border shadow-sm mt-0 mb-4">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Database Pelanggan</h2>
-            <p className="text-muted-foreground text-xs md:text-sm">Kelola data, lihat riwayat belanja, dan hubungi pelanggan.</p>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Pelanggan & CRM</h2>
+            <p className="text-muted-foreground text-xs md:text-sm">Kelola database, riwayat belanja, dan program loyalitas pelanggan.</p>
           </div>
-          {!isInvestor && localStorage.getItem('selectedStoreId') !== 'all' && (
-            <Button size="sm" className="gap-1 rounded-xl" onClick={openAddModal}>
-              <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">Tambah Manual</span>
-            </Button>
-          )}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex p-1 bg-muted/40 rounded-xl border">
+              <Button 
+                size="sm" 
+                variant={mainTab === "database" ? "default" : "ghost"}
+                onClick={() => setMainTab("database")}
+                className="rounded-lg text-xs flex-1 sm:flex-none"
+              >
+                <Database className="w-3.5 h-3.5 mr-1.5" />
+                Database
+              </Button>
+              <Button 
+                size="sm" 
+                variant={mainTab === "crm" ? "default" : "ghost"}
+                onClick={() => setMainTab("crm")}
+                className="rounded-lg text-xs flex-1 sm:flex-none"
+              >
+                <Percent className="w-3.5 h-3.5 mr-1.5" />
+                CRM & Loyalitas
+              </Button>
+            </div>
+            {mainTab === "database" && !isInvestor && localStorage.getItem('selectedStoreId') !== 'all' && (
+              <Button size="sm" className="gap-1 rounded-xl" onClick={openAddModal}>
+                <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">Tambah Manual</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-20 md:pb-4">
+      {mainTab === "database" ? (
+        <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-20 md:pb-4 animate-in fade-in">
         {/* Filter */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">
@@ -310,8 +333,12 @@ export function Customers() {
             </div>
           </CardContent>
         </Card>
-
       </div>
+      ) : (
+        <div className="flex-1 overflow-hidden animate-in fade-in">
+          <CrmManagement embedded={true} />
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (
