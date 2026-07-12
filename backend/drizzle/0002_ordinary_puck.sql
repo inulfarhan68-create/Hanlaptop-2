@@ -1,0 +1,1 @@
+ALTER TABLE "store_settings" ADD COLUMN "service_warranty_days" integer DEFAULT 30 NOT NULL;

@@ -138,6 +138,7 @@ export const storeSettingsSchema = z.object({
     storeBanks: z.union([z.string(), z.array(z.any())]).nullable().optional(),
     enableCashierShift: z.boolean().optional(),
     requireInboundQc: z.boolean().optional(),
+    serviceWarrantyDays: z.number().int().min(0).max(3650).optional(),
     expenseCategories: z.union([z.string(), z.array(z.string())]).nullable().optional(),
     serviceIssues: z.union([z.string(), z.array(z.any())]).nullable().optional(),
     applyToAllBranches: z.boolean().optional(),

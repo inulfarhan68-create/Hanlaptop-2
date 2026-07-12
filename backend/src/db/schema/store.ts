@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { user } from '@/db/schema/users';
 
@@ -55,6 +55,9 @@ export const storeSettings = pgTable("store_settings", {
     // When true, items received via "Pembelian Stok" enter as IN_INSPECTION (blocked
     // from sale) until QC is completed. Off by default to preserve existing behavior.
     requireInboundQc: boolean("require_inbound_qc").notNull().default(false),
+    // Default service (workmanship) warranty length in days, applied when a service
+    // order is picked up. 0 disables it. Configurable per store.
+    serviceWarrantyDays: integer("service_warranty_days").notNull().default(30),
     expenseCategories: text("expense_categories"),
     serviceIssues: text("service_issues"),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
