@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getPublicCatalog } from "@/lib/public/catalog";
 import CatalogClient from "./client";
@@ -111,7 +112,13 @@ export default async function CatalogPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <CatalogClient initialData={result.data} slug={slug} />
+      {/* CatalogClient uses useSearchParams; on this static/ISR route that
+          forces client-side rendering up to the nearest Suspense boundary.
+          The boundary keeps the server-rendered catalog HTML in the ISR
+          payload instead of blanking the whole page. */}
+      <Suspense fallback={null}>
+        <CatalogClient initialData={result.data} slug={slug} />
+      </Suspense>
     </>
   );
 }

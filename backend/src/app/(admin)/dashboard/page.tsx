@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import DashboardClient from "./client";
 
 export const metadata = {
@@ -9,9 +8,7 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+  const session = await getSession();
 
   if (!session) {
     redirect("/login");

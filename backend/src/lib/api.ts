@@ -65,9 +65,11 @@ export async function fetcher(args: string | any[]) {
   
   const res = await apiFetch(url);
   if (!res.ok) {
-    // If unauthorized, user session expired or user is logged out
+    // If unauthorized, session expired or logged out. Send to the Next app's
+    // login (under the transitional basePath) — same target the server-side
+    // redirect("/login") resolves to — so both auth bounces land in one place.
     if (res.status === 401 && typeof window !== "undefined") {
-      window.location.href = "/login";
+      window.location.href = "/_/backend/login";
     }
     const errorBody = await res.json().catch(() => ({ error: res.statusText }));
     const error = new Error(errorBody.error || `HTTP ${res.status}`);

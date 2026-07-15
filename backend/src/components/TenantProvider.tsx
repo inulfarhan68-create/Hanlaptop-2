@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
-import { syncChannel } from "@/lib/broadcast";
 
 type TenantContextType = {
   activeStore: any | null;
@@ -47,9 +46,9 @@ export function TenantProvider({
     } else {
       localStorage.setItem("selectedStoreId", "all");
     }
-    // Refresh SWR global cache on store switch
-    syncChannel.broadcastMutation("store_switch", "POST");
-    // Reload page to ensure all components fetch with new store ID
+    // Full reload on store switch: blunt but reliable — every SWR key, page
+    // and server component refetches under the new x-store-id. (A broadcast
+    // was tried here but no SWR key matches "store_switch", so it was dead.)
     window.location.reload();
   };
 

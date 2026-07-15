@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/db";
 import { inventory, stores, storeSettings } from "@/db/schema";
 import { eq, and, gt, or } from "drizzle-orm";
@@ -19,10 +20,12 @@ export interface PublicCatalogData {
  * Fetch the public catalog for a store by slug or ID.
  * Used by both the Server Component (page.tsx) and the API route.
  */
-export async function getPublicCatalog(storeSlug: string): Promise<
+// cache(): generateMetadata and the page component both call this within the
+// same request — dedupe so the DB is hit once per request, not twice.
+export const getPublicCatalog = cache(async (storeSlug: string): Promise<
   | { data: PublicCatalogData }
   | { error: string; status: number }
-> {
+> => {
   // 1. Find store by slug or ID
   const storeResult = await db
     .select()
@@ -112,4 +115,4 @@ export async function getPublicCatalog(storeSlug: string): Promise<
       items: itemsWithCTA,
     },
   };
-}
+});

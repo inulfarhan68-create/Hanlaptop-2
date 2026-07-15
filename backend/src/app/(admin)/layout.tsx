@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { TenantProvider } from "@/components/TenantProvider";
 import { db } from "@/db";
@@ -16,9 +15,7 @@ export const metadata = {
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // 1. Auth Guard (Server-Side)
   // Check auth first, if unauthenticated, bounce to /login without flashing.
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+  const session = await getSession();
 
   if (!session) {
     redirect("/login");

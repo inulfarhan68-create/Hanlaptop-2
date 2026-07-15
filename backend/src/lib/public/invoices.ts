@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/db";
 import { transactions, storeSettings, stores } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,10 +12,12 @@ export interface PublicInvoiceData {
  * Fetch a public invoice by ID.
  * Used by both the Server Component (page.tsx) and the API route.
  */
-export async function getPublicInvoice(id: string): Promise<
+// cache(): generateMetadata and the page component both call this within the
+// same request — dedupe so the DB is hit once per request, not twice.
+export const getPublicInvoice = cache(async (id: string): Promise<
   | { data: PublicInvoiceData }
   | { error: string; status: number; isVoided?: boolean }
-> {
+> => {
   let cleanId = id;
   if (id.includes("-")) {
     const parts = id.split("-");
@@ -88,4 +91,4 @@ export async function getPublicInvoice(id: string): Promise<
           },
     },
   };
-}
+});

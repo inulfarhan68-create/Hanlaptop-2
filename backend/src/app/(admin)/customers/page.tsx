@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { ClientCustomers } from "./client";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -10,9 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CustomersPage() {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+  const session = await getSession();
 
   if (!session?.user) {
     redirect("/login")

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/db";
 import { serviceOrders, storeSettings, stores } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,10 +12,12 @@ export interface PublicServiceData {
  * Fetch a public service order by ID.
  * Used by both the Server Component (page.tsx) and the API route.
  */
-export async function getPublicService(id: string): Promise<
+// cache(): generateMetadata and the page component both call this within the
+// same request — dedupe so the DB is hit once per request, not twice.
+export const getPublicService = cache(async (id: string): Promise<
   | { data: PublicServiceData }
   | { error: string; status: number }
-> {
+> => {
   const serviceOrder = await db.query.serviceOrders.findFirst({
     where: eq(serviceOrders.id, id),
     with: { customer: true, parts: true },
@@ -63,4 +66,4 @@ export async function getPublicService(id: string): Promise<
           },
     },
   };
-}
+});
