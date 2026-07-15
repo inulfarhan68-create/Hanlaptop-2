@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { checkRateLimit, RateLimitCategory } from '@/lib/rate-limiter';
 // Web Crypto API is globally available in Edge Runtime
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     // 1. Request ID Generation
     const requestId = crypto.randomUUID();
     

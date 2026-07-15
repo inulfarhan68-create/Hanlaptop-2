@@ -3,7 +3,6 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { db } from "../db";
 import * as schema from "../db/schema";
 
-// Override process.env.BETTER_AUTH_URL to normalize it since Better Auth matches against request.url directly (which has Next.js basePath stripped)
 if (process.env.BETTER_AUTH_URL) {
     let url = process.env.BETTER_AUTH_URL.replace(/\/$/, "");
     if (!url.endsWith("/api/auth")) {
@@ -28,9 +27,9 @@ if (!authSecret && process.env.NODE_ENV === 'production') {
     const isVercel = !!process.env.VERCEL;
     
     if (isBuildPhase || !isVercel) {
-        console.warn("⚠️  [WARNING] BETTER_AUTH_SECRET environment variable is missing. This is allowed during build phase or local production mode, but will cause a crash in Vercel production runtime.");
+        console.warn("BETTER_AUTH_SECRET is not set. Auth might fail in production.");
     } else {
-        throw new Error("FATAL: BETTER_AUTH_SECRET environment variable is required in production runtime.");
+        throw new Error("BETTER_AUTH_SECRET is required in production");
     }
 }
 
@@ -44,6 +43,11 @@ export const auth = betterAuth({
             verification: schema.verification
         }
     }),
+    advanced: {
+        defaultCookieAttributes: {
+            path: "/"
+        }
+    },
     secret: authSecret || "dev-only-secret-not-for-production",
     baseURL: serverBaseURL,
     emailAndPassword: {
