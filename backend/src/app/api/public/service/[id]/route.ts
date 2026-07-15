@@ -1,56 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { serviceOrders, storeSettings, stores, activityLogs } from "@/db/schema";
+import { serviceOrders, activityLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getPublicService } from "@/lib/public/services";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const { id } = await context.params;
     try {
-        const serviceOrder = await db.query.serviceOrders.findFirst({
-            where: eq(serviceOrders.id, id),
-            with: { customer: true, parts: true }
-        });
-        
-        if (!serviceOrder) {
-            return NextResponse.json({ error: "Data servis tidak ditemukan." }, { status: 404 });
+        const result = await getPublicService(id);
+
+        if ("error" in result) {
+            return NextResponse.json({ error: result.error }, { status: result.status });
         }
 
-        const settings = await db.query.storeSettings.findFirst({
-            where: eq(storeSettings.storeId, serviceOrder.storeId)
-        });
-
-        let storeInfo = null;
-        if (!settings) {
-            storeInfo = await db.query.stores.findFirst({
-                where: eq(stores.id, serviceOrder.storeId)
-            });
-        }
-
-        let parsedBanks = [];
-        if (settings?.storeBanks) {
-            try {
-                parsedBanks = JSON.parse(settings.storeBanks);
-            } catch (e) {
-                console.error("Failed to parse storeBanks", e);
-            }
-        }
-
-        return NextResponse.json({
-            serviceOrder,
-            storeSettings: settings ? {
-                ...settings,
-                storeBanks: parsedBanks
-            } : {
-                storeName: storeInfo?.name || "HanLaptop",
-                storeAddress: storeInfo?.address || "Jl. Komputer Raya No.123",
-                storePhone: storeInfo?.phone || "0812-3456-7890",
-                storeLogo: null,
-                storeFooter: "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan.",
-                storeBanks: []
-            }
-        });
+        return NextResponse.json(result.data);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -120,4 +85,3 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

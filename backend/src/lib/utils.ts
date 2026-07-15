@@ -12,3 +12,9 @@ export function formatCurrency(value: number): string {
     minimumFractionDigits: 0 
   }).format(value);
 }
+
+// Static assets are served under the transitional basePath (backend/public/* →
+// /_/backend/*). Single place to update when the basePath is removed at cutover.
+export function assetUrl(path: string) {
+  return `/_/backend${path}`;
+}

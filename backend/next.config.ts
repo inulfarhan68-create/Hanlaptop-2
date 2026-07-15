@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    // Workspace root is the repo root (one level up): the repo has two lockfiles
+    // (frontend + backend), so pin the root instead of letting Turbopack guess.
+    // Must stay machine-independent — never a hardcoded absolute path.
+    root: path.join(import.meta.dirname, ".."),
+  },
   basePath: "/_/backend",
   async headers() {
     return [

@@ -2,6 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,7 +16,7 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "vitest run && vitest run --config vitest.integration.config.ts",
-    "postinstall": "node patch-kysely.js"
+    "postinstall": "node patch-kysely.cjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.12",
@@ -28,6 +29,7 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.42.2",
     "isomorphic-dompurify": "^3.18.0",
     "kysely": "^0.29.2",
     "lru-cache": "^11.5.1",
@@ -37,6 +39,7 @@
     "postgres": "^3.4.9",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },

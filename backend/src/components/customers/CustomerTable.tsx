@@ -1,0 +1,199 @@
+import { Phone, MapPin, Star, MessageCircle, Edit2, Trash2, UserPlus, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { useUserRole } from "@/hooks/useUserRole"
+
+interface CustomerTableProps {
+  customers: any[]
+  customersError: any
+  isLoading: boolean
+  openAddModal: () => void
+  openEditModal: (c: any) => void
+  handleDelete: (c: any) => void
+  mutate: () => void
+  storeId: string | null
+}
+
+export function CustomerTable({
+  customers,
+  customersError,
+  isLoading,
+  openAddModal,
+  openEditModal,
+  handleDelete,
+  mutate,
+  storeId
+}: CustomerTableProps) {
+  const { isOwner, isInvestor } = useUserRole()
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(val)
+  }
+
+  const handleWA = (customer: any) => {
+    const defaultTemplate = "Halo Kak {nama}, ini dengan *{toko}*. ";
+    let template = localStorage.getItem("waTemplateUmum");
+    if (!template) template = defaultTemplate;
+
+    const storeName = localStorage.getItem("storeName") || "HanLaptop";
+
+    let text = template
+      .replace(/{nama}/g, customer.name || 'Pelanggan')
+      .replace(/{toko}/g, storeName);
+      
+    const encodedText = encodeURIComponent(text)
+    const phoneNum = customer.phone || ''
+    let waNumber = phoneNum.replace(/\D/g, '')
+    if (waNumber.startsWith('0')) waNumber = '62' + waNumber.substring(1)
+    window.open(`https://wa.me/${waNumber}?text=${encodedText}`, '_blank')
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="rounded-md border bg-card">
+          {customersError ? (
+            <div className="text-center py-10">
+              <p className="text-destructive font-semibold mb-2">Gagal memuat data pelanggan</p>
+              <p className="text-muted-foreground text-sm mb-4">{customersError.message || customersError.toString()}</p>
+              <Button onClick={() => mutate()} variant="outline" size="sm">Coba Lagi</Button>
+            </div>
+          ) : isLoading ? (
+            <div className="text-center py-10 text-muted-foreground">Memuat data pelanggan...</div>
+          ) : !Array.isArray(customers) || customers.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
+              <Users className="h-10 w-10 text-muted-foreground/30" />
+              <p>Belum ada data pelanggan.</p>
+              {storeId !== 'all' && storeId !== null && (
+                <Button size="sm" variant="outline" className="mt-2 gap-1" onClick={openAddModal}>
+                  <UserPlus className="h-4 w-4" /> Tambah Pelanggan Pertama
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Mobile View */}
+              <div className="md:hidden flex flex-col divide-y">
+                {customers.map((c: any) => {
+                  const isLoyal = c.totalSpent > 5000000 || c.totalTransactions >= 3;
+                  return (
+                    <div key={c.id} className="p-4 flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => openEditModal(c)}>
+                          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0">
+                            {c.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-sm flex items-center gap-1.5">
+                              {c.name} 
+                              {isLoyal && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
+                            </span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Phone className="h-3 w-3 shrink-0" /> {c.phone || <span className="italic text-amber-500">Belum diisi — ketuk untuk edit</span>}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {!isInvestor && storeId !== 'all' && (
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-full" onClick={() => openEditModal(c)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-full" onClick={() => handleWA(c)} disabled={!c.phone}>
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mt-2 bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                        <div>
+                          <p className="text-[10px] uppercase text-muted-foreground font-bold">Total Belanja</p>
+                          <p className="font-bold text-xs text-foreground mt-0.5">{formatCurrency(c.totalSpent || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase text-muted-foreground font-bold">Total Transaksi</p>
+                          <p className="font-bold text-xs text-foreground mt-0.5">{c.totalTransactions || 0} Kali</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pelanggan</TableHead>
+                      <TableHead>Kontak & Alamat</TableHead>
+                      <TableHead className="text-center">Total Transaksi</TableHead>
+                      <TableHead className="text-right">Total Belanja</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customers.map((c: any) => {
+                      const isLoyal = c.totalSpent > 5000000 || c.totalTransactions >= 3;
+                      return (
+                        <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
+                          if (!isInvestor && storeId !== 'all') openEditModal(c);
+                        }}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                {c.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-bold text-sm flex items-center gap-1.5">
+                                  {c.name}
+                                  {isLoyal && <span title="Pelanggan Loyal"><Star className="h-3 w-3 text-amber-500 fill-amber-500" /></span>}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  Terakhir: {c.lastVisitDate ? new Date(c.lastVisitDate).toLocaleDateString('id-ID') : '-'}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <Phone className="h-3 w-3 text-muted-foreground" /> {c.phone || <span className="italic text-amber-500">Belum diisi</span>}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate max-w-[200px]">
+                                <MapPin className="h-3 w-3" /> {c.address || '-'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {c.totalTransactions || 0}x
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(c.totalSpent || 0)}
+                          </TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 rounded-full px-3" onClick={() => handleWA(c)} disabled={!c.phone}>
+                                <MessageCircle className="h-3.5 w-3.5" /> WA
+                              </Button>
+                              {isOwner && storeId !== 'all' && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" onClick={() => handleDelete(c)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
