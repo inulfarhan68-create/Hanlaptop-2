@@ -245,7 +245,18 @@ export default function ServicesClient({ user }: { user: any }) {
 
   // ── Deteksi mode klaim garansi dari router state ──
   useEffect(() => {
-    const state = null as any
+    // Next has no router state, so the Digital Passport page hands the claim
+    // prefill (customer name/phone/address, device, original tx) through
+    // sessionStorage rather than the URL — the URL would leak customer PII.
+    // Read it once and clear it so a refresh doesn't re-trigger.
+    let state: any = null
+    try {
+      const raw = sessionStorage.getItem('warrantyClaimState')
+      if (raw) {
+        state = JSON.parse(raw)
+        sessionStorage.removeItem('warrantyClaimState')
+      }
+    } catch { /* ignore malformed state */ }
     if (state?.mode === 'claim' || searchParams.get('mode') === 'claim') {
       setIsWarrantyClaim(true)
       setOriginalTxId(state?.originalTxId || null)
