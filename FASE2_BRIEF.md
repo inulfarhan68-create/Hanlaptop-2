@@ -27,13 +27,21 @@ Migrasi **hanya** ini:
 | `src/components/transactions/TradeInTab.tsx` | idem | 594 |
 | `src/components/transactions/ExpenseTab.tsx` | idem | 234 |
 | `src/components/transactions/HistoryTab.tsx` | idem | 1038 |
-| `src/components/transactions/ServiceTab.tsx` | idem | 394 |
 | `src/components/transactions/PrintInvoicePortal.tsx` | idem | 295 |
+
+> **JANGAN port `src/components/transactions/ServiceTab.tsx` (394 baris) — DEAD CODE.**
+> Nol rujukan di seluruh `src/` dan `backend/src/`; tidak berubah sejak commit pertama repo. `Transactions.tsx` hanya mengimpor **6** tab (Sales, Restock, TradeIn, Expense, History, PrintInvoicePortal). Memindahkannya = membawa kode mati ke app baru, kebalikan dari tujuan konsolidasi.
+> *(Versi awal brief ini keliru memasukkannya — daftar folder ≠ daftar import. **Selalu verifikasi lewat import, bukan isi direktori.**)*
 
 **Lib yang perlu di-port** (belum ada di backend): `src/lib/printThermal.ts`, `src/lib/printServiceLabel.ts`, `src/lib/technician-data.ts`.
 
-**Sudah ada di backend — PAKAI ULANG, JANGAN buat/copy lagi:**
-`components/ShiftModal`, `components/ui/{button,card,input,autocomplete,badge,table,label,skeleton,confirm-dialog,modern-select,empty-state}`, `lib/{api,utils,serviceParts,broadcast,session,app-url}`, `hooks/useUserRole`, `components/{TenantProvider,ThemeProvider,Providers}`, `components/layout/*`.
+**Sudah ada di backend — PAKAI ULANG lewat `@/...`, JANGAN copy lagi dari `src/`:**
+- `components/ShiftModal` → sudah mengekspor **`ShiftOpenModal` + `ShiftCloseModal`**. `Transactions` wajib mengimpor ini, bukan menyalin ulang.
+- `components/ui/{button,card,input,autocomplete,badge,table,label,skeleton,confirm-dialog,modern-select,empty-state}`
+- `lib/{api,utils,serviceParts,broadcast,session,app-url}`, `hooks/useUserRole`
+- `components/{TenantProvider,ThemeProvider,Providers}`, `components/layout/*`
+
+> Menyalin ulang komponen yang sudah ada menciptakan file kembar yang akan menyimpang diam-diam. Kalau butuh sesuatu yang mirip tapi beda, **tanya dulu**.
 
 **DI LUAR CAKUPAN — jangan disentuh:** modul lain (Reports, Payroll, Settings, dll), SPA Vite di `src/` (biarkan hidup), `vercel.json`, penghapusan basePath, penghapusan `package.json` frontend. Itu PR terpisah nanti.
 
@@ -138,7 +146,9 @@ Pakai `getAppUrl()` dari `@/lib/app-url`. **JANGAN hardcode domain** (`hanlaptop
 
 ## 6. Urutan kerja yang diminta (1 PR per langkah)
 
-1. **PR A — port lib & deps.** `printThermal`, `printServiceLabel`, `technician-data` ke `backend/src/lib/`; tambah dep `qrcode` (+ types); copy aset yang dibutuhkan ke `backend/public/`. Tidak ada halaman baru. Verifikasi: `npm ci` bersih → `tsc` → `build`.
+1. **PR A — port lib & deps.** `printThermal`, `printServiceLabel`, `technician-data` ke `backend/src/lib/`; tambah dep `qrcode` (+ `@types/qrcode`). Tidak ada halaman baru. Verifikasi: `npm ci` bersih → `tsc` → `build`.
+   > **Aset: tidak perlu copy apa pun.** `logo-print.png` dan `ttd.png` **sudah ada** di `backend/public/` (dibawa saat Fase 1); `printThermal`/`printServiceLabel` tidak merujuk aset hardcoded sama sekali. Yang perlu dikerjakan justru di PR B: bungkus rujukan `"/logo-print.png"` & `"/ttd.png"` di `PrintInvoicePortal.tsx` dengan `assetUrl()`.
+   > **`qrcode` wajib mendarat di PR A** — dipakai `printThermal` + `printServiceLabel` (PR A) **dan** `PrintInvoicePortal` (PR B). Telat = PR B gagal build.
 2. **PR B — Transactions.** Port `transactions/*` tabs + `page.tsx`/`client.tsx`. Rute: `/_/backend/transactions`.
 3. **PR C — Services.** Port `Services.tsx` → `page.tsx`/`client.tsx`.
 
