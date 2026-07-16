@@ -40,10 +40,10 @@ export default function TransactionsClient({ user }: { user: any }) {
 
   // SWR calls
   const { data: activeShiftData, mutate: mutateShift } = useSWR(
-    selectedStoreId !== 'all' ? ['/api/shifts/active', selectedStoreId] : null
+    selectedStoreId !== 'all' ? '/api/shifts/active' : null
   )
   const activeShift = activeShiftData?.activeShift || null
-  const { data: storeSettings } = useSWR<any>(['/api/settings', selectedStoreId])
+  const { data: storeSettings } = useSWR<any>('/api/settings')
 
   const cachedEnableShift = localStorage.getItem("enableCashierShift")
   const enableCashierShift = storeSettings 

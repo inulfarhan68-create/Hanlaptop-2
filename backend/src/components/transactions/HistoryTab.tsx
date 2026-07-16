@@ -78,7 +78,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
     return params.toString()
   }, [historyPeriod])
 
-  const { data: allTransactionsData, mutate: mutateTransactions, isLoading: historyLoading } = useSWR(('') + '/api/transactions?' + historyQuery)
+  const { data: allTransactionsData, mutate: mutateTransactions, isLoading: historyLoading } = useSWR('/api/transactions?' + historyQuery)
   const allTransactions = Array.isArray(allTransactionsData) ? allTransactionsData : []
 
   // Detail / Return States
@@ -161,7 +161,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
   const handleOpenDetail = async (trx: any) => {
     setViewDetailTrx(trx)
     try {
-      const res = await fetch(('') + `/api/transactions/${trx.originalId || trx.id}`)
+      const res = await fetch(`/api/transactions/${trx.originalId || trx.id}`)
       if (res.ok) {
         const fullTrx = await res.json()
         setViewDetailTrx(fullTrx)
@@ -198,7 +198,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
 
   const handlePayOff = async (id: string) => {
     try {
-      const res = await fetch(('') + `/api/transactions/${id}`, { method: 'PATCH' });
+      const res = await fetch(`/api/transactions/${id}`, { method: 'PATCH' });
       if (res.ok) {
         toast.success("Transaksi berhasil dilunasi!");
         mutateTransactions();
@@ -214,7 +214,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
 
   const executeDeleteTrx = async (id: string) => {
     try {
-      const res = await fetch(('') + `/api/transactions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success("Transaksi berhasil dihapus");
         mutateTransactions();
@@ -353,7 +353,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
 
     setReturnSubmitting(true);
     try {
-      const res = await fetch(('') + `/api/transactions/${returnTrx.id}/return`, {
+      const res = await fetch(`/api/transactions/${returnTrx.id}/return`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -385,7 +385,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
 
   const executeLunasiTrx = async (id: string) => {
     try {
-      const res = await fetch(('') + `/api/transactions/${id}`, { method: 'PATCH' });
+      const res = await fetch(`/api/transactions/${id}`, { method: 'PATCH' });
       if (res.ok) {
         toast.success("Transaksi berhasil dilunasi");
         mutateTransactions();

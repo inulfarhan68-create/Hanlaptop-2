@@ -90,7 +90,7 @@ export default function ServicesClient({ user }: { user: any }) {
   const router = useRouter()
   const { activeStore } = useTenant()
   const selectedStoreId = activeStore?.id || 'all'
-  const { data: settings } = useSWR<any>(['/api/settings', selectedStoreId])
+  const { data: settings } = useSWR<any>('/api/settings')
   const [searchQuery, setSearchQuery] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [editingService, setEditingService] = useState<any>(null)
@@ -262,11 +262,11 @@ export default function ServicesClient({ user }: { user: any }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { data: services, error: servicesError, mutate, isLoading } = useSWR(['/api/services', selectedStoreId], { refreshInterval: 5000 })
-  const { data: storeSettings } = useSWR<any>(['/api/settings', selectedStoreId])
-  const { data: inventoryData, mutate: mutateInventory } = useSWR(['/api/inventory?fetchAll=true', selectedStoreId])
-  const { data: techniciansData } = useSWR(['/api/technicians?active=true', selectedStoreId])
-  const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>(['/api/suggestions', selectedStoreId])
+  const { data: services, error: servicesError, mutate, isLoading } = useSWR('/api/services', { refreshInterval: 5000 })
+  const { data: storeSettings } = useSWR<any>('/api/settings')
+  const { data: inventoryData, mutate: mutateInventory } = useSWR('/api/inventory?fetchAll=true')
+  const { data: techniciansData } = useSWR('/api/technicians?active=true')
+  const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>('/api/suggestions')
 
   const mergedLaptopModels = Array.from(new Set([
     ...LAPTOP_MODELS,
@@ -393,7 +393,7 @@ export default function ServicesClient({ user }: { user: any }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const url = ('') + (editingService ? `/api/services/${editingService.id}` : '/api/services');
+      const url = (editingService ? `/api/services/${editingService.id}` : '/api/services');
       const method = editingService ? 'PATCH' : 'POST';
       
       // Format notes to append QC, Kelengkapan, and selected parts
@@ -460,7 +460,7 @@ export default function ServicesClient({ user }: { user: any }) {
 
   const executeStatusChangeToDiambil = async (id: string, finalCostVal: number) => {
     try {
-      const res = await apiFetch(('') + `/api/services/${id}`, {
+      const res = await apiFetch(`/api/services/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -508,7 +508,7 @@ export default function ServicesClient({ user }: { user: any }) {
     }
 
     try {
-      const res = await apiFetch(('') + `/api/services/${id}`, {
+      const res = await apiFetch(`/api/services/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -548,7 +548,7 @@ export default function ServicesClient({ user }: { user: any }) {
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         try {
-          const res = await apiFetch(('') + `/api/services/${id}`, { method: 'DELETE' });
+          const res = await apiFetch(`/api/services/${id}`, { method: 'DELETE' });
           if (res.ok) {
             toast.success("Data berhasil dihapus")
             mutate()

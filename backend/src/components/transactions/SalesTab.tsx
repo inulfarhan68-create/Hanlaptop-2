@@ -39,9 +39,9 @@ interface SalesTabProps {
 
 export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess }: SalesTabProps) {
   // SWR fetches
-  const { data: inventoryData, mutate: mutateInventory } = useSWR(['/api/inventory?fetchAll=true'])
-  const { data: customersData } = useSWR(['/api/customers'])
-  const { data: storeSettings } = useSWR<any>(['/api/settings'])
+  const { data: inventoryData, mutate: mutateInventory } = useSWR('/api/inventory?fetchAll=true')
+  const { data: customersData } = useSWR('/api/customers')
+  const { data: storeSettings } = useSWR<any>('/api/settings')
 
   const inventoryItems = Array.isArray(inventoryData) 
     ? inventoryData.map((item: any) => ({

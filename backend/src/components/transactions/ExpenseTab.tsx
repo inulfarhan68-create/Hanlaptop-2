@@ -61,7 +61,7 @@ export function ExpenseTab({ active, mode, editingTrx, onCancelEdit, onSuccess }
   const [capitalType, setCapitalType] = useState<"in" | "out">("in")
   const [submitting, setSubmitting] = useState(false)
   const { data: settings } = useSWR<any>(
-    ['/api/settings']
+    '/api/settings'
   )
 
   // Determine current categories

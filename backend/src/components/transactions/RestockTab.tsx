@@ -51,8 +51,8 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
   const { activeStore } = useTenant()
   const selectedStoreId = activeStore?.id || 'all'
   // SWR fetches
-  const { data: inventoryData, mutate: mutateInventory } = useSWR(['/api/inventory?fetchAll=true', typeof selectedStoreId !== 'undefined' ? selectedStoreId : 'all'])
-  const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>(['/api/suggestions', typeof selectedStoreId !== 'undefined' ? selectedStoreId : 'all'])
+  const { data: inventoryData, mutate: mutateInventory } = useSWR('/api/inventory?fetchAll=true')
+  const { data: suggestionsData, mutate: mutateSuggestions } = useSWR<any>('/api/suggestions')
   
   const mergedLaptopModels = Array.from(new Set([
     ...LAPTOP_MODELS,
@@ -76,7 +76,7 @@ export function RestockTab({ active, editingTrx, onCancelEdit, onSuccess }: Rest
       }))
     : []
 
-  const { data: suppliersData } = useSWR(['/api/suppliers', typeof selectedStoreId !== 'undefined' ? selectedStoreId : 'all'])
+  const { data: suppliersData } = useSWR('/api/suppliers')
   const supplierOptions = Array.isArray(suppliersData) ? suppliersData.map((s: any) => s.name) : []
 
   // Local state
