@@ -19,6 +19,13 @@ export interface PublicCatalogData {
 /**
  * Fetch the public catalog for a store by slug or ID.
  * Used by both the Server Component (page.tsx) and the API route.
+ *
+ * `"default"` is a sentinel meaning "this shop's main store": the landing page
+ * links to /catalog/{slug} before it knows any real slug (first-time visitors
+ * have nothing in localStorage), and the legacy schema also uses "default" as
+ * the fallback storeId. Resolving it to the first active store keeps those
+ * links working. Any OTHER unknown slug still 404s — we must not silently
+ * serve the main store under an arbitrary URL (duplicate content / confusion).
  */
 // cache(): generateMetadata and the page component both call this within the
 // same request — dedupe so the DB is hit once per request, not twice.
@@ -26,11 +33,15 @@ export const getPublicCatalog = cache(async (storeSlug: string): Promise<
   | { data: PublicCatalogData }
   | { error: string; status: number }
 > => {
-  // 1. Find store by slug or ID
-  const storeResult = await db
-    .select()
-    .from(stores)
-    .where(or(eq(stores.slug, storeSlug), eq(stores.id, storeSlug)));
+  // 1. Find store: "default" -> the shop's main (first active) store,
+  //    otherwise an exact slug/ID match.
+  const storeResult =
+    storeSlug === "default"
+      ? await db.select().from(stores).where(eq(stores.isActive, true)).limit(1)
+      : await db
+          .select()
+          .from(stores)
+          .where(or(eq(stores.slug, storeSlug), eq(stores.id, storeSlug)));
   const store = storeResult[0];
 
   if (!store || !store.isActive) {
