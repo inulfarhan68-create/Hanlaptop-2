@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getPublicCatalog } from "@/lib/public/catalog";
+import { getAppUrl } from "@/lib/app-url";
 import CatalogClient from "./client";
 import type { Metadata } from "next";
 
@@ -80,7 +81,7 @@ export default async function CatalogPage({ params }: PageProps) {
       "streetAddress": store.address || "",
     },
     "telephone": store.phone || "",
-    "url": `${process.env.NEXT_PUBLIC_APP_URL || ''}/catalog/${store.slug}`,
+    "url": `${getAppUrl()}/catalog/${store.slug}`,
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
       "name": "Katalog Laptop",
