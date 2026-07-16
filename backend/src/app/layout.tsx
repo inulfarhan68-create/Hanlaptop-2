@@ -1,9 +1,12 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Providers } from "@/components/Providers";
+import { getAppUrl } from "@/lib/app-url";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://hanlaptop.com'),
+  // Resolved from the environment — see lib/app-url. Must never be a hardcoded
+  // aspirational domain: canonical/OG URLs are built against this.
+  metadataBase: new URL(getAppUrl()),
   title: "Han Laptop",
   description: "Han Laptop — ERP & POS",
 };
