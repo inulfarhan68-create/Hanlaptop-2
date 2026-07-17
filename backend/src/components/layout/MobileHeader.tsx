@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation"
 import useSWR from "swr"
 import { LogOut, Moon, Sun, Droplets, User } from "lucide-react"
 import { useTheme } from "@/components/ThemeProvider"
-import { useSession, signOut } from "@/lib/auth-client"
+import { signOut } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import { BranchSelector } from "@/components/BranchSelector"
 
 export function MobileHeader() {
   const { theme, setTheme } = useTheme()
-  const { data: session } = useSession()
+  const { data: session } = useSessionUser()
   const [isOpen, setIsOpen] = useState(false)
   const [storeName, setStoreName] = useState("Han Laptop")
   const [storeLogo, setStoreLogo] = useState(assetUrl("/logo.png"))

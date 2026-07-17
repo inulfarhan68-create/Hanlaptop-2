@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Building, CreditCard, User, Shield, Database, AlertCircle, MapPin, ChevronRight } from "lucide-react"
-import { useSession } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import { useUserRole } from "@/hooks/useUserRole"
 
 // Import modular tab components
@@ -28,7 +28,7 @@ interface TabItem {
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState<TabKey>("profile")
-  const { data: session, isPending } = useSession()
+  const { data: session, isPending } = useSessionUser()
   const { isOwner, role } = useUserRole()
   const isGlobalOwner = (session?.user as any)?.role === "owner"
   const router = useRouter()

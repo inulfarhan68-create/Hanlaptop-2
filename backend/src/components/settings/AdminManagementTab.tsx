@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UserPlus, AlertCircle, Shield, Trash2, Edit2, Users, CheckCircle2, ShieldAlert } from "lucide-react"
 import { toast } from "sonner"
-import { useSession, signIn } from "@/lib/auth-client"
+import { signIn } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import useSWR from "swr"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export function AdminManagementTab() {
-  const { data: session } = useSession()
+  const { data: session } = useSessionUser()
   
   // SWR fetches
   const { data: usersList, isLoading: usersLoading, mutate: mutateUsers } = useSWR('/api/users')

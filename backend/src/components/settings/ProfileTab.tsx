@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Save, CheckCircle2, AlertCircle, Shield, User, KeyRound } from "lucide-react"
-import { useSession, changePassword, updateUser } from "@/lib/auth-client"
+import { changePassword, updateUser } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 
 export function ProfileTab() {
-  const { data: session } = useSession()
+  const { data: session } = useSessionUser()
 
   // Profile Update State
   const [profileName, setProfileName] = useState("")

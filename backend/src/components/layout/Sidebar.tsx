@@ -44,7 +44,7 @@ import {
   ShieldQuestion
 } from "lucide-react"
 import { useTheme } from "@/components/ThemeProvider"
-import { useSession, signOut } from "@/lib/auth-client"
+import { signOut } from "@/lib/auth-client"
 import { useUserRole } from "@/hooks/useUserRole"
 import { BranchSelector } from "@/components/BranchSelector"
 import { ShiftOpenModal, ShiftCloseModal } from "@/components/ShiftModal"

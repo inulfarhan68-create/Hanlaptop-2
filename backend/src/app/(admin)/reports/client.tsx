@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useUserRole } from "@/hooks/useUserRole"
-import { useSession } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { PeriodSelector, getInitialPeriod } from "@/components/PeriodSelector"
@@ -31,7 +31,7 @@ const fmt = (v: number) =>
 
 export default function ReportsClient() {
   const { isOwner, isManager, isInvestor } = useUserRole()
-  const { data: session, isPending } = useSession()
+  const { data: session, isPending } = useSessionUser()
   const router = useRouter()
   // Simplified tabs: 6 main tabs + 1 sub-tab for Akuntansi
   const [activeTab, setActiveTab] = useState<"labarugi" | "neraca" | "produk" | "shift" | "komisi" | "akuntansi">("labarugi")
