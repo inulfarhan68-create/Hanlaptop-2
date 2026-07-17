@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory } from "@/db/schema";
-import { count, eq, sql, and, isNull, gte } from "drizzle-orm";
+import { count, eq, sql, and, isNull, gte, lt } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
                 whereCondition,
                 sql`CAST(${inventory.quantity} AS INTEGER) > 0`,
                 gte(inventory.createdAt, sixtyDaysAgo),
-                sql`${inventory.createdAt} < ${thirtyDaysAgo}`
+                lt(inventory.createdAt, thirtyDaysAgo)
             ));
 
         // Dead stock items (>60 days old with stock)
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
             .where(and(
                 whereCondition,
                 sql`CAST(${inventory.quantity} AS INTEGER) > 0`,
-                sql`${inventory.createdAt} < ${sixtyDaysAgo}`
+                lt(inventory.createdAt, sixtyDaysAgo)
             ));
 
         // Items in QC/Inspection
