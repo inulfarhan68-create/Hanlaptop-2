@@ -42,7 +42,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ModernSelect } from "@/components/ui/modern-select"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUserRole } from "@/hooks/useUserRole"
-import { useSession } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import { cn } from "@/lib/utils"
 
 const formatCurrency = (value: number) => {
@@ -295,7 +295,7 @@ export default function PayrollClient() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Session to map cashier/staff to employee record
-  const { data: session } = useSession()
+  const { data: session } = useSessionUser()
   
   const currentEmployee = useMemo(() => {
     if (!session?.user?.id) return null

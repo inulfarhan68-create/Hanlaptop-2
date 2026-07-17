@@ -1,9 +1,9 @@
 "use client";
-import { useSession } from "@/lib/auth-client"
+import { useSessionUser } from "@/components/SessionUserProvider"
 import useSWR from "swr"
 
 export function useUserRole() {
-  const { data: session } = useSession()
+  const { data: session } = useSessionUser()
   const { data: settings } = useSWR<any>('/api/settings')
   
   const role = settings?.userRole || (session?.user as any)?.role || "kasir"
