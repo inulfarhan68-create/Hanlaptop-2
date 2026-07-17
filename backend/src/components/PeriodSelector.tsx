@@ -36,7 +36,17 @@ function computePeriodFromState(state: SavedState): PeriodRange {
   return { from: "", to: "", label: "Semua Waktu" }
 }
 
-export function PeriodSelector() {
+// Reports uses `const [period] = useState(getInitialPeriod)` for its initial
+// range. This selector defaults to the current month, so the initial period
+// matches what the control shows on first paint.
+export function getInitialPeriod(): PeriodRange {
+  return computePeriodFromState({ preset: "bulan-ini", customFrom: "", customTo: "" })
+}
+
+// `onSelect` is optional and additive: the Dashboard renders <PeriodSelector />
+// and relies solely on the URL sync below, while Reports passes onSelect to drive
+// its own period state. Both fire together; neither breaks the other.
+export function PeriodSelector({ onSelect }: { onSelect?: (range: PeriodRange) => void } = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -78,6 +88,7 @@ export function PeriodSelector() {
 
   useEffect(() => {
     if (preset === "kustom" && (!customFrom || !customTo)) return;
+    onSelect?.(computePeriodFromState({ preset, customFrom, customTo }))
     updateUrl({ preset, customFrom, customTo })
   }, [preset, customFrom, customTo])
 
