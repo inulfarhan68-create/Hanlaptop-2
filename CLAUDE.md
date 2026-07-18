@@ -15,21 +15,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## 2. Struktur Repo (dua aplikasi, satu direktori)
+## 2. Struktur Repo (satu app Next.js di `backend/`)
 
-Ini **bukan** monorepo workspace — dua app terpisah dengan `package.json`/`node_modules` masing-masing:
+**Satu aplikasi Next.js 16 (App Router)** di direktori **`backend/`**, disajikan di **root** produksi. UI (Server/Client Components) dan API menyatu dalam satu app.
 
-| | Frontend | Backend |
-| --- | --- | --- |
-| Lokasi | root (`src/`) | `/backend` |
-| Framework | React 19 + Vite 8 SPA | Next.js 16 (App Router) |
-| Port dev | 5173 | 3000 |
+| | Next app |
+| --- | --- |
+| Lokasi | `backend/` (kode di `backend/src/`) |
+| Framework | Next.js 16 (App Router) + React 19 |
+| Port dev | 3000 (`http://localhost:3000`) |
+| URL prod | root `/` (`hanlaptop-front.vercel.app`) |
 
-### ⚠️ basePath `/_/backend` (paling mudah bikin bingung)
-Backend Next.js disajikan di **basePath `/_/backend`**, bukan root.
-- Dev: Vite mem-proxy `/api/*` → `http://localhost:3000/_/backend/api/*` (`vite.config.ts`).
-- Prod (Vercel): frontend di `/`, backend di `/_/backend`, dengan rewrite `/api/:match*` → `/_/backend/api/:match*` (`vercel.json`).
-- Health check / smoke test harus menyertakan prefix ini.
+- Halaman di `backend/src/app/`, route API di `backend/src/app/api/`. Semua **root-relative** — tak ada proxy/rewrite/basePath.
+- ⚠️ **Riwayat:** dulu repo dua-app (SPA Vite di root `src/` + Next di `/backend` dengan basePath `/_/backend`). Migrasi ke Next **selesai 2026-07-18** (commit `52fbc03`): SPA Vite dihapus, basePath `/_/backend` dicabut (path lama itu sekarang 404). Riwayat/rencana lama: [MIGRATION_NEXTJS.md](MIGRATION_NEXTJS.md).
+- ⚠️ Folder `src/` **kosong** bisa tertinggal di root working tree (efek Windows/OneDrive) — abaikan, bukan bagian app & tak ter-track git.
 
 Struktur folder lengkap → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
@@ -37,33 +36,26 @@ Struktur folder lengkap → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
 ## 3. Tech Stack
 
-**Frontend:** React 19, Vite 8, TypeScript 6, React Router v7 (route lazy di `src/App.tsx`), Tailwind CSS v4 + Radix UI (pola shadcn), SWR (data fetching), Recharts, Lucide, `jspdf`, `xlsx`, `framer-motion`, `sonner`, `better-auth/react` (client), `vite-plugin-pwa`.
+Satu app Next.js 16 (App Router) — UI + API menyatu.
 
-**Backend:** Next.js 16 (App Router), Drizzle ORM + `postgres` (postgres-js, Supabase/Postgres), Kysely (via Better-Auth), Better-Auth (email+password), Zod (validasi), `@google/genai` (Gemini `gemini-2.5-flash`), Vercel Blob (upload), Pino (log), Sentry, Upstash Redis/Ratelimit (dependency; **rate limiter aktif masih LRU in-memory**).
+**UI (Client Components):** React 19, TypeScript 6, Tailwind CSS v4 + Radix UI (pola shadcn, komponen di `backend/src/components/ui/`), SWR (data fetching lewat `apiFetch`), Recharts, Lucide, `jspdf`, `xlsx`, `framer-motion`, `sonner`, `better-auth/react` (client). **PWA:** `app/manifest.ts` (manifest native) + service worker tulis-tangan `public/sw.js`, diregistrasi oleh `ServiceWorkerRegister` (produksi saja).
+
+**Server / API:** Next.js 16 route handlers, Drizzle ORM + `postgres` (postgres-js, Supabase/Postgres), Kysely (via Better-Auth), Better-Auth (email+password), Zod (validasi), `@google/genai` (Gemini `gemini-2.5-flash`), Vercel Blob (upload), Pino (log), Sentry, Upstash Redis/Ratelimit (dependency; **rate limiter aktif masih LRU in-memory**).
 
 **Database:** PostgreSQL (Supabase) untuk dev & produksi. Skema Drizzle di `backend/src/db/schema/`.
 
-**Deployment:** Vercel (dual-service frontend+backend, region `hnd1`), Vercel Cron untuk backup/cleanup.
+**Deployment:** Vercel (satu service Next di root, region `hnd1`; `vercel.json` → `experimentalServices.backend` `routePrefix "/"`), Vercel Cron untuk backup/cleanup.
 
 ---
 
 ## 4. Cara Menjalankan
 
-Install terpisah di root dan `/backend`.
+Semua perintah di **`backend/`** (satu app). Tak ada lagi install/run terpisah di root.
 
-### Frontend (root)
+### Dev & build (`cd backend`)
 ```bash
-npm install
-npm run dev       # Vite dev server, port 5173
-npm run build     # tsc -b && vite build
-npm run lint      # eslint
-npm run preview
-```
-
-### Backend (`cd backend`)
-```bash
-npm install       # menjalankan postinstall: node patch-kysely.js
-npm run dev       # next dev, port 3000 (basePath /_/backend)
+npm install       # menjalankan postinstall: node patch-kysely.cjs
+npm run dev       # next dev, app di root → http://localhost:3000
 npm run build     # next build
 npm run start
 npm run lint      # next lint
@@ -83,10 +75,10 @@ npm run db:migrate    # apply migrasi pending ke DB (pakai DIRECT_URL, tracking 
 npm run seed             # data contoh (tsx src/db/seed.ts)
 npm test                 # unit test (Vitest)
 npm run test:integration # integration test (butuh Postgres; CI pakai service container)
-node tests/smoke-test.js --prefix=/_/backend/api   # smoke HTTP (butuh server jalan)
-npx playwright test tests/e2e                       # e2e (butuh server jalan)
+node tests/smoke-test.js --prefix=/api   # smoke HTTP (butuh server jalan)
+npx playwright test tests/e2e            # e2e (butuh server jalan)
 ```
-> CI (`.github/workflows/ci.yml`) menjalankan tsc + build + unit + integration test di tiap PR/push ke `main`.
+> CI (`.github/workflows/ci.yml`) menjalankan tsc + build + unit + integration test di tiap PR/push ke `main` (satu job `backend:`, `working-directory: backend`, dengan service Postgres).
 
 ---
 
@@ -94,13 +86,11 @@ npx playwright test tests/e2e                       # e2e (butuh server jalan)
 
 > Isi/value TIDAK ditampilkan. Set di `.env.local` (dev) / Vercel (prod).
 
-**Database:** `DATABASE_URL` (Supabase pooler, port 6543) — dipakai `db/index.ts`. `DIRECT_URL` (Supabase direct, port 5432) — dipakai `drizzle-kit push`.
+**Database:** `DATABASE_URL` (Supabase pooler, port 6543) — dipakai `db/index.ts`. `DIRECT_URL` (Supabase direct, port 5432) — dipakai `db:migrate`/`db:push` (drizzle-kit).
 
-**Auth:** `BETTER_AUTH_SECRET` (wajib di runtime produksi), `BETTER_AUTH_URL`, `FRONTEND_URL`, `VERCEL_URL`.
+**Auth:** `BETTER_AUTH_SECRET` (wajib di runtime produksi), `BETTER_AUTH_URL`, `FRONTEND_URL` (CORS + trustedOrigins), `VERCEL_URL`, `VERCEL_BRANCH_URL` (dua terakhir masuk trustedOrigins agar login preview tak "403 Invalid origin" — lihat `lib/auth.ts`).
 
 **AI:** `GEMINI_API_KEY`.
-
-**Frontend:** `VITE_API_URL`.
 
 **Upload/Storage:** `BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY`.
 
@@ -125,7 +115,7 @@ npx playwright test tests/e2e                       # e2e (butuh server jalan)
   5. delegasikan logika lintas-entitas ke `services/` dalam `db.transaction()`.
 - **Logika bisnis** di `backend/src/services/`, **bukan** di route handler.
 - **Jurnal akuntansi** dibuat via nama akun standar; `accountCode` dipetakan otomatis oleh `JournalMappingService` — jangan hard-code kode akun.
-- **Frontend:** panggil API hanya lewat `apiFetch` (`src/lib/api.ts`), jangan `fetch` mentah. Tambah halaman baru sebagai lazy import + `<Route>` di `src/App.tsx`. Pakai komponen `src/components/ui/`, ikon Lucide, kelas Tailwind.
+- **UI (Client Component):** panggil API hanya lewat `apiFetch` (`backend/src/lib/api.ts`), jangan `fetch` mentah; aset statis lewat `assetUrl()` (`lib/utils.ts`). Halaman admin baru = `app/(admin)/<modul>/page.tsx` (Server Component: metadata + gate `getSession()` yang di-`cache()`) + `<modul>-client.tsx` (`"use client"`). Pakai `useSessionUser()` (**bukan** `useSession()` — crash SSR) untuk sesi di komponen shell. Pakai komponen `backend/src/components/ui/`, ikon Lucide, kelas Tailwind.
 - **Error handling:** kembalikan `NextResponse.json({ error }, { status })` dengan pesan jelas; validasi gagal → 400 dengan `error.format()`.
 - **Audit:** aksi kritikal menulis ke `auditLogs`/`activityLogs`.
 - **Naming:** tabel & kolom `camelCase` di Drizzle (mapping ke `snake_case` DB); komponen React `PascalCase`; file util `camelCase`.
@@ -134,31 +124,33 @@ npx playwright test tests/e2e                       # e2e (butuh server jalan)
 
 ## 7. Business Modules
 
+> Path di kolom bawah relatif ke **`backend/src/`**. Halaman admin = grup route `app/(admin)/<modul>/` (`page.tsx` Server Component + `<modul>-client.tsx`); route API di `app/api/*`; logika di `services/`, helper di `lib/`.
+
 | Modul | File utama | Kelengkapan |
 | --- | --- | --- |
-| Dashboard & KPI | `src/pages/Dashboard.tsx`, `api/dashboard`, `api/inventory/kpi` | ✅ |
-| Inventory (stok, kondisi, konsinyasi) | `src/pages/Inventory.tsx`, `api/inventory/*`, `services/InventoryService` | ✅ |
-| Digital Passport (Serial Number) | `src/pages/DigitalPassport.tsx`, `lib/digital-passport.ts`, `api/inventory/passports/*` | ✅ |
-| QC & Stock Opname | `api/inventory/[id]/qc`, `api/inventory/opname/*`, `QCDetailForm.tsx` | ✅ |
-| Stock Transfer antar cabang | `src/pages/StockTransfer.tsx`, `api/inventory/transfers/*` | ✅ (pakai approval) |
-| Transaksi / POS | `src/pages/Transactions.tsx`, `api/transactions/*`, `services/TransactionService` | ✅ (inti) |
+| Dashboard & KPI | `app/(admin)/dashboard/`, `api/dashboard`, `api/inventory/kpi` | ✅ |
+| Inventory (stok, kondisi, konsinyasi) | `app/(admin)/inventory/`, `api/inventory/*`, `services/InventoryService` | ✅ |
+| Digital Passport (Serial Number) | `app/(admin)/passports/`, `lib/digital-passport.ts`, `api/inventory/passports/*` | ✅ |
+| QC & Stock Opname | `app/(admin)/opname/`, `api/inventory/[id]/qc`, `api/inventory/opname/*`, `QCDetailForm.tsx` | ✅ |
+| Stock Transfer antar cabang | `app/(admin)/transfer/`, `api/inventory/transfers/*` | ✅ (pakai approval) |
+| Transaksi / POS | `app/(admin)/transactions/`, `api/transactions/*`, `services/TransactionService` | ✅ (inti) |
 | Retur & Tukar Tambah/Buyback | `api/transactions/[id]/return`, `api/transactions/trade-in-buyback` | ✅ |
-| Service Order | `src/pages/Services.tsx`, `api/services/*` | ✅ |
+| Service Order | `app/(admin)/services/`, `api/services/*` | ✅ |
 | Warranty | `api/warranty/*`, `api/warranty-claims/*` | ✅ |
-| Accounting (COA, ledger, laporan) | `src/pages/Reports.tsx`, `api/accounting/*`, `services/AccountingService`, `PeriodClosingService` | ✅ |
-| Piutang / Hutang | `src/pages/Piutang.tsx`, `Hutang.tsx`, `api/consignment/*` | ✅ |
-| Reconciliation (bank) | `src/pages/Reconciliation.tsx`, `api/financials/reconciliation/*` | ✅ |
-| CRM (customer, poin, reminder, lead) | `src/pages/CrmManagement.tsx`, `api/crm/*`, `api/customers/*` | ✅ |
-| Supplier | `src/pages/Suppliers.tsx`, `api/suppliers/*` | ✅ |
-| HR (karyawan, payroll, absensi, kasbon, komisi) | `src/pages/Payroll.tsx`, `api/employees/*`, `api/payrolls/*`, `api/technicians/*` | ✅ |
-| Procurement (requisition) | `src/pages/Procurement.tsx`, `api/procurement/*` | ✅ |
-| Approvals workflow | `src/pages/Approvals.tsx`, `api/approvals/*`, `lib/workflow.ts` | ✅ |
+| Accounting (COA, ledger, laporan) | `app/(admin)/reports/`, `api/accounting/*`, `services/AccountingService`, `PeriodClosingService` | ✅ |
+| Piutang / Hutang | `app/(admin)/piutang/`, `app/(admin)/hutang/`, `api/consignment/*` | ✅ |
+| Reconciliation (bank) | `app/(admin)/reconciliation/`, `api/financials/reconciliation/*` | ✅ |
+| CRM (customer, poin, reminder, lead) | `app/(admin)/crm/`, `app/(admin)/customers/`, `api/crm/*`, `api/customers/*` | ✅ |
+| Supplier | `app/(admin)/suppliers/`, `api/suppliers/*` | ✅ |
+| HR (karyawan, payroll, absensi, kasbon, komisi) | `app/(admin)/payroll/`, `api/employees/*`, `api/payrolls/*`, `api/technicians/*` | ✅ |
+| Procurement (requisition) | `app/(admin)/procurement/`, `api/procurement/*` | ✅ |
+| Approvals workflow | `app/(admin)/approvals/`, `api/approvals/*`, `lib/workflow.ts` | ✅ |
 | Shift Kasir | `ShiftModal.tsx`, `api/shifts/*` | ✅ |
-| User & Store Management | `src/pages/Settings.tsx`, `api/users/*`, `api/stores/*` | ✅ (owner) |
-| Audit Logs | `src/pages/AuditLogs.tsx`, `api/logs/*` | ✅ |
-| Settings | `src/pages/Settings.tsx`, `api/settings/*` | ✅ |
+| User & Store Management | `app/(admin)/settings/`, `api/users/*`, `api/stores/*` | ✅ (owner) |
+| Audit Logs | `app/(admin)/audit/`, `api/logs/*` | ✅ |
+| Settings | `app/(admin)/settings/`, `api/settings/*` | ✅ |
 | AI Features (import nota, pricing, buyback) | `AIPricingWidget.tsx`, `api/inventory/import-ai`, `api/ai/pricing`, `api/public/buyback/estimate` | ✅ |
-| Public (katalog, nota, booking servis) | `src/pages/Public*.tsx`, `api/public/*` | ✅ (tanpa auth) |
+| Public (katalog, nota, booking servis) | `app/page.tsx` + `home-client.tsx`, `app/catalog/[slug]/`, `app/nota/[id]/`, `app/nota-servis/[id]/`, `api/public/*` | ✅ (tanpa auth) |
 
 Detail keterhubungan antar modul → [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -183,13 +175,13 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 
 ## 9. Hal Penting yang WAJIB Diketahui Sebelum Mengubah Kode
 
-1. **basePath `/_/backend`** — jangan asumsikan backend di root. Frontend memanggil `/api`, Vite/Vercel yang me-rewrite.
+1. **Semua path root-relative** (pasca-cutover `52fbc03`, 2026-07-18): `apiFetch`/`assetUrl`/`auth-client`/`upload/route.ts` tanpa prefix, `next.config.ts` tanpa `basePath`. Path lama `/_/backend/*` sekarang **404** — jangan reintroduksi prefix itu.
 2. **Pola guard route:** guard mengembalikan `NextResponse` (error) **atau** hasil auth — selalu narrow dengan `instanceof NextResponse` sebelum memakai hasilnya.
 3. **Selalu filter `storeId`** pada query data milik store (isolasi tenant/IDOR). Ada e2e test yang menjaga ini — jangan sampai bocor antar-store.
 4. **ACID:** operasi yang menyentuh inventory **dan** accounting harus dalam satu `db.transaction()`. Logika ini hidup di `services/`, bukan di handler.
 5. **Jurnal via nama akun standar** (dipetakan `JournalMappingService`), jangan tulis kode akun manual.
-6. **Frontend pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate).
-7. **Ubah skema DB:** edit `backend/src/db/schema/*` dulu, lalu `npx drizzle-kit push`. Import tabel dari `@/db/schema` (barrel + relations).
+6. **Client pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate). Untuk sesi di komponen shell pakai **`useSessionUser()`** (context dari sesi server) — better-auth `useSession()` **crash saat SSR** (`null.useRef`) di tiap halaman admin.
+7. **Ubah skema DB:** edit `backend/src/db/schema/*` → `npm run db:generate` (commit file migrasi) → `npm run db:migrate`. **JANGAN `db:push` ke DB shared/produksi** (diff destruktif tanpa riwayat/rollback; push hanya untuk DB throwaway lokal). Import tabel dari `@/db/schema` (barrel + relations).
 8. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
 9. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
 10. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.

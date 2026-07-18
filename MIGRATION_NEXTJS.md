@@ -1,5 +1,7 @@
 # Migrasi Frontend → Next.js — Audit & Rencana Bertahap
 
+> ✅ **MIGRASI SELESAI (2026-07-18, commit `52fbc03`).** Next.js kini permukaan utama di **root** produksi; SPA Vite dihapus, basePath `/_/backend` dicabut (path lama 404). **Dokumen ini rekaman rencana/audit historis** — "Status" & pola "berjalan" di bawah sudah usang. Acuan terkini: [CLAUDE.md](CLAUDE.md), [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
+
 > Status: **fondasi terpasang** (PR #12). Sudah hidup di app Next (di bawah basePath `/_/backend`): landing, catalog/[slug] (ISR+metadata+JSON-LD), nota/[id] & nota-servis/[id] (SSR+metadata), login, dan shell (admin) dengan 4 modul — Dashboard, Inventory, Customers, Suppliers. Diaudit penuh: Critical C1–C5 + Recommended R1–R6 selesai (tenant-filter store, apiFetch konsisten, cache() dedup, Suspense catalog, metadata landing, theme pre-paint, asset basePath + guard onError-loop). SPA Vite di root masih permukaan utama; modul lain menyusul per-PR.
 >
 > Tujuan akhir: melipat frontend Vite SPA ke dalam app Next.js yang **sudah ada** (`/backend`) — satu framework, satu deploy, satu domain. **Bukan** rewrite dari nol — ini konsolidasi.

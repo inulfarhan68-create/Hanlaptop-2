@@ -6,62 +6,63 @@ Arsitektur sistem **Han Laptop ERP & POS**. Ditulis dari pembacaan kode (bukan a
 
 ## 1. Gambaran Umum
 
-Dua aplikasi terpisah dalam satu repo:
+**Satu aplikasi Next.js 16 (App Router)** di `backend/`, disajikan di **root** produksi — UI (Server/Client Components) + REST API menyatu: satu framework, satu deploy, satu domain.
 
-| | Frontend | Backend |
-| --- | --- | --- |
-| Lokasi | root (`src/`) | `/backend` |
-| Framework | React 19 + Vite 8 SPA | Next.js 16 (App Router) |
-| Port dev | 5173 | 3000 |
-| Peran | UI, POS, dashboard | REST API + logika bisnis + DB |
+| | Aplikasi |
+| --- | --- |
+| Lokasi | `backend/` (kode di `backend/src/`) |
+| Framework | Next.js 16 (App Router) + React 19 |
+| Port dev | 3000 |
+| URL prod | root `/` (`hanlaptop-front.vercel.app`) |
 
-Frontend memanggil backend lewat prefix `/api`. **Backend disajikan di basePath `/_/backend`** (bukan root).
+Client memanggil API lewat prefix `/api` (**root-relative** — tanpa basePath/proxy/rewrite).
 
-### Alur request (dev)
+> Dulu dua-app (SPA Vite di root + Next di `/backend` basePath `/_/backend`). Migrasi ke Next **selesai 2026-07-18** (`52fbc03`): Vite dihapus, basePath dicabut (path lama 404). Riwayat: [MIGRATION_NEXTJS.md](MIGRATION_NEXTJS.md).
+
+### Alur request
 
 ```
-Browser ──/api/*──▶ Vite dev server (5173)
-                     └─ proxy ke ──▶ http://localhost:3000/_/backend/api/*  (Next.js)
-                                      └─ middleware.ts (rate limit, CSRF, headers)
-                                         └─ route handler ── auth-guard ── service ── Drizzle ── Supabase (Postgres)
+Browser ──/api/*──▶ Next.js (root: dev :3000 / prod Vercel)
+                     └─ middleware.ts (rate limit, CSRF, headers)
+                        └─ route handler ── auth-guard ── service ── Drizzle ── Supabase (Postgres)
 ```
 
-### Alur request (produksi — Vercel, `vercel.json`)
+### Produksi (Vercel, `vercel.json`)
 
-- Frontend (Vite) di `routePrefix: "/"`, Backend (Next.js) di `routePrefix: "/_/backend"`.
-- Rewrite: `/api/:match*` → `/_/backend/api/:match*`.
+- Satu service Next di `routePrefix: "/"` (`experimentalServices.backend`).
 - Region: `hnd1` (Tokyo).
 
-> **Penting:** karena basePath `/_/backend`, health check & smoke test harus memakai prefix tersebut. Better-Auth juga menormalkan `BETTER_AUTH_URL` untuk membuang `/_/backend` (lihat `backend/src/lib/auth.ts`).
+> **Catatan:** semua root-relative — health check & smoke test pakai `/api/...` (bukan lagi `/_/backend/...`). Better-Auth menormalkan `BETTER_AUTH_URL` (lihat `backend/src/lib/auth.ts`).
 
 ---
 
-## 2. Frontend
+## 2. UI (Client Components)
 
-### Routing
-- Semua route didefinisikan di `src/App.tsx` dengan `React.lazy` (code splitting). Menambah halaman = tambah lazy import + `<Route>` di sini.
-- Route publik (tanpa auth): `/` (landing), `/login`, `/nota/:id`, `/nota-servis/:id`, `/catalog/:slug`.
-- Route terproteksi: berada di bawah `<Route element={<Layout />}>`. **`Layout` (`src/components/layout/Layout.tsx`) adalah gerbang auth** — jika `useSession()` tidak ada session, redirect ke `/login`.
+### Routing (Next App Router)
+- Halaman = folder di `backend/src/app/`. Admin di grup `app/(admin)/<modul>/`; shell `app/(admin)/layout.tsx` = **gerbang auth** (server-side `getSession()` → redirect `/login` bila tak ada sesi). Menambah halaman = `app/(admin)/<modul>/page.tsx` (Server Component: metadata + gate) + `<modul>-client.tsx` (`"use client"`).
+- Route publik (tanpa auth): `/` (landing), `/login`, `/nota/[id]`, `/nota-servis/[id]`, `/catalog/[slug]`.
+- Sesi di komponen shell lewat **`useSessionUser()`** (context dari sesi server, `SessionUserProvider`). **Jangan** `useSession()` better-auth — crash saat SSR (`null.useRef`).
 
 ### Data fetching (SWR)
-- Semua fetch memakai **`apiFetch` di `src/lib/api.ts`**, bukan `fetch` mentah. `apiFetch` menambahkan:
+- Semua fetch memakai **`apiFetch` di `backend/src/lib/api.ts`**, bukan `fetch` mentah. `apiFetch` menambahkan:
   - `credentials: 'include'` (cookie session),
   - header `x-store-id` (dari `localStorage.selectedStoreId`, default `"all"`),
-  - `Content-Type: application/json` untuk mutasi (kecuali FormData).
-- Config SWR global (`src/App.tsx`): `revalidateOnFocus: false` (hemat koneksi DB), `dedupingInterval: 5000`, tidak retry pada 401/403.
+  - `Content-Type: application/json` untuk mutasi (kecuali FormData);
+  - 401 → redirect `/login`. Semua path root-relative (tanpa basePath).
+- Config SWR global (`components/Providers.tsx`): `revalidateOnFocus: false` (hemat koneksi DB), `dedupingInterval: 5000`, tidak retry pada 401/403.
 
 ### Sinkronisasi antar-tab
-- Setiap mutasi (`POST/PUT/PATCH/DELETE`) yang sukses menyiarkan pesan lewat `BroadcastChannel` (`src/lib/broadcast.ts`).
-- `App.tsx` mendengarkan pesan dan memanggil SWR `mutate` untuk route terkait, sehingga tab lain otomatis revalidate.
+- Setiap mutasi (`POST/PUT/PATCH/DELETE`) yang sukses menyiarkan pesan lewat `BroadcastChannel` (`backend/src/lib/broadcast.ts`).
+- `components/Providers.tsx` mendengarkan pesan dan memanggil SWR `mutate` untuk route terkait, sehingga tab lain otomatis revalidate.
 
 ### UI & state
-- Tailwind CSS v4 + primitives Radix (pola shadcn) di `src/components/ui/`.
+- Tailwind CSS v4 + primitives Radix (pola shadcn) di `backend/src/components/ui/`.
 - State: React state lokal + custom hooks + SWR (tidak ada Redux/Zustand).
 - Ikon Lucide, chart Recharts, PDF `jspdf`, Excel `xlsx`, animasi `framer-motion`, toast `sonner`.
 
 ### PWA
-- `vite-plugin-pwa` (`registerType: autoUpdate`). Service worker memakai **NetworkOnly** untuk `/api/*` (respons API tidak pernah di-cache SW).
-- Vendor berat dipecah ke chunk manual (`vite.config.ts`): xlsx, recharts, framer-motion, jspdf/qr, radix, icons.
+- Manifest native `app/manifest.ts`; service worker **tulis-tangan** `public/sw.js` (diregistrasi `ServiceWorkerRegister.tsx`, produksi saja — bundler-agnostic vs Turbopack).
+- SW: `/api/*` **NetworkOnly** (respons API tak pernah di-cache), navigasi network-first + fallback offline, aset cache-first.
 
 ---
 
@@ -128,7 +129,7 @@ Menggunakan **Better-Auth** (email + password), adapter Drizzle (provider `pg`).
 
 Detail penting:
 - Field tambahan `role` pada user (default `"kasir"`), didefinisikan di `additionalFields` (`backend/src/lib/auth.ts`).
-- `trustedOrigins` mencakup localhost:5173/5174/3000 + domain vercel + `FRONTEND_URL`/`VERCEL_URL`.
+- `trustedOrigins` mencakup localhost dev (3000; sisa 5173/5174 era Vite — harmless) + domain vercel (`hanlaptop`, `hanlaptop-front`) + `FRONTEND_URL`/`VERCEL_URL`/`VERCEL_BRANCH_URL` (dua terakhir agar login preview tak "403 Invalid origin").
 - `BETTER_AUTH_SECRET` wajib di runtime produksi Vercel (crash bila hilang saat runtime, hanya warning saat build).
 
 ---

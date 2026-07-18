@@ -2,54 +2,25 @@
 
 Struktur folder proyek **Han Laptop ERP & POS**. Dokumen ini hanya memetakan struktur — penjelasan arsitektur ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 
-> Repo ini berisi **dua aplikasi terpisah** dalam satu direktori (bukan workspace/monorepo tooling): Frontend Vite di root, Backend Next.js di `/backend`. Masing-masing punya `package.json` dan `node_modules` sendiri, di-`npm install` terpisah.
+> **Satu aplikasi Next.js 16 (App Router)** di direktori `backend/`, disajikan di **root** produksi (UI + API menyatu). Dulu dua-app (SPA Vite di root `src/` + Next di `/backend` basePath `/_/backend`); migrasi ke Next **selesai 2026-07-18** (`52fbc03`) — SPA Vite dihapus, basePath dicabut. Riwayat: [MIGRATION_NEXTJS.md](MIGRATION_NEXTJS.md).
 
 ---
 
-## Root (Frontend — Vite + React SPA)
+## Root
+
+Pasca-cutover, root **tidak lagi berisi aplikasi** — hanya:
 
 ```text
 Hanlaptop-2/
-├── src/                       # Source code frontend
-│   ├── App.tsx                # Entry routing (React Router v7, semua route lazy-loaded)
-│   ├── main.tsx               # Entry point React
-│   ├── index.css / App.css    # Global styles (Tailwind v4)
-│   ├── pages/                 # 27 halaman (1 file = 1 route)
-│   ├── components/            # Komponen UI
-│   │   ├── ui/                # Primitives (Radix-based, shadcn-style)
-│   │   ├── layout/            # Layout, Sidebar, Header (auth-gate ada di sini)
-│   │   ├── accounting/        # Komponen modul akuntansi
-│   │   ├── dashboard/         # Widget dashboard/KPI
-│   │   ├── inventory/         # Komponen inventory
-│   │   ├── transactions/      # Komponen POS/transaksi
-│   │   ├── reports/           # Komponen laporan
-│   │   ├── settings/          # Komponen pengaturan
-│   │   ├── landing/           # Komponen landing page
-│   │   └── *.tsx              # Widget lepas (AIPricingWidget, CameraScanner, QCDetailForm, dll.)
-│   ├── hooks/                 # useUserRole.ts (role dari session + /api/settings)
-│   ├── lib/                   # Utilitas frontend
-│   │   ├── api.ts             # apiFetch() — WAJIB dipakai untuk semua panggilan API
-│   │   ├── auth-client.ts     # Better-Auth React client (useSession, signIn, dll.)
-│   │   ├── broadcast.ts       # BroadcastChannel sinkronisasi antar-tab
-│   │   ├── types.ts           # Tipe TypeScript bersama
-│   │   ├── utils.ts           # cn() dan helper umum
-│   │   ├── laptopSpecsData.ts, laptopUtils.ts, technician-data.ts
-│   │   └── print*.ts          # printBarcode, printThermal, printServiceLabel
-│   ├── services/              # aiService.ts (klien fitur AI di sisi frontend)
-│   ├── data/                  # Data statis (laptop-models, inventory-items)
-│   └── assets/                # Aset statis
-├── public/                    # Aset publik + PWA icons
-├── dist/                      # Hasil build (generated)
-├── index.html                # HTML root Vite
-├── vite.config.ts            # Config Vite: proxy /api → :3000/_/backend, PWA, manual chunks
-├── tailwind.config.js, postcss.config.js
-├── eslint.config.js
-├── tsconfig*.json            # tsconfig.json / .app.json / .node.json
-├── vercel.json               # Konfigurasi deploy dua service (frontend + backend)
-└── package.json              # Dependencies frontend
+├── backend/                   # ← SELURUH APLIKASI (Next.js, lihat di bawah)
+├── *.md                       # Dokumen (CLAUDE.md, ARCHITECTURE.md, dll.)
+├── vercel.json                # Deploy: satu service Next di root (experimentalServices)
+├── data/                      # Data statis contoh
+├── .github/workflows/ci.yml   # CI (satu job backend:)
+└── src/                       # (kosong — sisa hapus Vite; tak ter-track, harmless)
 ```
 
-## `/backend` (Next.js API + Database)
+## `backend/` — aplikasi Next.js (UI + API menyatu)
 
 ```text
 backend/
@@ -57,6 +28,16 @@ backend/
 │   ├── middleware.ts          # Request ID, rate limit, CSRF, security headers, CSP
 │   ├── instrumentation.ts     # Sentry init (Next.js instrumentation hook)
 │   ├── app/
+│   │   ├── (admin)/           # Shell admin (layout+sidebar). 1 subfolder = 1 halaman:
+│   │   │                      #   dashboard, inventory, passports, opname, transfer,
+│   │   │                      #   transactions, services, reports, piutang, hutang,
+│   │   │                      #   reconciliation, crm, customers, suppliers, payroll,
+│   │   │                      #   procurement, approvals, settings, audit
+│   │   │                      #   (tiap folder: page.tsx [server] + <modul>-client.tsx)
+│   │   ├── page.tsx, home-client.tsx    # Landing publik (root /)
+│   │   ├── catalog/[slug]/, nota/[id]/, nota-servis/[id]/, login/  # Publik + login
+│   │   ├── manifest.ts        # PWA manifest (native Next); service worker di public/sw.js
+│   │   ├── layout.tsx, globals.css
 │   │   └── api/               # REST API (App Router route handlers)
 │   │       ├── accounting/    # balance-sheet, cash-flow, coa, general-ledger,
 │   │       │                  #   income-statement, trial-balance, fiscal-periods,
@@ -81,6 +62,15 @@ backend/
 │   │       ├── upload/        # Upload file ke Vercel Blob
 │   │       ├── migrate-prd/, reset/, debug-db/  # Utilitas admin (HATI-HATI, lihat security)
 │   │       └── ...
+│   ├── components/            # Komponen UI (Client Components)
+│   │   ├── ui/                # Primitives (Radix, shadcn-style)
+│   │   ├── layout/            # Shell: Sidebar, MobileHeader (auth-gate)
+│   │   ├── accounting/, dashboard/, inventory/, transactions/, reports/, settings/, suppliers/, customers/
+│   │   ├── SessionUserProvider.tsx  # Context sesi server (pengganti useSession SSR-crash)
+│   │   ├── ServiceWorkerRegister.tsx, ThemeProvider.tsx, TenantProvider.tsx, Providers.tsx
+│   │   └── *.tsx              # Widget lepas (AIPricingWidget, CameraScanner, QCDetailForm, ShiftModal, dll.)
+│   ├── hooks/                 # useUserRole.ts (role dari session + /api/settings)
+│   ├── data/                  # Data statis contoh
 │   ├── services/              # LOGIKA BISNIS (bukan di route handler)
 │   │   ├── TransactionService.ts     # createTransaction (stok, jurnal, passport, poin)
 │   │   ├── AccountingService.ts      # Laporan keuangan, ledger, trial balance, saldo akun
@@ -88,7 +78,10 @@ backend/
 │   │   ├── JournalMappingService.ts  # accountName → accountCode
 │   │   ├── PeriodClosingService.ts   # Tutup buku periode fiskal
 │   │   └── AuditService.ts           # Penulisan audit log
-│   ├── lib/                   # Utilitas backend
+│   ├── lib/                   # Utilitas (server + client)
+│   │   ├── api.ts             # apiFetch() — WAJIB untuk semua panggilan API (client)
+│   │   ├── auth-client.ts     # Better-Auth React client; broadcast.ts (sync antar-tab)
+│   │   ├── utils.ts           # cn(), assetUrl(); pricingUtils.ts (buyback), print*.ts, laptopUtils.ts
 │   │   ├── auth.ts            # Konfigurasi Better-Auth (server)
 │   │   ├── auth-guard.ts      # requireAuth / requirePermission / requireOwner / dll.
 │   │   ├── permissions.ts     # Matriks PBAC (role → permission)
@@ -114,11 +107,10 @@ backend/
 │   ├── smoke-test.js          # Smoke test HTTP (butuh server jalan)
 │   └── e2e/                   # Playwright: multi-tenant.spec.ts, security.spec.ts
 ├── drizzle.config.ts
-├── next.config.ts            # basePath /_/backend, CORS headers, serverExternalPackages
-├── patch-kysely.js           # Dijalankan postinstall
-├── local.db / sqlite.db      # File SQLite dev (ter-commit)
-├── vercel.json
-└── package.json              # Dependencies backend
+├── next.config.ts            # CORS headers, serverExternalPackages (tanpa basePath — root)
+├── public/                    # Aset statis + PWA: sw.js, ikon, gambar (manifest via app/manifest.ts)
+├── patch-kysely.cjs          # Dijalankan postinstall (backend "type":"module" → .cjs)
+└── package.json              # Dependencies aplikasi
 ```
 
 ## Schema modul database (`backend/src/db/schema/`)
