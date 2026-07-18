@@ -7,6 +7,7 @@ export * from './schema/transactions';
 export * from './schema/accounting';
 export * from './schema/refurbish';
 export * from './schema/audit';
+export * from './schema/saas';
 
 import { organizations, stores, userStoreAccess, activityLogs, storeSettings } from './schema/store';
 import { user, session, account, verification } from './schema/users';
