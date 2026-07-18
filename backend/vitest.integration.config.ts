@@ -3,8 +3,8 @@ import path from "path";
 
 /**
  * Integration test config — separate from the fast unit suite (vitest.config.ts).
- * These tests drive real service code against a throwaway SQLite database built
- * by tests/setup/integration-global-setup.ts. Kept out of `npm test` so the unit
+ * These tests drive real service code against a throwaway Postgres database built
+ * by tests/setup/integration-global-setup.ts (drizzle-kit push; CI uses a postgres:16 service). Kept out of `npm test` so the unit
  * run stays instant; invoked via `npm run test:integration`.
  */
 export default defineConfig({
