@@ -1,5 +1,7 @@
 # BRIEF FASE 2 — Migrasi Transactions & Services ke Next.js App Router
 
+> ✅ **SELESAI & HISTORIS.** Fase 2 (dan seluruh migrasi Vite→Next) rampung 2026-07-18 (`52fbc03`). Ini brief eksekusi historis — **jangan dijadikan instruksi berjalan**. Acuan terkini: [CLAUDE.md](CLAUDE.md).
+
 > **Cara pakai:** paste seluruh isi file ini sebagai instruksi ke Antigravity. Ditulis berdasarkan audit nyata atas hasil Fase 1 — setiap "JANGAN" di sini adalah kesalahan yang **benar-benar terjadi** dan memakan waktu perbaikan. Ikuti persis; jangan berimprovisasi pada bagian yang sudah dibakukan.
 
 ---

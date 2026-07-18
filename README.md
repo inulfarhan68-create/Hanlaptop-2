@@ -122,9 +122,8 @@ Sistem Manajemen Toko Komputer dengan fitur lengkap untuk UMKM Indonesia.
 git clone https://github.com/your-org/han-laptop-erp.git
 cd han-laptop-erp
 
-# Install dependencies
+# Install dependencies (satu app di backend/)
 cd backend && npm install
-cd ../frontend && npm install
 
 # Copy environment file
 cp backend/.env.example backend/.env.local
@@ -133,11 +132,8 @@ cp backend/.env.example backend/.env.local
 ### Development
 
 ```bash
-# Backend (port 3000)
+# Aplikasi Next.js (UI + API menyatu), port 3000
 cd backend && npm run dev
-
-# Frontend (port 5173)
-cd frontend && npm run dev
 ```
 
 ### Production Build
