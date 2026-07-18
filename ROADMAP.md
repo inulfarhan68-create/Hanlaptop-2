@@ -74,7 +74,7 @@ Detail per aspek di bawah.
 
 ### 🟠 High
 3. ✔️ **SEBAGIAN DIPERBAIKI** — **Sanitasi XSS lemah** (regex). `lib/sanitize.ts` kini menghapus blok `<script>`/`<style>` beserta isinya sebelum strip tag. *Catatan: tetap bukan pengganti sanitizer teruji; untuk keamanan penuh andalkan output-encoding React + pertimbangkan library server yang edge-safe.*
-4. ✔️ **SEBAGIAN DIPERBAIKI** — **Test coverage.** (a) **Vitest** + **18 unit test** untuk logika inti murni: pemetaan akun jurnal (`getAccountCodeFromName`), matriks PBAC (`hasPermission`), sanitizer XSS (`sanitizeInput`) — `backend/tests/unit/`. (b) **Harness integrasi** (`backend/tests/integration/`, `vitest.integration.config.ts`) yang mem-`push` skema terkini ke SQLite throwaway (via `drizzle.config.test.ts`) lalu menjalankan **`TransactionService.createTransaction` sungguhan** — memverifikasi pengurangan stok, jurnal double-entry seimbang, DP→Piutang, dan rollback atomik saat stok kurang (3 test). CI menjalankan `npm test` + `npm run test:integration`; `tsc --noEmit` hijau (tsconfig exclude `tests/`). *Sisa: test integrasi untuk `AccountingService`/laporan, dan Playwright e2e di CI (butuh `@playwright/test` + server).*
+4. ✔️ **SEBAGIAN DIPERBAIKI** — **Test coverage.** (a) **Vitest** + **39 unit test** untuk logika inti murni: pemetaan akun jurnal (`getAccountCodeFromName`), matriks PBAC (`hasPermission`), sanitizer XSS (`sanitizeInput`), pricing buyback, asset-url — `backend/tests/unit/`. (b) **Harness integrasi** (`backend/tests/integration/`, `vitest.integration.config.ts`) yang mem-`push` skema terkini ke **Postgres throwaway** (`drizzle-kit push --config=drizzle.config.test.ts`; CI pakai service `postgres:16`) lalu menjalankan **service sungguhan** (`TransactionService.createTransaction`, invoice-number, QC intake, service-parts) — memverifikasi pengurangan stok, jurnal double-entry seimbang, DP→Piutang, dan rollback atomik saat stok kurang (**23 test, 6 file**). CI menjalankan `npm test` + `npm run test:integration`; `tsc --noEmit` hijau (tsconfig exclude `tests/`). *Sisa: test integrasi untuk `AccountingService`/laporan, dan Playwright e2e di CI (butuh `@playwright/test` + server).*
 5. ✔️ **SUDAH DIPERBAIKI** — **File DB SQLite ter-commit** (`backend/local.db`, `backend/sqlite.db`, `data/han-laptop.db` + sidecar `-wal`/`-shm`). Semua di-`git rm --cached` (tetap ada di disk lokal) dan pola `*.db*` ditambahkan ke `.gitignore` agar tak ter-commit lagi.
 
 ### 🟡 Medium
@@ -101,8 +101,8 @@ Detail per aspek di bawah.
 | Extensibility | 🟢 Baik | PBAC matrix, journal mapping, dan schema modular mudah diperluas. |
 | Observability | 🟢 Baik | Pino, request-id, Sentry, structured log. |
 | Monitoring/Health | 🟢 Baik | `/health`, `/ready`, `/live`. |
-| Deployment | 🟢 Baik | Vercel dual-service + cron backup. |
-| CI/CD | 🟢 Baik | `.github/workflows/ci.yml` menjalankan lint/typecheck/build frontend + typecheck/**unit test (Vitest)**/build backend. Sisa: Playwright e2e di CI. |
+| Deployment | 🟢 Baik | Vercel — satu service Next di root (`experimentalServices`) + cron backup. |
+| CI/CD | 🟢 Baik | `.github/workflows/ci.yml` (satu job `backend:`) menjalankan `tsc` + **unit test (Vitest)** + integrasi (service Postgres) + build. Sisa: Playwright e2e di CI. |
 | Production readiness | 🟠 Sedang | Perlu selesaikan Critical/High di atas. |
 
 ---
@@ -113,7 +113,7 @@ Detail per aspek di bawah.
 2. ✔️ **SELESAI (kode)** — Adapter Upstash Redis untuk rate limiter. *Tindak lanjut ops: set `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` di produksi.*
 3. ✔️ **SELESAI** — Sanitasi/XSS diperkuat (script/style block) + **CSP `unsafe-eval` dihapus**. *Sisa opsional: hilangkan `'unsafe-inline'` dengan nonce/hash bila diperlukan.*
 4. ✔️ **SELESAI** — Cron endpoint fail-closed di produksi + **hentikan tracking DB SQLite** ter-commit (git rm --cached + `.gitignore`).
-5. ✔️ **SEBAGIAN** — **CI + test**: Vitest 18 unit test + 3 integration test (alur jual `TransactionService` di SQLite throwaway), keduanya di CI; `tsc` hijau. *Sisa: integrasi `AccountingService`/laporan + Playwright e2e di CI.*
+5. ✔️ **SEBAGIAN** — **CI + test**: Vitest 39 unit + 23 integration test (alur jual `TransactionService`, invoice, QC, service-parts — di **Postgres throwaway**), keduanya di CI; `tsc` hijau. *Sisa: integrasi `AccountingService`/laporan + Playwright e2e di CI.*
 6. **Optimasi laporan & list** — agregasi SQL untuk akuntansi, hindari full-fetch stores/settings per request, tambah pagination. *(Medium, terbuka)*
 7. ✔️ **SEBAGIAN** — **Typing diperketat**: (a) tipe `AuthContext`/`AuthUser` di `auth-guard.ts`, return guard beranotasi, **35 cast `(authResult.user as any)` dihapus** di guard + 21 route; (b) `TransactionService.data` kini bertipe `TransactionInput` (`z.infer<typeof transactionSchema>`) alih-alih `any`, dan cabang `transactionType` yang tak-terjangkau (`"Pengeluaran Operasional"`) dibersihkan. *Sisa: rapikan skrip one-off ke `scripts/`.*
 
