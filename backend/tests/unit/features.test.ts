@@ -72,7 +72,8 @@ describe("PLAN_SEED matrix (v1)", () => {
         const f = buildFeatures(byKey.pro.features);
         expect(f.service && f.accountingReports && f.roles).toBe(true);
         expect(f.multiStore || f.hr).toBe(false);
-        expect(byKey.pro.maxUsers).toBe(5);
+        expect(byKey.pro.priceMonthly).toBe(159_000);
+        expect(byKey.pro.maxUsers).toBe(3);
         expect(byKey.pro.maxStores).toBe(1);
     });
 
@@ -80,7 +81,9 @@ describe("PLAN_SEED matrix (v1)", () => {
         const f = buildFeatures(byKey.business.features);
         expect(f.multiStore && f.stockOpname && f.qc && f.procurement && f.auditTrail && f.approvals && f.hr).toBe(true);
         expect(f.api || f.whiteLabel).toBe(false);
-        expect(byKey.business.maxStores).toBe(5);
+        expect(byKey.business.priceMonthly).toBe(349_000);
+        expect(byKey.business.maxUsers).toBe(10);
+        expect(byKey.business.maxStores).toBe(3);
     });
 
     it("Enterprise is custom-priced, unlimited, with API + white-label", () => {
