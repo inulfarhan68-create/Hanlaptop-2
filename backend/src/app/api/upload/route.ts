@@ -108,13 +108,11 @@ export async function POST(request: Request) {
         const filePath = path.join(uploadDir, randomName);
         fs.writeFileSync(filePath, buffer);
 
-        // Construct local URL with basePath (/_/backend)
+        // Post-cutover the Next app serves at root, so /public files (and these
+        // uploads) are served from the root URL.
         const host = request.headers.get("host") || "localhost:3000";
         const protocol = request.headers.get("x-forwarded-proto") || "http";
-        
-        // Next.js static files in /public are served from root URL. 
-        // With basePath "/_/backend", they are served under "/_/backend/uploads/..."
-        const localUrl = `${protocol}://${host}/_/backend/uploads/${randomName}`;
+        const localUrl = `${protocol}://${host}/uploads/${randomName}`;
         console.log("[Upload API] Local upload success:", localUrl);
 
         return NextResponse.json({ url: localUrl });

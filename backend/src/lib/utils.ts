@@ -13,8 +13,9 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-// Static assets are served under the transitional basePath (backend/public/* →
-// /_/backend/*). Single place to update when the basePath is removed at cutover.
+// Post-cutover the Next app serves at root, so static assets in backend/public/*
+// are served from the root path directly. Kept as a helper so call sites don't
+// need to change if a prefix is ever reintroduced.
 export function assetUrl(path: string) {
-  return `/_/backend${path}`;
+  return path;
 }

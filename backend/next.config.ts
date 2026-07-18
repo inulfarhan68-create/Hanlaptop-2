@@ -8,7 +8,9 @@ const nextConfig: NextConfig = {
     // Must stay machine-independent — never a hardcoded absolute path.
     root: path.join(import.meta.dirname, ".."),
   },
-  basePath: "/_/backend",
+  // Cutover: the Next app is now the primary surface served at root. The
+  // transitional basePath "/_/backend" is removed. Client-side callers
+  // (apiFetch, assetUrl, auth-client) were updated to root-relative paths.
   async headers() {
     return [
       {

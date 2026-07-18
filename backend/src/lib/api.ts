@@ -7,10 +7,9 @@ export async function apiFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const storeId = typeof window !== 'undefined' ? localStorage.getItem('selectedStoreId') || 'all' : 'all';
-  let url = endpoint;
-  if (url.startsWith('/') && !url.startsWith('/_/backend')) {
-    url = `/_/backend${url}`;
-  }
+  // Cutover: the Next app serves at root (basePath removed), so /api/* endpoints
+  // are used as-is — no /_/backend prefix.
+  const url = endpoint;
 
   const headers: Record<string, string> = {
     'x-store-id': storeId,
@@ -69,7 +68,7 @@ export async function fetcher(args: string | any[]) {
     // login (under the transitional basePath) — same target the server-side
     // redirect("/login") resolves to — so both auth bounces land in one place.
     if (res.status === 401 && typeof window !== "undefined") {
-      window.location.href = "/_/backend/login";
+      window.location.href = "/login";
     }
     const errorBody = await res.json().catch(() => ({ error: res.statusText }));
     const error = new Error(errorBody.error || `HTTP ${res.status}`);

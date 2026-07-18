@@ -64,12 +64,16 @@ export const auth = betterAuth({
         }
     },
     trustedOrigins: [
-        "http://localhost:5173", 
-        "http://localhost:5174", 
+        "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:3000",
         "https://hanlaptop.vercel.app",
         "https://hanlaptop-front.vercel.app",
         ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
-        ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : [])
+        // VERCEL_URL is the deployment-hash URL; VERCEL_BRANCH_URL is the stable
+        // branch-alias URL users actually open on a preview. Trust both so preview
+        // deployments are login-testable (production uses its own domain above).
+        ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+        ...(process.env.VERCEL_BRANCH_URL ? [`https://${process.env.VERCEL_BRANCH_URL}`] : [])
     ],
 });
