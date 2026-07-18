@@ -1,13 +1,9 @@
 import type { NextConfig } from "next";
-import path from "node:path";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    // Workspace root is the repo root (one level up): the repo has two lockfiles
-    // (frontend + backend), so pin the root instead of letting Turbopack guess.
-    // Must stay machine-independent — never a hardcoded absolute path.
-    root: path.join(import.meta.dirname, ".."),
-  },
+  // Turbopack workspace root is auto-detected from backend/'s lockfile now that
+  // the Vite frontend (and its root lockfile) is gone — no explicit `root` pin
+  // needed anymore.
   // Cutover: the Next app is now the primary surface served at root. The
   // transitional basePath "/_/backend" is removed. Client-side callers
   // (apiFetch, assetUrl, auth-client) were updated to root-relative paths.
