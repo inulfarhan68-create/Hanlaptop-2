@@ -19,8 +19,9 @@ export const plans = pgTable("plans", {
     key: text("key").notNull().unique(),
     name: text("name").notNull(),
     description: text("description"),
-    // Monthly price in IDR (integer rupiah). 0 for free/internal plans.
-    priceMonthly: integer("price_monthly").notNull().default(0),
+    // Monthly price in IDR (integer rupiah). 0 for free/internal plans, NULL for
+    // custom-priced tiers (Enterprise → "Hubungi kami").
+    priceMonthly: integer("price_monthly"),
     // Quotas — NULL means unlimited.
     maxStores: integer("max_stores"),
     maxUsers: integer("max_users"),

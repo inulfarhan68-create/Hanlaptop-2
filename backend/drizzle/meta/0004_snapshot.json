@@ -1,5 +1,5 @@
 {
-  "id": "1253b6de-bb4c-49a4-9cfd-72800f0f3a01",
+  "id": "d64ac3db-c444-4eb3-8d5d-118b32912556",
   "prevId": "884ef806-9113-4bde-89c9-6d6cdcf71297",
   "version": "7",
   "dialect": "postgresql",
@@ -7163,8 +7163,7 @@
           "name": "price_monthly",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": false
         },
         "max_stores": {
           "name": "max_stores",

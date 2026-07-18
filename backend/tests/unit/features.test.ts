@@ -8,15 +8,15 @@ import {
 } from "@/lib/features";
 
 // Locks the SaaS feature-gating layer. Plans gate capabilities via
-// hasFeature(plan, key) — never plan.key === "business" — so these guard that
+// hasFeature(plan, key) — never plan.key === "pro" — so these guard that
 // (a) parsing tolerates the JSON-in-text column and junk, (b) a missing key is
-// false (fail-closed), and (c) the seed matrix matches the intended tiers.
+// false (fail-closed), and (c) the v1 seed matrix matches the intended tiers.
 
 describe("parseFeatures", () => {
     it("parses a plan row's JSON-text features column", () => {
-        expect(parseFeatures({ features: '{"payroll":true,"crm":false}' })).toEqual({
-            payroll: true,
-            crm: false,
+        expect(parseFeatures({ features: '{"service":true,"accountingReports":false}' })).toEqual({
+            service: true,
+            accountingReports: false,
         });
     });
 
@@ -35,48 +35,63 @@ describe("parseFeatures", () => {
 
 describe("hasFeature", () => {
     it("is true only when the key is explicitly enabled", () => {
-        const plan = { features: '{"accounting":true,"payroll":false}' };
-        expect(hasFeature(plan, "accounting")).toBe(true);
-        expect(hasFeature(plan, "payroll")).toBe(false);
+        const plan = { features: '{"accountingReports":true,"hr":false}' };
+        expect(hasFeature(plan, "accountingReports")).toBe(true);
+        expect(hasFeature(plan, "hr")).toBe(false);
     });
 
     it("fails closed on a missing key or empty plan", () => {
-        expect(hasFeature({ features: "{}" }, "aiPricing")).toBe(false);
-        expect(hasFeature(null, "inventory")).toBe(false);
+        expect(hasFeature({ features: "{}" }, "service")).toBe(false);
+        expect(hasFeature(null, "pos")).toBe(false);
     });
 });
 
 describe("buildFeatures", () => {
     it("expands a subset into a full map with every key present", () => {
-        const map = buildFeatures(["inventory", "pos"]);
+        const map = buildFeatures(["pos", "inventory"]);
         expect(Object.keys(map).sort()).toEqual([...FEATURE_KEYS].sort());
-        expect(map.inventory).toBe(true);
         expect(map.pos).toBe(true);
-        expect(map.accounting).toBe(false);
+        expect(map.inventory).toBe(true);
+        expect(map.service).toBe(false);
     });
 });
 
-describe("PLAN_SEED matrix", () => {
+describe("PLAN_SEED matrix (v1)", () => {
     const byKey = Object.fromEntries(PLAN_SEED.map((p) => [p.key, p]));
 
-    it("Starter sells core (inventory/POS/servis/AI) but not the back office", () => {
+    it("Starter runs the shop but not servis / full books", () => {
         const f = buildFeatures(byKey.starter.features);
-        expect(f.inventory && f.pos && f.services && f.aiPricing).toBe(true);
-        expect(f.accounting || f.crm || f.payroll || f.multiStore).toBe(false);
+        expect(f.pos && f.inventory && f.purchasing && f.buyback).toBe(true);
+        expect(f.service || f.accountingReports || f.roles || f.multiStore).toBe(false);
+        expect(byKey.starter.priceMonthly).toBe(69_000);
+        expect(byKey.starter.maxUsers).toBe(1);
+        expect(byKey.starter.maxStores).toBe(1);
     });
 
-    it("Business adds full books + CRM + HR, still single-region", () => {
+    it("Pro unlocks servis + accounting reports + team roles, single-cabang", () => {
+        const f = buildFeatures(byKey.pro.features);
+        expect(f.service && f.accountingReports && f.roles).toBe(true);
+        expect(f.multiStore || f.hr).toBe(false);
+        expect(byKey.pro.maxUsers).toBe(5);
+        expect(byKey.pro.maxStores).toBe(1);
+    });
+
+    it("Business adds multi-cabang + controls + HR", () => {
         const f = buildFeatures(byKey.business.features);
-        expect(f.accounting && f.crm && f.payroll && f.procurement).toBe(true);
-        expect(f.multiStore).toBe(false);
+        expect(f.multiStore && f.stockOpname && f.qc && f.procurement && f.auditTrail && f.approvals && f.hr).toBe(true);
+        expect(f.api || f.whiteLabel).toBe(false);
+        expect(byKey.business.maxStores).toBe(5);
     });
 
-    it("Growth enables every feature incl. multi-cabang", () => {
-        expect(byKey.growth.features).toEqual(FEATURE_KEYS);
+    it("Enterprise is custom-priced, unlimited, with API + white-label", () => {
+        const f = buildFeatures(byKey.enterprise.features);
+        expect(f.api && f.whiteLabel).toBe(true);
+        expect(byKey.enterprise.priceMonthly).toBeNull();
+        expect(byKey.enterprise.maxUsers).toBeNull();
+        expect(byKey.enterprise.maxStores).toBeNull();
     });
 
     it("the internal (unlimited) plan is hidden from public pricing", () => {
         expect(byKey.internal.isPublic).toBe(false);
-        expect(byKey.internal.maxStores).toBeNull();
     });
 });

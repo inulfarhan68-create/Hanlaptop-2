@@ -8,7 +8,8 @@ export interface PublicPlan {
     key: string;
     name: string;
     description: string | null;
-    priceMonthly: number;
+    bestFor: string | null;
+    priceMonthly: number | null; // null = custom ("Hubungi kami")
     maxStores: number | null;
     maxUsers: number | null;
     maxTransactionsPerMonth: number | null;
@@ -24,6 +25,11 @@ function safeParseFeatures(s: string): Record<string, boolean> {
     } catch {
         return {};
     }
+}
+
+/** "Cocok untuk …" is marketing copy kept in code (PLAN_SEED), merged onto DB rows by key. */
+function bestForOf(key: string): string | null {
+    return PLAN_SEED.find((p) => p.key === key)?.bestFor ?? null;
 }
 
 /**
@@ -47,6 +53,7 @@ export const getPublicPlans = cache(async (): Promise<PublicPlan[]> => {
                 key: r.key,
                 name: r.name,
                 description: r.description,
+                bestFor: bestForOf(r.key),
                 priceMonthly: r.priceMonthly,
                 maxStores: r.maxStores,
                 maxUsers: r.maxUsers,
@@ -64,6 +71,7 @@ export const getPublicPlans = cache(async (): Promise<PublicPlan[]> => {
         key: p.key,
         name: p.name,
         description: p.description,
+        bestFor: p.bestFor,
         priceMonthly: p.priceMonthly,
         maxStores: p.maxStores,
         maxUsers: p.maxUsers,

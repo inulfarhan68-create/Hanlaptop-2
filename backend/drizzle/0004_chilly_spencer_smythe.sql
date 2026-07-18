@@ -3,7 +3,7 @@ CREATE TABLE "plans" (
 	"key" text NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
-	"price_monthly" integer DEFAULT 0 NOT NULL,
+	"price_monthly" integer,
 	"max_stores" integer,
 	"max_users" integer,
 	"max_transactions_per_month" integer,
