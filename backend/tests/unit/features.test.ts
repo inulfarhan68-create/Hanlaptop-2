@@ -10,13 +10,13 @@ import {
 // Locks the SaaS feature-gating layer. Plans gate capabilities via
 // hasFeature(plan, key) — never plan.key === "pro" — so these guard that
 // (a) parsing tolerates the JSON-in-text column and junk, (b) a missing key is
-// false (fail-closed), and (c) the v1 seed matrix matches the intended tiers.
+// false (fail-closed), and (c) the fine-grained v2 seed matrix matches the tiers.
 
 describe("parseFeatures", () => {
     it("parses a plan row's JSON-text features column", () => {
-        expect(parseFeatures({ features: '{"service":true,"accountingReports":false}' })).toEqual({
+        expect(parseFeatures({ features: '{"service":true,"accounting":false}' })).toEqual({
             service: true,
-            accountingReports: false,
+            accounting: false,
         });
     });
 
@@ -35,8 +35,8 @@ describe("parseFeatures", () => {
 
 describe("hasFeature", () => {
     it("is true only when the key is explicitly enabled", () => {
-        const plan = { features: '{"accountingReports":true,"hr":false}' };
-        expect(hasFeature(plan, "accountingReports")).toBe(true);
+        const plan = { features: '{"accounting":true,"hr":false}' };
+        expect(hasFeature(plan, "accounting")).toBe(true);
         expect(hasFeature(plan, "hr")).toBe(false);
     });
 
@@ -56,30 +56,32 @@ describe("buildFeatures", () => {
     });
 });
 
-describe("PLAN_SEED matrix (v1)", () => {
+describe("PLAN_SEED matrix (v2)", () => {
     const byKey = Object.fromEntries(PLAN_SEED.map((p) => [p.key, p]));
 
-    it("Starter runs the shop but not servis / full books", () => {
+    it("Starter runs the shop (POS/inventory/barcode/basic reports) — no servis/akuntansi/katalog", () => {
         const f = buildFeatures(byKey.starter.features);
-        expect(f.pos && f.inventory && f.purchasing && f.buyback).toBe(true);
-        expect(f.service || f.accountingReports || f.roles || f.multiStore).toBe(false);
+        expect(f.dashboard && f.pos && f.inventory && f.printBarcode && f.basicReports && f.invoice).toBe(true);
+        expect(f.service || f.accounting || f.catalog || f.buyback || f.roles || f.multiStore).toBe(false);
         expect(byKey.starter.priceMonthly).toBe(69_000);
         expect(byKey.starter.maxUsers).toBe(1);
         expect(byKey.starter.maxStores).toBe(1);
     });
 
-    it("Pro unlocks servis + accounting reports + team roles, single-cabang", () => {
+    it("Pro adds servis, katalog, buyback, akuntansi & tim — still single-cabang, no Business ops", () => {
         const f = buildFeatures(byKey.pro.features);
-        expect(f.service && f.accountingReports && f.roles).toBe(true);
-        expect(f.multiStore || f.hr).toBe(false);
+        expect(f.service && f.devicePassport && f.buyback && f.catalog && f.consignment && f.accounting && f.roles).toBe(true);
+        expect(f.multiStore || f.qc || f.hr || f.generalJournal || f.purchaseOrder).toBe(false);
         expect(byKey.pro.priceMonthly).toBe(159_000);
         expect(byKey.pro.maxUsers).toBe(3);
         expect(byKey.pro.maxStores).toBe(1);
     });
 
-    it("Business adds multi-cabang + controls + HR", () => {
+    it("Business adds multi-cabang, kontrol operasional, akuntansi lanjutan & HR", () => {
         const f = buildFeatures(byKey.business.features);
-        expect(f.multiStore && f.stockOpname && f.qc && f.procurement && f.auditTrail && f.approvals && f.hr).toBe(true);
+        expect(f.multiStore && f.stockTransfer && f.stockOpname && f.qc && f.purchaseOrder).toBe(true);
+        expect(f.bankReconciliation && f.generalJournal && f.fixedAssets && f.closingPeriod).toBe(true);
+        expect(f.hr && f.technicianCommission && f.auditTrail && f.approvals).toBe(true);
         expect(f.api || f.whiteLabel).toBe(false);
         expect(byKey.business.priceMonthly).toBe(349_000);
         expect(byKey.business.maxUsers).toBe(10);

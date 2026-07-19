@@ -2,40 +2,60 @@
  * Module feature flags — the first-class capability layer for SaaS plans.
  *
  * Gate capabilities on `hasFeature(plan, "service")`, NEVER `plan.key === "pro"`.
- * Plans map to a set of module flags, so renaming/repricing a tier — or moving a
- * capability between tiers — never ripples through the codebase.
+ * Flags are fine-grained (one menu can split across tiers) so the value gap
+ * between plans is explicit and repricing/moving a capability never ripples
+ * through the codebase.
  *
- * NOTE on accounting: the double-entry *journal engine* always runs (it is core
- * data integrity, on every plan incl. Starter). What the `accountingReports` flag
- * gates is the reports/COA *UI* (Jurnal Umum, Piutang/Hutang, Laba-Rugi, Neraca,
- * Arus Kas) — matching "Starter = jurnal otomatis di belakang layar; Pro = laporan
- * keuangan lengkap".
+ * NOTE on POS vs Servis: Starter's `pos` can charge a service fee as a line item
+ * at the register; the full work-order/tracking/warranty system is `service` (Pro).
+ * NOTE on accounting: the double-entry *engine* always runs (data integrity, every
+ * plan). What's gated is the reports/UI — `accounting` (Pro: COA, piutang/hutang,
+ * laporan keuangan) and the advanced pieces (`generalJournal`, `fixedAssets`,
+ * `closingPeriod`, `bankReconciliation` — Business).
  */
 
 /** Canonical module features, with Indonesian labels for the pricing/UI tables. */
 export const FEATURES = {
-    // Core operations (every paid plan)
-    pos: "POS Penjualan",
-    inventory: "Inventory",
-    purchasing: "Pembelian",
-    customersSuppliers: "Customer & Supplier",
-    buyback: "Buyback / Trade-In",
+    // ── Core / Operasional (Starter+) ──
+    dashboard: "Dashboard",
+    pos: "POS (jual + jasa, restock, pengeluaran, modal/prive)",
     shift: "Shift Kasir",
+    inventory: "Inventory Dasar",
+    barangJasa: "Barang & Jasa (non-stok)",
+    customersSuppliers: "Customer & Supplier",
+    invoice: "Invoice / Nota Digital",
+    printBarcode: "Cetak Barcode",
+    exportReports: "Export Laporan (Excel & PDF)",
+    basicReports: "Laporan Dasar (penjualan, pembelian, stok, laba kotor)",
+    // ── Pro ──
+    service: "Modul Servis (work order, tracking, garansi)",
+    buyback: "Buyback / Trade-In",
+    bulkImport: "Import Massal",
     catalog: "Katalog Online",
-    // Pro
-    service: "Servis (Work Order, Tracking, Garansi, Device Passport)",
-    accountingReports: "Laporan Keuangan (COA, Jurnal, L/R, Neraca, Arus Kas)",
+    flyer: "Flyer Produk",
+    markdown: "Markdown (penurunan harga)",
+    devicePassport: "Device Passport",
+    specSummary: "Ringkasan Spek",
+    agingInventory: "Aging Inventory",
+    consignment: "Konsinyasi",
+    accounting: "Accounting (COA, Piutang, Hutang, Laporan Keuangan)",
     roles: "Role & Permission",
-    // Business
-    multiStore: "Multi Cabang (transfer, konsolidasi)",
+    // ── Business ──
+    multiStore: "Multi Cabang",
+    stockTransfer: "Transfer Stok",
     stockOpname: "Stock Opname",
-    qc: "Quality Control",
-    procurement: "Purchase Order",
+    qc: "Quality Control (QC)",
+    purchaseOrder: "Purchase Order",
+    bankReconciliation: "Rekonsiliasi Bank",
+    generalJournal: "General Journal",
+    fixedAssets: "Fixed Asset & Depresiasi",
+    closingPeriod: "Closing Period",
+    hr: "HR & Payroll",
+    technicianCommission: "Komisi Teknisi",
     auditTrail: "Audit Trail",
     approvals: "Approval Workflow",
-    hr: "HR (karyawan, komisi teknisi)",
-    // Enterprise
-    api: "API Integration",
+    // ── Enterprise ──
+    api: "API",
     whiteLabel: "White Label",
 } as const;
 
@@ -71,9 +91,19 @@ export function buildFeatures(enabled: readonly FeatureKey[]): Record<FeatureKey
 }
 
 // ── Cumulative feature sets per tier (each builds on the previous) ──────────────
-const CORE: FeatureKey[] = ["pos", "inventory", "purchasing", "customersSuppliers", "buyback", "shift", "catalog"];
-const PRO_ADDS: FeatureKey[] = ["service", "accountingReports", "roles"];
-const BUSINESS_ADDS: FeatureKey[] = ["multiStore", "stockOpname", "qc", "procurement", "auditTrail", "approvals", "hr"];
+const CORE: FeatureKey[] = [
+    "dashboard", "pos", "shift", "inventory", "barangJasa",
+    "customersSuppliers", "invoice", "printBarcode", "exportReports", "basicReports",
+];
+const PRO_ADDS: FeatureKey[] = [
+    "service", "buyback", "bulkImport", "catalog", "flyer", "markdown",
+    "devicePassport", "specSummary", "agingInventory", "consignment", "accounting", "roles",
+];
+const BUSINESS_ADDS: FeatureKey[] = [
+    "multiStore", "stockTransfer", "stockOpname", "qc", "purchaseOrder",
+    "bankReconciliation", "generalJournal", "fixedAssets", "closingPeriod",
+    "hr", "technicianCommission", "auditTrail", "approvals",
+];
 const ENTERPRISE_ADDS: FeatureKey[] = ["api", "whiteLabel"];
 
 const STARTER_FEATURES = CORE;
@@ -98,38 +128,40 @@ export interface PlanSeed {
 }
 
 /**
- * HanLaptop POS pricing — final v1. Tiers follow a shop's growth: Starter (run the
- * shop) → Pro (servis + full books + team) → Business (multi-cabang + controls) →
- * Enterprise (integration + custom). Quotas gate on users & branches, not tx count.
+ * HanLaptop POS pricing — v2 (fine-grained). Tiers follow a shop's growth: Starter
+ * (run the shop) → Pro (servis + katalog + buyback + akuntansi + tim) → Business
+ * (multi-cabang + kontrol operasional + akuntansi lanjutan + HR) → Enterprise
+ * (custom). Quotas gate on users & branches. Variable-cost features (AI, storage,
+ * WA, custom domain) are sold as ADDONS, not bundled.
  */
 export const PLAN_SEED: PlanSeed[] = [
     {
         key: "starter", name: "Starter", sortOrder: 1, priceMonthly: 69_000, isPublic: true,
         maxStores: 1, maxUsers: 1, maxTransactionsPerMonth: null, storageLimitMb: null,
         features: STARTER_FEATURES,
-        bestFor: "Toko perorangan yang fokus jual-beli, belum ada alur servis kompleks.",
-        description: "Jalankan toko Anda — POS, stok, pembelian, buyback, dan nota digital.",
+        bestFor: "Toko perorangan & UMKM.",
+        description: "Menjalankan toko: POS (jual + jasa), inventory dasar, nota, laporan dasar.",
     },
     {
         key: "pro", name: "Pro", sortOrder: 2, priceMonthly: 159_000, isPublic: true,
         maxStores: 1, maxUsers: 3, maxTransactionsPerMonth: null, storageLimitMb: null,
         features: PRO_FEATURES,
-        bestFor: "Toko yang mulai menerima servis, punya kasir & teknisi, butuh laporan keuangan.",
-        description: "Semua Starter + modul Servis, akuntansi lengkap, dan kolaborasi tim.",
+        bestFor: "Toko yang mulai berkembang.",
+        description: "Semua Starter + servis, katalog, buyback, akuntansi, dan tim (role & permission).",
     },
     {
         key: "business", name: "Business", sortOrder: 3, priceMonthly: 349_000, isPublic: true,
         maxStores: 3, maxUsers: 10, maxTransactionsPerMonth: null, storageLimitMb: null,
         features: BUSINESS_FEATURES,
-        bestFor: "Toko dengan beberapa cabang, tim lebih besar, butuh kontrol operasional.",
-        description: "Semua Pro + multi-cabang, stock opname/QC, procurement, audit & approval, HR.",
+        bestFor: "Bisnis dengan tim & banyak operasional.",
+        description: "Semua Pro + multi-cabang, kontrol operasional, akuntansi lanjutan, HR & payroll.",
     },
     {
         key: "enterprise", name: "Enterprise", sortOrder: 4, priceMonthly: null, isPublic: true,
         maxStores: null, maxUsers: null, maxTransactionsPerMonth: null, storageLimitMb: null,
         features: ENTERPRISE_FEATURES,
-        bestFor: "Perusahaan atau jaringan toko yang butuh integrasi & kustomisasi.",
-        description: "Semua Business + API, white-label, import data, training, priority support & SLA.",
+        bestFor: "Jaringan toko / korporasi.",
+        description: "Semua Business + API, white-label, dedicated support, dan integrasi custom.",
     },
     {
         key: "internal", name: "Internal", sortOrder: 99, priceMonthly: 0, isPublic: false,
@@ -139,3 +171,12 @@ export const PLAN_SEED: PlanSeed[] = [
         bestFor: "Tenant flagship internal.",
     },
 ];
+
+/** Paid add-ons (variable-cost / premium), billed separately from the base plan. */
+export const ADDONS = [
+    { key: "aiOcr", name: "AI OCR Invoice", desc: "Scan & impor nota otomatis." },
+    { key: "aiPricing", name: "AI Pricing Laptop", desc: "Estimasi harga jual & buyback." },
+    { key: "storage", name: "Storage Tambahan", desc: "Kapasitas foto/lampiran ekstra." },
+    { key: "whatsapp", name: "WhatsApp API", desc: "Kirim nota & pengingat otomatis." },
+    { key: "customDomain", name: "Custom Domain", desc: "Katalog di domain sendiri." },
+] as const;

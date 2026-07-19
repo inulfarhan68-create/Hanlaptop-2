@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
-import { Check, X, Store, Boxes, LineChart, ShieldCheck, ArrowRight } from "lucide-react";
+import { Check, X, Store, Boxes, LineChart, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { getPublicPlans, type PublicPlan } from "@/lib/public/plans";
-import type { FeatureKey } from "@/lib/features";
+import { FEATURES, ADDONS, type FeatureKey } from "@/lib/features";
 
 export const metadata: Metadata = {
     title: "HanLaptop POS — Software Kasir, Servis & Pembukuan Toko Laptop",
@@ -26,36 +27,23 @@ const VALUE_PROPS = [
     { icon: ShieldCheck, title: "Multi-cabang & peran", body: "Akses berbasis peran (owner, manager, kasir, teknisi) dengan isolasi data per cabang." },
 ];
 
-// Curated card highlights (marketing copy per tier). The full, feature-flag-driven
-// ✓/✗ matrix lives in the comparison table below.
+// Curated card highlights (marketing copy per tier). Full ✓/✗ matrix in the table below.
 const CARD_HIGHLIGHTS: Record<string, { lead?: string; items: string[] }> = {
-    starter: { items: ["POS, Inventory & Pembelian", "Customer, Supplier & Buyback", "Shift kasir, nota digital & katalog online"] },
-    pro: { lead: "Semua Starter +", items: ["Modul Servis lengkap (work order, tracking, garansi, device passport)", "Akuntansi & laporan keuangan penuh", "Sampai 5 user + role & permission"] },
-    business: { lead: "Semua Pro +", items: ["Sampai 5 cabang: transfer & konsolidasi laporan", "Stock opname, QC & purchase order", "Audit trail, approval workflow & HR"] },
-    enterprise: { lead: "Semua Business +", items: ["Unlimited user & cabang", "API integration & white-label", "Import data, training, priority support & SLA"] },
+    starter: { items: ["POS jual + jasa, restock, pengeluaran, modal/prive", "Inventory dasar + cetak barcode", "Nota digital, export & laporan dasar"] },
+    pro: { lead: "Semua Starter +", items: ["Modul Servis + Device Passport", "Katalog online, flyer & buyback", "Akuntansi (COA, piutang/hutang, laporan keuangan)", "3 user + role & permission"] },
+    business: { lead: "Semua Pro +", items: ["Multi-cabang + transfer stok", "Stock opname, QC & purchase order", "Akuntansi lanjutan (jurnal, aset tetap, closing, rekonsiliasi)", "HR & payroll, audit & approval"] },
+    enterprise: { lead: "Semua Business +", items: ["Unlimited user & cabang", "API & white-label", "Dedicated support & integrasi custom"] },
 };
 
-// Full comparison rows, driven by the plan feature flags.
-const COMPARE_ROWS: { label: string; key: FeatureKey }[] = [
-    { label: "POS Penjualan", key: "pos" },
-    { label: "Inventory", key: "inventory" },
-    { label: "Pembelian", key: "purchasing" },
-    { label: "Customer & Supplier", key: "customersSuppliers" },
-    { label: "Buyback / Trade-In", key: "buyback" },
-    { label: "Shift Kasir", key: "shift" },
-    { label: "Katalog Online", key: "catalog" },
-    { label: "Modul Servis (Work Order, Tracking, Garansi)", key: "service" },
-    { label: "Laporan Keuangan (COA, L/R, Neraca, Arus Kas)", key: "accountingReports" },
-    { label: "Role & Permission", key: "roles" },
-    { label: "Multi Cabang", key: "multiStore" },
-    { label: "Stock Opname", key: "stockOpname" },
-    { label: "Quality Control", key: "qc" },
-    { label: "Purchase Order", key: "procurement" },
-    { label: "Audit Trail", key: "auditTrail" },
-    { label: "Approval Workflow", key: "approvals" },
-    { label: "HR & Komisi Teknisi", key: "hr" },
-    { label: "API Integration", key: "api" },
-    { label: "White Label", key: "whiteLabel" },
+// Full comparison, grouped by area. Row labels come from FEATURES; ✓/✗ from plan flags.
+const COMPARE_GROUPS: { group: string; keys: FeatureKey[] }[] = [
+    { group: "Operasional & POS", keys: ["dashboard", "pos", "shift", "invoice", "customersSuppliers", "exportReports", "basicReports"] },
+    { group: "Inventory", keys: ["inventory", "barangJasa", "printBarcode", "specSummary", "agingInventory", "markdown", "bulkImport", "consignment", "devicePassport", "stockOpname", "qc", "stockTransfer", "purchaseOrder"] },
+    { group: "Penjualan & Katalog", keys: ["buyback", "catalog", "flyer"] },
+    { group: "Servis", keys: ["service", "technicianCommission"] },
+    { group: "Akuntansi & Keuangan", keys: ["accounting", "generalJournal", "bankReconciliation", "fixedAssets", "closingPeriod"] },
+    { group: "Tim, Cabang & Kontrol", keys: ["roles", "multiStore", "hr", "auditTrail", "approvals"] },
+    { group: "Enterprise", keys: ["api", "whiteLabel"] },
 ];
 
 function priceLabel(p: PublicPlan): { main: string; sub: string } {
@@ -173,13 +161,17 @@ export default async function ProductLandingPage() {
                         );
                     })}
                 </div>
+
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                    Starter bisa menagih <span className="font-medium text-foreground">jasa servis di kasir</span>; sistem <span className="font-medium text-foreground">work-order &amp; tracking</span> penuh ada di Pro.
+                </p>
             </section>
 
             {/* Comparison table */}
             <section className="mx-auto max-w-6xl px-4 pb-16">
                 <h2 className="mb-6 text-center text-2xl font-bold tracking-tight">Perbandingan lengkap</h2>
                 <div className="overflow-x-auto rounded-lg border border-border">
-                    <table className="w-full min-w-[640px] text-sm">
+                    <table className="w-full min-w-[720px] text-sm">
                         <thead>
                             <tr className="border-b border-border bg-muted/40">
                                 <th className="px-4 py-3 text-left font-semibold">Fitur</th>
@@ -191,26 +183,45 @@ export default async function ProductLandingPage() {
                         <tbody>
                             <tr className="border-b border-border">
                                 <td className="px-4 py-2.5 text-muted-foreground">Jumlah User</td>
-                                {plans.map((p) => (
-                                    <td key={p.key} className="px-4 py-2.5 text-center">{p.maxUsers === null ? "Unlimited" : p.maxUsers}</td>
-                                ))}
+                                {plans.map((p) => (<td key={p.key} className="px-4 py-2.5 text-center">{p.maxUsers === null ? "Unlimited" : p.maxUsers}</td>))}
                             </tr>
                             <tr className="border-b border-border">
                                 <td className="px-4 py-2.5 text-muted-foreground">Jumlah Cabang</td>
-                                {plans.map((p) => (
-                                    <td key={p.key} className="px-4 py-2.5 text-center">{p.maxStores === null ? "Unlimited" : p.maxStores}</td>
-                                ))}
+                                {plans.map((p) => (<td key={p.key} className="px-4 py-2.5 text-center">{p.maxStores === null ? "Unlimited" : p.maxStores}</td>))}
                             </tr>
-                            {COMPARE_ROWS.map((row) => (
-                                <tr key={row.key} className="border-b border-border last:border-0">
-                                    <td className="px-4 py-2.5 text-muted-foreground">{row.label}</td>
-                                    {plans.map((p) => (
-                                        <td key={p.key} className="px-4 py-2.5"><TickCell on={p.features[row.key] === true} /></td>
+                            {COMPARE_GROUPS.map((grp) => (
+                                <Fragment key={grp.group}>
+                                    <tr className="border-b border-border bg-muted/30">
+                                        <td colSpan={1 + plans.length} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{grp.group}</td>
+                                    </tr>
+                                    {grp.keys.map((key) => (
+                                        <tr key={key} className="border-b border-border last:border-0">
+                                            <td className="px-4 py-2.5 text-muted-foreground">{FEATURES[key]}</td>
+                                            {plans.map((p) => (<td key={p.key} className="px-4 py-2.5"><TickCell on={p.features[key] === true} /></td>))}
+                                        </tr>
                                     ))}
-                                </tr>
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            {/* Add-ons */}
+            <section className="mx-auto max-w-6xl px-4 pb-16">
+                <div className="mb-6 text-center">
+                    <h2 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight"><Sparkles className="h-5 w-5 text-primary" /> Add-on</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">Tambahkan kapan saja di paket mana pun. Ditagih terpisah.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {ADDONS.map((a) => (
+                        <Card key={a.key}>
+                            <CardContent className="pt-5">
+                                <h3 className="font-semibold">{a.name}</h3>
+                                <p className="text-sm text-muted-foreground">{a.desc}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             </section>
 
