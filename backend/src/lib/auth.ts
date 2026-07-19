@@ -60,6 +60,13 @@ export const auth = betterAuth({
                 required: false,
                 defaultValue: "kasir",
                 input: true,
+            },
+            // Tenant the user belongs to. Set during onboarding (Phase 3); NULL for
+            // platform_admin. Persisted/read by Better-Auth so it rides on the session.
+            organizationId: {
+                type: "string",
+                required: false,
+                input: true,
             }
         }
     },

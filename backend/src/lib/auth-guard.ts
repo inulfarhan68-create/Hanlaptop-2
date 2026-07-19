@@ -2,9 +2,15 @@ import { auth } from "./auth";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/db";
-import { userStoreAccess } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { userStoreAccess, stores } from "@/db/schema";
+import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission } from "./permissions";
+
+/** All store ids belonging to an organization (the org's tenant boundary). */
+export async function getOrgStoreIds(organizationId: string): Promise<string[]> {
+    const rows = await db.select({ id: stores.id }).from(stores).where(eq(stores.organizationId, organizationId));
+    return rows.map((r) => r.id);
+}
 
 /** The session object Better-Auth returns for an authenticated request. */
 export type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
@@ -22,11 +28,21 @@ export type AuthUser = AuthSession["user"] & { role: string };
  */
 export interface AuthContext {
     session: AuthSession;
-    /** Resolved active store id, or "all" for a global owner. */
+    /** Resolved active store id, or "all" for an owner/platform-admin (all their stores). */
     storeId: string;
     /** The user's role at the resolved store (may differ from the global role). */
     storeRole: string;
     user: AuthUser;
+    /** The tenant (organization) this request belongs to. null only for platform_admin. */
+    organizationId: string | null;
+    /** True for the global SaaS operator (sees across all tenants). */
+    isPlatformAdmin: boolean;
+    /**
+     * Store ids this request may touch — the tenant boundary for `storeId === "all"`.
+     * `null` means unrestricted (platform_admin only). For a tenant owner this is every
+     * store in their org; for other roles, their granted stores. Use with `storeScope()`.
+     */
+    accessibleStoreIds: string[] | null;
 }
 
 /**
@@ -54,7 +70,7 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         const accessibleStores = await db.select().from(userStoreAccess)
             .where(eq(userStoreAccess.userId, session.user.id));
 
-        if (session.user.role !== "owner" && accessibleStores.length === 0) {
+        if (session.user.role !== "owner" && session.user.role !== "platform_admin" && accessibleStores.length === 0) {
             return NextResponse.json(
                 { error: "Forbidden — you do not have access to any stores" },
                 { status: 403 }
@@ -64,14 +80,11 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         let targetAccess: { role: string; storeId?: string } | undefined;
         let finalStoreId: string | null | undefined = requestedStoreId;
 
-        if (session.user.role === "owner") {
-            // Global owner has access to all stores
-            if (finalStoreId === "all" || !finalStoreId) {
-                targetAccess = { role: "owner" };
-                finalStoreId = finalStoreId || "all";
-            } else {
-                targetAccess = { role: "owner" };
-            }
+        if (session.user.role === "owner" || session.user.role === "platform_admin") {
+            // Owner (tenant-wide) / platform_admin (global) can address all their stores.
+            // A specific requested store is kept; otherwise resolve to the "all" sentinel.
+            targetAccess = { role: session.user.role };
+            finalStoreId = finalStoreId || "all";
         } else {
             // Non-owners (manager, kasir, investor) must check accessibleStores
             if (finalStoreId === "all" || !finalStoreId) {
@@ -95,11 +108,35 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
             );
         }
 
+        // ── Tenant resolution (Phase 2 isolation core) ──
+        const authUser = session.user as AuthUser;
+        const isPlatformAdmin = authUser.role === "platform_admin";
+        // Prefer the persisted user.organizationId; fall back to the org of the user's
+        // first accessible store (keeps pre-backfill / stale sessions working).
+        let organizationId: string | null = (authUser as { organizationId?: string | null }).organizationId ?? null;
+        if (!organizationId && !isPlatformAdmin && accessibleStores.length > 0) {
+            const [row] = await db.select({ orgId: stores.organizationId })
+                .from(stores).where(eq(stores.id, accessibleStores[0].storeId)).limit(1);
+            organizationId = row?.orgId ?? null;
+        }
+        // Store-id boundary for the `storeId === "all"` path (see storeScope):
+        let accessibleStoreIds: string[] | null;
+        if (isPlatformAdmin) {
+            accessibleStoreIds = null; // unrestricted — global operator
+        } else if (authUser.role === "owner" && organizationId) {
+            accessibleStoreIds = await getOrgStoreIds(organizationId); // every store in the tenant
+        } else {
+            accessibleStoreIds = accessibleStores.map((s) => s.storeId);
+        }
+
         return {
             session,
             storeId: finalStoreId ?? "all",
             storeRole: targetAccess.role,
-            user: session.user as AuthUser, // single boundary assertion for the custom `role` field
+            user: authUser, // single boundary assertion for the custom `role` field
+            organizationId,
+            isPlatformAdmin,
+            accessibleStoreIds,
         };
     } catch {
         return NextResponse.json(
@@ -214,4 +251,41 @@ export async function requirePermission(permission: Permission): Promise<AuthCon
     }
 
     return authResult;
+}
+
+/**
+ * Guard: the request must be the global SaaS operator (`platform_admin`).
+ * Used by the platform console (tenant / plan / billing management).
+ */
+export async function requirePlatformAdmin(): Promise<AuthContext | NextResponse> {
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
+    if (!authResult.isPlatformAdmin) {
+        return NextResponse.json(
+            { error: "Forbidden — platform admin access required" },
+            { status: 403 }
+        );
+    }
+
+    return authResult;
+}
+
+/**
+ * Tenant-safe store filter — the Phase-2b replacement for the legacy
+ * `authResult.storeId !== "all" ? eq(col, storeId) : undefined` pattern that
+ * currently leaves the "all" path unbounded (a cross-tenant leak once >1 org exists).
+ *
+ * Returns a Drizzle WHERE condition scoping `column` to the caller's stores:
+ *  - platform_admin (`accessibleStoreIds === null`) → `undefined` (no filter, global)
+ *  - no accessible stores → always-false (fail closed — sees nothing)
+ *  - otherwise → `inArray(column, accessibleStoreIds)` (their store, or every org store for an owner)
+ *
+ * Usage: `.where(and(baseCond, storeScope(authResult, table.storeId)))`.
+ */
+export function storeScope(authResult: Pick<AuthContext, "accessibleStoreIds">, column: AnyColumn) {
+    const ids = authResult.accessibleStoreIds;
+    if (ids === null) return undefined;       // platform_admin: unrestricted
+    if (ids.length === 0) return sql`false`;  // no access: match nothing
+    return inArray(column, ids);
 }

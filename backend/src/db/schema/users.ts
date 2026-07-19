@@ -7,6 +7,10 @@ export const user = pgTable("user", {
 	emailVerified: boolean('email_verified').notNull(),
 	image: text('image'),
 	role: text('role').notNull().default('kasir'),
+	// The tenant this user belongs to. NULL only for platform_admin (global operator).
+	// Plain text (no FK) to avoid a circular import with schema/store.ts; the app
+	// enforces the relationship. Backfilled for existing users by the tenancy migration.
+	organizationId: text('organization_id'),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
 });

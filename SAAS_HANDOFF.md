@@ -9,7 +9,9 @@ Portable handoff for continuing the SaaS build in any environment (this repo is 
 | Migrasi Vite→Next | ✅ SELESAI (single-app Next di `backend/`, live) |
 | **Fase 1 — plans + feature-flags + landing/pricing** | ✅ MERGED (PR #34, main `6f9ca26`) — pricing **v1** |
 | **Pricing v2** (tier granular + add-ons) | ⏳ **PR #35 OPEN, CI hijau — MERGE INI DULU.** main masih pricing v1 sampai #35 di-merge |
-| Fase 2–7 | belum mulai |
+| **Fase 2a — org-aware core** | 🔧 di PR `feat/saas-phase2-isolation` (schema `user.organizationId`, `platform_admin`, `AuthContext` org-aware, `getOrgStoreIds`/`requirePlatformAdmin`/`storeScope`, fix hardcode `org-default`, skrip backfill). Additif — perilaku single-org tak berubah |
+| **Fase 2b — scope 64 query** | ⏳ WAJIB sebelum Register: ganti 154 situs `storeId !== "all" ? eq() : undefined` → `storeScope()`. Mekanis |
+| Fase 3–7 | belum mulai |
 
 Cabang: `feat/saas-pricing-v2` (= PR #35). Setelah merge, hapus cabang & lanjut Fase 2.
 
@@ -46,13 +48,19 @@ Starter Rp69k (1u/1cabang) · **Pro Rp159k (3u/1cabang) "Paling Populer"** · Bu
 - `api/stores/route.ts` **hardcode `organizationId: 'org-default'`** → cuma 1 org.
 - `lib/auth-guard.ts`: `session.user.role === "owner"` = **GLOBAL** (`storeId:"all"` lintas SEMUA org; `requirePermission` bypass total). Aman untuk 1 tenant, BOCOR untuk banyak.
 
-**Yang harus dikerjakan:**
-1. **Peran**: tambah `platform_admin` (`lib/permissions.ts` + `auth.ts` additionalFields). Turunkan `owner` jadi **tenant-scoped**.
-2. **`user.organizationId`**: tambah kolom (nullable `text` FK→organizations; null hanya untuk `platform_admin`) via better-auth `additionalFields` (tiru field `role` di `auth.ts:56`) + kolom di tabel user. `db:generate` migrasi.
-3. **`auth-guard.ts` rework**: `AuthContext` tambah `organizationId` + `isPlatformAdmin`. `storeId:"all"` untuk tenant-owner = **hanya store di org-nya** (helper `getOrgStoreIds(orgId)`, thread ke query store-spanning: dashboard, reports, stores list, users list). Bypass permission → `platform_admin` saja. Tambah `requirePlatformAdmin()`.
-4. **Fix `api/stores`**: pakai `organizationId` si pemanggil, buang hardcode `org-default`.
-5. **Migrasi data**: rename `org-default` → "Han Laptop"; backfill `user.organizationId` dari `userStoreAccess→stores.organizationId`; kasih Han Laptop plan internal + subscription; tunjuk satu akun jadi `platform_admin`.
-6. **Tes + CI**: perluas `backend/tests/e2e/multi-tenant.spec.ts` (7 test isolasi antar-STORE yang sudah ada) jadi **cross-ORG** (owner org A tak boleh lihat store/data org B). **Wire Playwright e2e ke `.github/workflows/ci.yml`** — 20 test e2e keamanan yang sudah ada BELUM jalan di CI; jadikan gerbang wajib begitu multi-tenant nyata.
+**2a — SUDAH DIKERJAKAN** (PR `feat/saas-phase2-isolation`, additif & aman — single-org tak berubah):
+1. ✅ `platform_admin` di `permissions.ts` (all-perms). `owner` = tenant-scoped.
+2. ✅ `user.organizationId` (kolom nullable, migrasi `0005`) + `auth.ts` additionalFields (ikut ke sesi).
+3. ✅ `auth-guard.ts`: `AuthContext` kini bawa `organizationId`, `isPlatformAdmin`, `accessibleStoreIds` (null=platform_admin global; owner=semua store org-nya via `getOrgStoreIds`; lain=store-nya). Guard `requirePlatformAdmin()`. Helper **`storeScope(authResult, col)`** (null→undefined; kosong→`sql\`false\``; else `inArray(col, ids)`).
+4. ✅ `api/stores`: pakai `authResult.organizationId` (fallback `org-default`).
+5. ✅ Backfill: `src/db/migrate-tenancy.ts` — jalankan sekali `PLATFORM_ADMIN_EMAIL=you@x.com tsx src/db/migrate-tenancy.ts` (rename org-default→Han Laptop, backfill user.organizationId, tunjuk platform_admin). Idempoten.
+
+⚠️ **Sengaja BELUM diubah** (aman single-org, ubah di 2b): bypass `requirePermission` untuk `owner` masih ada. Link subscription/plan Han Laptop = fase billing.
+
+**2b — SISA (mekanis, WAJIB sebelum Register live):**
+- Ganti tiap situs `authResult.storeId !== "all" ? eq(col, authResult.storeId) : undefined` (+ varian `=== "all"`) → **`storeScope(authResult, col)`** dari `@/lib/auth-guard`, bungkus di `and(...)`. **154 baris di 64 file** (`grep -rn '"all"' src/app/api src/services`). Untuk platform_admin tak memfilter (global); untuk tenant dibatasi ke store org-nya.
+- Ubah bypass `requirePermission`: `if (globalRole === "owner")` → `if (authResult.isPlatformAdmin)`.
+- **Tes + CI**: perluas `tests/e2e/multi-tenant.spec.ts` → cross-ORG (owner org A tak lihat data org B). Wire Playwright ke `.github/workflows/ci.yml` (20 e2e keamanan yang ada BELUM di CI).
 
 ## Konvensi & file kunci (ikuti pola)
 

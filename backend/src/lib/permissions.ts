@@ -42,7 +42,9 @@ export type Permission = typeof Permissions[keyof typeof Permissions];
 
 // The Role -> Permission Mapping
 export const RolePermissionsMatrix: Record<string, Permission[]> = {
-    "owner": Object.values(Permissions), // Global Admin gets everything
+    // Platform operator (SaaS admin) — the only truly global role. Manages tenants.
+    "platform_admin": Object.values(Permissions),
+    "owner": Object.values(Permissions), // Tenant owner — full permissions within their org
     "manager": [
         Permissions.INVENTORY_READ,
         Permissions.INVENTORY_CREATE,

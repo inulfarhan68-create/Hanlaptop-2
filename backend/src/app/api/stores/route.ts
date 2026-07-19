@@ -58,18 +58,19 @@ export async function POST(request: Request) {
         const { name, address, phone } = parsed.data;
         const id = crypto.randomUUID();
         
-        // Ensure 'org-default' exists before creating a store to prevent FK errors on new databases
+        // The new store belongs to the caller's tenant (org). Fall back to the legacy
+        // 'org-default' only for pre-migration accounts whose org isn't resolved yet.
+        const targetOrgId = authResult.organizationId ?? 'org-default';
         await db.insert(organizations).values({
-            id: 'org-default',
-            name: 'Default Organization',
+            id: targetOrgId,
+            name: targetOrgId === 'org-default' ? 'Default Organization' : 'Organization',
             createdAt: new Date(),
             updatedAt: new Date(),
         }).onConflictDoNothing();
 
-        // We assume 'org-default' is the main organization as per our seed
         const [newStore] = await db.insert(stores).values({
             id,
-            organizationId: 'org-default',
+            organizationId: targetOrgId,
             name,
             slug: slugify(name),
             address: address || null,
