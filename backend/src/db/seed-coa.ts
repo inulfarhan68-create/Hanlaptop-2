@@ -110,12 +110,14 @@ export const SAAS_INTERNAL_COA_ACCOUNTS: CoaSeedAccount[] = [
  * Idempotent: re-running skips accounts/periods that already exist.
  * Safe to call right after creating a store.
  */
-export async function seedStoreCoa(storeId: string, opts: { isSaaSPlatform?: boolean } = {}) {
+export async function seedStoreCoa(storeId: string, opts: { isSaaSPlatform?: boolean, tx?: any } = {}) {
     const accounts = opts.isSaaSPlatform
         ? [...DEFAULT_COA_ACCOUNTS, ...SAAS_INTERNAL_COA_ACCOUNTS]
         : DEFAULT_COA_ACCOUNTS;
 
-    await db
+    const dbClient = opts.tx || db;
+
+    await dbClient
         .insert(chartOfAccounts)
         .values(
             accounts.map((a) => ({
@@ -134,7 +136,7 @@ export async function seedStoreCoa(storeId: string, opts: { isSaaSPlatform?: boo
 
     // Ensure the current month has an OPEN fiscal period (needed for closing/reports).
     const now = new Date();
-    await db
+    await dbClient
         .insert(fiscalPeriods)
         .values({
             storeId,

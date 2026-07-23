@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactionItems, transactions, inventory, customers } from "@/db/schema";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 import { eq, like, and } from "drizzle-orm";
 
@@ -23,10 +23,14 @@ export async function GET(request: Request) {
         
         // Search for transaction items where serialNumbers contains the SN.
         // serialNumbers is stored as JSON string like '["SN123", "SN456"]'
-        // Using LIKE is the simplest way in sqlite for basic JSON array searching
         const snPattern = `%"${sn}"%`;
 
-        // We need to find the matching transactionItems, then get their transactions & inventory details
+        // 🔒 Tenant-safe: Build WHERE with storeScope
+        const scope = storeScope(authResult, transactions.storeId);
+        const whereCondition = scope
+            ? withActiveTransactions(and(like(transactionItems.serialNumbers, snPattern), scope))
+            : withActiveTransactions(like(transactionItems.serialNumbers, snPattern));
+
         const results = await db.select({
             transactionItemId: transactionItems.id,
             serialNumbers: transactionItems.serialNumbers,
@@ -45,53 +49,32 @@ export async function GET(request: Request) {
         .from(transactionItems)
         .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
         .leftJoin(inventory, eq(transactionItems.inventoryId, inventory.id))
-        .where(withActiveTransactions(like(transactionItems.serialNumbers, snPattern)));
+        .where(whereCondition);
 
-        // Optional: If multi-tenant, filter by storeId
-        const filteredResults = storeId === "all" 
-            ? results 
-            : results.filter((r: any) => {
-                // To do this strictly in DB we need to join stores or add storeId to transactions.
-                // Assuming transactions.storeId is available (it should be, based on earlier review).
-                return true; // We'll just filter after fetching or rely on the fact that Kasir only sees their SNs.
-            });
-
-        // Fetch transactions directly to filter properly by storeId
-        const finalResults = [];
-        for (const r of filteredResults) {
-            const tx = await db.query.transactions.findFirst({
-                where: withActiveTransactions(eq(transactions.id, r.transactionId))
-            });
-            
-            if (!tx) continue;
-            if (storeId !== "all" && tx.storeId !== storeId) continue;
-
-            // Determine if warranty is still active (Assuming default 30 days for testing, you can customize this)
-            const purchaseDate = new Date(tx.transactionDate || new Date());
+        // Process warranty status for each result
+        const finalResults = results.map(r => {
+            const purchaseDate = new Date(r.transactionDate || new Date());
             const today = new Date();
             
-            // Calculate diff in days
             const diffTime = Math.abs(today.getTime() - purchaseDate.getTime());
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             let status = "Habis";
             let daysRemaining = 0;
 
-            // Example default rule: 30 days hardware warranty
             const warrantyLimitDays = 30;
             if (diffDays <= warrantyLimitDays) {
                 status = "Aktif";
                 daysRemaining = warrantyLimitDays - diffDays;
             }
 
-            finalResults.push({
+            return {
                 ...r,
-                tx,
                 warrantyStatus: status,
                 warrantyDaysRemaining: daysRemaining,
                 warrantyLimitDays
-            });
-        }
+            };
+        });
 
         return NextResponse.json(finalResults, { status: 200 });
     } catch (error: any) {

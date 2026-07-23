@@ -15,12 +15,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:all": "vitest run && vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
+    "test:all": "vitest run && vitest run --config vitest.integration.config.ts && playwright test",
     "postinstall": "node patch-kysely.cjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.12",
     "@google/genai": "^2.10.0",
+    "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-label": "^2.1.11",
     "@radix-ui/react-select": "^2.3.3",
     "@sentry/nextjs": "^10.64.0",
@@ -44,6 +46,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-hook-form": "^7.82.0",
     "react-is": "^19.2.7",
     "recharts": "^3.9.2",
     "sonner": "^2.0.7",
@@ -53,6 +56,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^25.9.1",
     "@types/qrcode": "^1.5.6",

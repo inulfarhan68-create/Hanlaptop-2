@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cashierShifts, transactions, journalEntries } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';

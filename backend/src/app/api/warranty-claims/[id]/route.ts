@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { warrantyClaims, warrantyClaimParts, inventory, journalEntries, activityLogs, serviceOrders, customers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { warrantyResolutionSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -11,19 +11,12 @@ export const dynamic = 'force-dynamic';
  * Helper: Verify warranty claim belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifyWarrantyClaimAccess(authResult: any, claimId: string) {
-    // Owner (global) can access all claims
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const claim = await db.query.warrantyClaims.findFirst({
-            where: eq(warrantyClaims.id, claimId)
-        });
-        return claim ? { claim, authorized: true } : { claim: null, authorized: false, response: NextResponse.json({ error: "Warranty claim not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope handles platform_admin (no filter) vs tenant (inArray).
+    // Always returns 404 to prevent enumeration attacks.
     const claim = await db.query.warrantyClaims.findFirst({
         where: and(
             eq(warrantyClaims.id, claimId),
-            eq(warrantyClaims.storeId, authResult.storeId)
+            storeScope(authResult, warrantyClaims.storeId)
         )
     });
 
@@ -31,7 +24,7 @@ async function verifyWarrantyClaimAccess(authResult: any, claimId: string) {
         return {
             claim: null,
             authorized: false,
-            response: NextResponse.json({ error: "Warranty claim not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Warranty claim not found" }, { status: 404 })
         };
     }
 
@@ -59,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             const [claim] = await tx.select().from(warrantyClaims).where(and(
                 eq(warrantyClaims.id, id),
                 // 🔒 Double-check storeId
-                authResult.storeId !== "all" ? eq(warrantyClaims.storeId, authResult.storeId) : undefined
+                storeScope(authResult, warrantyClaims.storeId)
             ));
             if (!claim) {
                 return NextResponse.json({ error: "Warranty claim not found or access denied" }, { status: 404 });
@@ -98,8 +91,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
                     // Check inventory - with storeId check
                     const [invItem] = await tx.select().from(inventory).where(and(
                         eq(inventory.id, part.inventoryId),
-                        // 🔒 Ensure inventory belongs to same store
-                        authResult.storeId !== "all" ? eq(inventory.storeId, claim.storeId) : undefined
+                        storeScope(authResult, inventory.storeId)
                     ));
                     if (!invItem || invItem.quantity < part.quantity) {
                         throw new Error(`Insufficient stock for part ID: ${part.inventoryId}`);

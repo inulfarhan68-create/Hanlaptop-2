@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { suppliers, activityLogs, transactions } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from '@/lib/auth-guard';
 import { supplierSchema } from '@/lib/validators';
 import { eq, desc, like, or, sql, and, isNull } from 'drizzle-orm';
 
@@ -16,9 +16,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [isNull(suppliers.deletedAt)];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(suppliers.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, suppliers.storeId);
+        if (scope) conditions.push(scope);
 
         if (search) {
             const searchCondition = or(

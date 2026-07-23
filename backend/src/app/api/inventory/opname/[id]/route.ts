@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { updateOpnameSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { and, eq } from "drizzle-orm";
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const opname = await db.query.stockOpnames.findFirst({
-            where: eq(stockOpnames.id, id),
+            where: and(eq(stockOpnames.id, id), storeScope(authResult, stockOpnames.storeId)),
             with: {
                 items: {
                     with: {
@@ -27,11 +27,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         if (!opname) {
             return NextResponse.json({ error: "Opname tidak ditemukan" }, { status: 404 });
-        }
-
-        // Verify store access
-        if (authResult.storeId !== "all" && opname.storeId !== authResult.storeId) {
-            return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
         }
 
         return NextResponse.json(opname);
@@ -62,7 +57,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         });
 
         if (!opname) return NextResponse.json({ error: "Opname tidak ditemukan" }, { status: 404 });
-        if (authResult.storeId !== "all" && opname.storeId !== authResult.storeId) return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+
+        // 🔒 Tenant-safe: verify via storeScope
+        const opnameScoped = await db.query.stockOpnames.findFirst({
+            where: and(eq(stockOpnames.id, id), storeScope(authResult, stockOpnames.storeId))
+        });
+        if (!opnameScoped) return NextResponse.json({ error: "Opname tidak ditemukan" }, { status: 404 });
         if (opname.status !== "DRAFT") return NextResponse.json({ error: "Opname sudah selesai, tidak bisa diubah" }, { status: 400 });
 
         // Update items

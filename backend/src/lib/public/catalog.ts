@@ -99,7 +99,7 @@ export const getPublicCatalog = cache(async (storeSlug: string): Promise<
     };
   });
 
-  // 5. Find all active branches
+  // 5. Find all active branches within the same organization
   const otherStores = await db
     .select({
       id: stores.id,
@@ -107,7 +107,7 @@ export const getPublicCatalog = cache(async (storeSlug: string): Promise<
       slug: stores.slug,
     })
     .from(stores)
-    .where(eq(stores.isActive, true));
+    .where(and(eq(stores.isActive, true), eq(stores.organizationId, store.organizationId)));
 
   return {
     data: {

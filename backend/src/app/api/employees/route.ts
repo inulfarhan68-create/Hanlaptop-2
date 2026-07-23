@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employees, activityLogs, user, technicians } from '@/db/schema';
-import { requireReportAccess, requireOwnerOrManager } from '@/lib/auth-guard';
+import { requireReportAccess, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { employeeSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -13,9 +13,8 @@ export async function GET() {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(employees.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, employees.storeId);
+        if (scope) conditions.push(scope);
 
         const list = await db.query.employees.findMany({
             where: conditions.length > 0 ? and(...conditions) : undefined,

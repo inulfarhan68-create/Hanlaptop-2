@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
         // Log bulk activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId === "all" ? "default" : authResult.storeId,
+            storeId: authResult.storeId !== "all" ? authResult.storeId : (authResult.accessibleStoreIds?.[0] ?? "default"),
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_INVENTORY_BULK_BARCODE",

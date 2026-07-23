@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employees, activityLogs } from '@/db/schema';
-import { requireReportAccess, requireOwnerOrManager } from '@/lib/auth-guard';
+import { requireReportAccess, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { employeeSchema } from '@/lib/validators';
 import { eq, and, ne } from 'drizzle-orm';
 
@@ -15,7 +15,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         const item = await db.query.employees.findFirst({
             where: and(
                 eq(employees.id, id),
-                authResult.storeId !== "all" ? eq(employees.storeId, authResult.storeId) : undefined
+                storeScope(authResult, employees.storeId)
             ),
             with: {
                 user: true,
@@ -54,7 +54,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         const existing = await db.query.employees.findFirst({
             where: and(
                 eq(employees.id, id),
-                authResult.storeId !== "all" ? eq(employees.storeId, authResult.storeId) : undefined
+                storeScope(authResult, employees.storeId)
             )
         });
 
@@ -106,7 +106,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId === "all" ? existing.storeId : authResult.storeId,
+            storeId: existing.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_EMPLOYEE",
@@ -132,7 +132,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         const existing = await db.query.employees.findFirst({
             where: and(
                 eq(employees.id, id),
-                authResult.storeId !== "all" ? eq(employees.storeId, authResult.storeId) : undefined
+                storeScope(authResult, employees.storeId)
             )
         });
 
@@ -144,7 +144,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId === "all" ? existing.storeId : authResult.storeId,
+            storeId: existing.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_EMPLOYEE",

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { storeSettings, activityLogs, stores } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { storeSettingsSchema } from "@/lib/validators";
 import { eq } from "drizzle-orm";
 
@@ -46,7 +46,7 @@ export async function GET() {
         const authResult = await requireAuth();
         if (authResult instanceof NextResponse) return authResult;
 
-        const storeIdValue = authResult.storeId === "all" ? "default" : authResult.storeId;
+        const storeIdValue = authResult.storeId === "all" ? (authResult.accessibleStoreIds?.[0] ?? "default") : authResult.storeId;
 
         const settings = await db.query.storeSettings.findFirst({
             where: eq(storeSettings.storeId, storeIdValue)
@@ -140,13 +140,13 @@ export async function POST(request: Request) {
 
         const tx = db;
         const existing = await tx.query.storeSettings.findFirst({
-            where: eq(storeSettings.storeId, authResult.storeId === "all" ? "default" : authResult.storeId)
+            where: eq(storeSettings.storeId, authResult.storeId === "all" ? (authResult.accessibleStoreIds?.[0] ?? "default") : authResult.storeId)
         });
         const banksJson = storeBanks ? JSON.stringify(storeBanks) : null;
         const expenseCategoriesJson = expenseCategories ? JSON.stringify(expenseCategories) : null;
         const serviceIssuesJson = serviceIssues ? JSON.stringify(serviceIssues) : null;
 
-        const storeIdValue = authResult.storeId === "all" ? "default" : authResult.storeId;
+        const storeIdValue = authResult.storeId === "all" ? (authResult.accessibleStoreIds?.[0] ?? "default") : authResult.storeId;
 
         // Use insert with onConflictDoUpdate since storeId is primary key
         const result = await tx.insert(storeSettings).values({

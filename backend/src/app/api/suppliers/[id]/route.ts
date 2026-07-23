@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { suppliers, activityLogs } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from '@/lib/auth-guard';
 import { supplierSchema } from '@/lib/validators';
 import { eq, and } from 'drizzle-orm';
 
@@ -9,19 +9,12 @@ import { eq, and } from 'drizzle-orm';
  * Helper: Verify supplier belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifySupplierAccess(authResult: any, supplierId: string) {
-    // Owner (global) can access all suppliers
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const supplier = await db.query.suppliers.findFirst({
-            where: eq(suppliers.id, supplierId)
-        });
-        return supplier ? { supplier, authorized: true } : { supplier: null, authorized: false, response: NextResponse.json({ error: "Supplier not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope handles platform_admin (no filter) vs tenant (inArray).
+    // Always returns 404 to prevent enumeration attacks.
     const supplier = await db.query.suppliers.findFirst({
         where: and(
             eq(suppliers.id, supplierId),
-            eq(suppliers.storeId, authResult.storeId)
+            storeScope(authResult, suppliers.storeId)
         )
     });
 
@@ -29,7 +22,7 @@ async function verifySupplierAccess(authResult: any, supplierId: string) {
         return {
             supplier: null,
             authorized: false,
-            response: NextResponse.json({ error: "Supplier not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Supplier not found" }, { status: 404 })
         };
     }
 
@@ -61,8 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             .set({ name, phone, email, address, notes })
             .where(and(
                 eq(suppliers.id, id),
-                // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(suppliers.storeId, authResult.storeId) : undefined
+                storeScope(authResult, suppliers.storeId)
             ))
             .returning();
 
@@ -92,7 +84,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (authResult instanceof NextResponse) return authResult;
 
     // Only owner or manager can delete suppliers
-    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner') {
+    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner' && authResult.user.role !== 'platform_admin') {
         return NextResponse.json({ error: "Forbidden. Only owner or manager can delete suppliers." }, { status: 403 });
     }
 
@@ -107,8 +99,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             .set({ deletedAt: new Date() })
             .where(and(
                 eq(suppliers.id, id),
-                // 🔒 Double-check storeId in delete
-                authResult.storeId !== "all" ? eq(suppliers.storeId, authResult.storeId) : undefined
+                storeScope(authResult, suppliers.storeId)
             ))
             .returning();
 

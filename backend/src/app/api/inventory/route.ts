@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq, ilike, or, and, sql, isNull } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, requirePermission, storeScope } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { inventorySchema } from "@/lib/validators";
 
@@ -23,9 +23,8 @@ export async function GET(request: Request) {
 
     try {
         const baseConditions = [isNull(inventory.deletedAt)];
-        if (authResult.storeId !== "all") {
-            baseConditions.push(eq(inventory.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, inventory.storeId);
+        if (scope) baseConditions.push(scope);
 
         // Calculate total summary (KPI Stats) disregarding search/category filters, but scoped to store
         const [summaryResult] = await db.select({

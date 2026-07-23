@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, activityLogs } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { technicianSchema } from '@/lib/validators';
 import { eq, and } from 'drizzle-orm';
 
@@ -9,19 +9,12 @@ import { eq, and } from 'drizzle-orm';
  * Helper: Verify technician belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifyTechnicianAccess(authResult: any, technicianId: string) {
-    // Owner (global) can access all technicians
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const technician = await db.query.technicians.findFirst({
-            where: eq(technicians.id, technicianId)
-        });
-        return technician ? { technician, authorized: true } : { technician: null, authorized: false, response: NextResponse.json({ error: "Technician not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope handles platform_admin (no filter) vs tenant (inArray).
+    // Always returns 404 to prevent enumeration attacks.
     const technician = await db.query.technicians.findFirst({
         where: and(
             eq(technicians.id, technicianId),
-            eq(technicians.storeId, authResult.storeId)
+            storeScope(authResult, technicians.storeId)
         )
     });
 
@@ -29,7 +22,7 @@ async function verifyTechnicianAccess(authResult: any, technicianId: string) {
         return {
             technician: null,
             authorized: false,
-            response: NextResponse.json({ error: "Technician not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Technician not found" }, { status: 404 })
         };
     }
 
@@ -61,8 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             .set({ name, phone, isActive, commissionType, commissionValue })
             .where(and(
                 eq(technicians.id, id),
-                // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(technicians.storeId, authResult.storeId) : undefined
+                storeScope(authResult, technicians.storeId)
             ))
             .returning();
 
@@ -92,7 +84,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (authResult instanceof NextResponse) return authResult;
 
     // Only owner or manager can delete technicians
-    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner') {
+    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner' && authResult.user.role !== 'platform_admin') {
         return NextResponse.json({ error: "Forbidden. Only owner or manager can delete technicians." }, { status: 403 });
     }
 
@@ -106,8 +98,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         const [deletedTechnician] = await db.delete(technicians)
             .where(and(
                 eq(technicians.id, id),
-                // 🔒 Double-check storeId in delete
-                authResult.storeId !== "all" ? eq(technicians.storeId, authResult.storeId) : undefined
+                storeScope(authResult, technicians.storeId)
             ))
             .returning();
 

@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     try {
         let userStores;
-        if (authResult.user.role === 'owner') {
+        if ((authResult.user.role === 'owner' || authResult.user.role === 'platform_admin')) {
             // Owner gets all stores automatically
             userStores = await db.select({
                 id: stores.id,

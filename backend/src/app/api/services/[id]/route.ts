@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { serviceOrders, activityLogs, transactions, journalEntries, cashierShifts, storeSettings, technicians, technicianCommissions } from "@/db/schema";
 import { eq, and, like } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission, storeScope, requireFeature } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 import { Permissions } from "@/lib/permissions";
 import { z } from "zod";
@@ -18,19 +18,12 @@ export const dynamic = 'force-dynamic';
  * Helper: Verify service order belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifyServiceOrderAccess(authResult: any, serviceOrderId: string) {
-    // Owner (global) can access all service orders
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const serviceOrder = await db.query.serviceOrders.findFirst({
-            where: eq(serviceOrders.id, serviceOrderId)
-        });
-        return serviceOrder ? { serviceOrder, authorized: true } : { serviceOrder: null, authorized: false, response: NextResponse.json({ error: "Service order not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope handles platform_admin (no filter) vs tenant (inArray).
+    // Always returns 404 to prevent enumeration attacks.
     const serviceOrder = await db.query.serviceOrders.findFirst({
         where: and(
             eq(serviceOrders.id, serviceOrderId),
-            eq(serviceOrders.storeId, authResult.storeId)
+            storeScope(authResult, serviceOrders.storeId)
         )
     });
 
@@ -38,7 +31,7 @@ async function verifyServiceOrderAccess(authResult: any, serviceOrderId: string)
         return {
             serviceOrder: null,
             authorized: false,
-            response: NextResponse.json({ error: "Service order not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Service order not found" }, { status: 404 })
         };
     }
 
@@ -49,6 +42,9 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     const params = await props.params;
     const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
+    
+    const featureCheck = await requireFeature("service");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
     const { serviceOrder, authorized, response } = await verifyServiceOrderAccess(authResult, params.id);
@@ -62,11 +58,6 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
         if (!data) return NextResponse.json({ error: "Service order not found" }, { status: 404 });
 
-        // Additional storeId check for non-owner
-        if (authResult.storeId !== "all" && data.storeId !== authResult.storeId) {
-            return NextResponse.json({ error: "Service order not found or access denied" }, { status: 404 });
-        }
-
         return NextResponse.json(data);
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch service order" }, { status: 500 });
@@ -77,6 +68,9 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const params = await props.params;
     const authResult = await requirePermission(Permissions.SERVICE_UPDATE_STATUS);
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("service");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
     const { serviceOrder: existing, authorized, response } = await verifyServiceOrderAccess(authResult, params.id);
@@ -98,7 +92,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             where: and(
                 eq(serviceOrders.id, params.id),
                 // 🔒 Double-check storeId
-                authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+                storeScope(authResult, serviceOrders.storeId)
             )
         });
 
@@ -141,13 +135,13 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         if (createTransaction && status === 'Diambil') {
             // Check if cashier shift is enabled in store settings
             const settings = await db.query.storeSettings.findFirst({
-                where: eq(storeSettings.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId)
+                where: eq(storeSettings.storeId, existingSO.storeId)
             });
             const isShiftEnabled = settings ? settings.enableCashierShift !== false : true;
 
             activeShift = await db.query.cashierShifts.findFirst({
                 where: and(
-                    eq(cashierShifts.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId),
+                    eq(cashierShifts.storeId, existingSO.storeId),
                     eq(cashierShifts.userId, authResult.user.id),
                     eq(cashierShifts.status, "OPEN")
                 )
@@ -181,7 +175,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         // Only set once, and never overwrite an existing warranty date.
         if (status === 'Diambil' && existingSO.status !== 'Diambil' && !existingSO.warrantyUntil) {
             const warrantySettings = await db.query.storeSettings.findFirst({
-                where: eq(storeSettings.storeId, authResult.storeId !== "all" ? authResult.storeId : existingSO.storeId)
+                where: eq(storeSettings.storeId, existingSO.storeId)
             });
             const warrantyDays = warrantySettings?.serviceWarrantyDays ?? 30;
             if (warrantyDays > 0) {
@@ -195,8 +189,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
             .set(updateData)
             .where(and(
                 eq(serviceOrders.id, params.id),
-                // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+                storeScope(authResult, serviceOrders.storeId)
             ))
             .returning();
 
@@ -508,7 +501,7 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
         await db.delete(serviceOrders).where(and(
             eq(serviceOrders.id, params.id),
             // 🔒 Double-check storeId in delete
-            authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined
+            storeScope(authResult, serviceOrders.storeId)
         ));
 
         // Log activity

@@ -14,7 +14,7 @@ export default function DashboardClient({ user }: { user: any }) {
 
   const activeTab = searchParams.get("tab") || "overview"
   const userRole = user?.role || "kasir"
-  const isOwner = userRole === "owner" || userRole === "manager" || userRole === "investor"
+  const isOwner = userRole === "owner" || userRole === "manager" || userRole === "investor" || userRole === "platform_admin"
 
   const setActiveTab = (tab: string) => {
     const current = new URLSearchParams(Array.from(searchParams.entries()))

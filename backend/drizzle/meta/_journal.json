@@ -43,6 +43,20 @@
       "when": 1784434702482,
       "tag": "0005_optimal_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784455921941,
+      "tag": "0006_slim_leper_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784458365925,
+      "tag": "0007_purple_stardust",
+      "breakpoints": true
     }
   ]
 }

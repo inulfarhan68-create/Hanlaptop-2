@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { serviceOrders, activityLogs } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import crypto from "crypto";
-import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission, storeScope, requireFeature } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { serviceOrderSchema } from "@/lib/validators";
 import { syncServiceParts } from "@/services/ServicePartsService";
@@ -13,9 +13,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
+    
+    const featureCheck = await requireFeature("service");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
-        const storeCond = authResult.storeId !== "all" ? eq(serviceOrders.storeId, authResult.storeId) : undefined;
+        const storeCond = storeScope(authResult, serviceOrders.storeId);
         
         const data = await db.query.serviceOrders.findMany({
             where: storeCond,
@@ -36,6 +39,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requirePermission(Permissions.SERVICE_CREATE);
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("service");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to create a service order" }, { status: 400 });

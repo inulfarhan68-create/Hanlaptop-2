@@ -16,7 +16,7 @@ export function ClientSuppliers({ user }: { user: any }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const isOwner = user?.role === 'owner'
+  const isOwner = user?.role === 'owner' || user?.role === 'platform_admin'
   const isManager = user?.role === 'manager'
   const canWrite = isOwner || isManager
 

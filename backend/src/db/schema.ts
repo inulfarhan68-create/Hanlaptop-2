@@ -8,6 +8,10 @@ export * from './schema/accounting';
 export * from './schema/refurbish';
 export * from './schema/audit';
 export * from './schema/saas';
+export * from './schema/jobs';
+
+import { plans, subscriptions, subscriptionEvents, usageCounters, invoices } from './schema/saas';
+import { emailQueue, scheduledJobs } from './schema/jobs';
 
 import { organizations, stores, userStoreAccess, activityLogs, storeSettings } from './schema/store';
 import { user, session, account, verification } from './schema/users';
@@ -21,8 +25,13 @@ import { auditLogs } from './schema/audit';
 import { relations } from 'drizzle-orm';
 
 // ── Drizzle Relations ──
-export const organizationsRelations = relations(organizations, ({ many }) => ({
+export const organizationRelations = relations(organizations, ({ many }) => ({
     stores: many(stores),
+    users: many(user), // Mapped via user.organizationId
+    subscriptions: many(subscriptions),
+    subscriptionEvents: many(subscriptionEvents),
+    usageCounters: many(usageCounters),
+    invoices: many(invoices),
 }));
 
 export const storesRelations = relations(stores, ({ one, many }) => ({
@@ -559,5 +568,37 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
     store: one(stores, {
         fields: [auditLogs.storeId],
         references: [stores.id],
+    }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+    organization: one(organizations, {
+        fields: [subscriptions.organizationId],
+        references: [organizations.id],
+    }),
+    plan: one(plans, {
+        fields: [subscriptions.planKey],
+        references: [plans.key],
+    }),
+}));
+
+export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one }) => ({
+    organization: one(organizations, {
+        fields: [subscriptionEvents.organizationId],
+        references: [organizations.id],
+    }),
+}));
+
+export const usageCountersRelations = relations(usageCounters, ({ one }) => ({
+    organization: one(organizations, {
+        fields: [usageCounters.organizationId],
+        references: [organizations.id],
+    }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+    organization: one(organizations, {
+        fields: [invoices.organizationId],
+        references: [organizations.id],
     }),
 }));

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cashierShifts } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET() {
             authResult.storeRole === "owner" || 
             authResult.storeRole === "manager" || 
             authResult.storeRole === "investor" || 
-            authResult.user.role === "owner"
+            (authResult.user.role === "owner" || authResult.user.role === "platform_admin")
         ) {
             shifts = await db.query.cashierShifts.findMany({
                 where: eq(cashierShifts.storeId, authResult.storeId),

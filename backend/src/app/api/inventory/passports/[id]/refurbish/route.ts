@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { deviceRefurbishments, devicePassports, deviceLifecycleLogs, inventory, journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { ACCOUNT_CODES } from "@/constants/accounting";
 
 export const dynamic = 'force-dynamic';
@@ -70,7 +70,7 @@ export async function POST(
         const passport = await db.query.devicePassports.findFirst({
             where: and(
                 eq(devicePassports.id, id),
-                authResult.storeId !== "all" ? eq(devicePassports.storeId, authResult.storeId) : undefined
+                storeScope(authResult, devicePassports.storeId)
             )
         });
 
@@ -114,7 +114,7 @@ export async function POST(
             // 2. Create refurbishment record
             const [refurbishment] = await tx.insert(deviceRefurbishments).values({
                 passportId: id,
-                storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                storeId: passport.storeId,
                 technicianId: technicianId || null,
                 activityType: activityType as string,
                 description,
@@ -153,7 +153,7 @@ export async function POST(
 
                 // Debit: Beban Perbaikan/Service
                 journalEntriesToCreate.push({
-                    storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                    storeId: passport.storeId,
                     transactionId: refurbishment.id,
                     accountCode: ACCOUNT_CODES.BEBAN_PERBAIKAN, // Beban Perbaikan
                     accountName: "Beban Perbaikan & Perawatan",
@@ -164,7 +164,7 @@ export async function POST(
 
                 // Credit: Persediaan Sparepart (if sparepart used) or Kas
                 journalEntriesToCreate.push({
-                    storeId: authResult.storeId !== "all" ? authResult.storeId : "default",
+                    storeId: passport.storeId,
                     transactionId: refurbishment.id,
                     accountCode: sparepartUsed ? ACCOUNT_CODES.PERSEDIAAN_SPAREPART : ACCOUNT_CODES.KAS, // Persediaan Sparepart or Kas
                     accountName: sparepartUsed ? "Persediaan Sparepart" : "Kas",
@@ -214,7 +214,7 @@ export async function GET(
         const passport = await db.query.devicePassports.findFirst({
             where: and(
                 eq(devicePassports.id, id),
-                authResult.storeId !== "all" ? eq(devicePassports.storeId, authResult.storeId) : undefined
+                storeScope(authResult, devicePassports.storeId)
             )
         });
 

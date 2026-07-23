@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory, transactions, journalEntries, activityLogs } from "@/db/schema";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
@@ -30,7 +30,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         });
 
         if (!opname) return NextResponse.json({ error: "Opname tidak ditemukan" }, { status: 404 });
-        if (authResult.storeId !== "all" && opname.storeId !== authResult.storeId) return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+
+        // 🔒 Tenant-safe: verify via storeScope
+        const opnameScoped = await db.query.stockOpnames.findFirst({
+            where: and(eq(stockOpnames.id, opnameId), storeScope(authResult, stockOpnames.storeId))
+        });
+        if (!opnameScoped) return NextResponse.json({ error: "Opname tidak ditemukan" }, { status: 404 });
         if (opname.status !== "DRAFT") return NextResponse.json({ error: "Opname sudah selesai" }, { status: 400 });
 
         let totalLossValue = 0;

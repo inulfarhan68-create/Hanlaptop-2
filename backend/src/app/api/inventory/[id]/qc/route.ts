@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, qcInspections, activityLogs, devicePassports } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { qcInspectionSchema } from "@/lib/validators";
 import { transitionDeviceStatus } from "@/lib/digital-passport";
 
@@ -96,9 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return await db.transaction(async (tx) => {
             // Verify inventory exists
             const [item] = await tx.select().from(inventory).where(
-                authResult.storeId === "all" 
-                ? eq(inventory.id, parsed.inventoryId)
-                : and(eq(inventory.id, parsed.inventoryId), eq(inventory.storeId, authResult.storeId))
+                and(eq(inventory.id, parsed.inventoryId), storeScope(authResult, inventory.storeId))
             );
 
             if (!item) {

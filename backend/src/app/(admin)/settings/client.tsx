@@ -30,7 +30,7 @@ export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState<TabKey>("profile")
   const { data: session, isPending } = useSessionUser()
   const { isOwner, role } = useUserRole()
-  const isGlobalOwner = (session?.user as any)?.role === "owner"
+  const isGlobalOwner = (session?.user as any)?.role === "owner" || (session?.user as any)?.role === "platform_admin"
   const router = useRouter()
 
   // Original (Vite) rendered <Navigate to="/dashboard"> for non-owner/manager.

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory } from "@/db/schema";
 import { count, eq, sql, and, isNull, gte, lt } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,16 +17,14 @@ export async function GET(request: Request) {
     try {
         const storeId = authResult.storeId;
 
-        // Build store condition
-        const storeCondition = storeId !== "all"
-            ? eq(inventory.storeId, storeId)
-            : undefined;
+        // Build store condition using tenant-safe storeScope
+        const storeCondition = storeScope(authResult, inventory.storeId);
 
         // Active items condition (not deleted)
         const activeCondition = isNull(inventory.deletedAt);
 
         // Combined condition
-        const whereCondition = storeCondition && activeCondition
+        const whereCondition = storeCondition
             ? and(storeCondition, activeCondition)
             : activeCondition;
 

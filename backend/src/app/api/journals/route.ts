@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { journalEntries, transactions } from "@/db/schema";
 import { eq, desc, gte, lte, and } from "drizzle-orm";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, storeScope } from "@/lib/auth-guard";
 import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -20,9 +20,8 @@ export async function GET(request: Request) {
 
         let conditions = [];
         
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(journalEntries.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, journalEntries.storeId);
+        if (scope) conditions.push(scope);
         if (startDate) {
             conditions.push(gte(journalEntries.createdAt, new Date(startDate)));
         }

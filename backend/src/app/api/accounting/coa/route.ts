@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { chartOfAccounts } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireReportAccess, requireOwner } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwner, storeScope, requireFeature } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +11,9 @@ export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
 
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
+
     try {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get("type");
@@ -18,9 +21,8 @@ export async function GET(request: Request) {
 
         let conditions = [];
 
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(chartOfAccounts.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, chartOfAccounts.storeId);
+        if (scope) conditions.push(scope);
         if (type) {
             conditions.push(eq(chartOfAccounts.type, type));
         }
@@ -49,6 +51,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();
@@ -117,6 +122,9 @@ export async function PUT(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
+
     try {
         const body = await request.json();
         const { id, name, subType, parentId, openingBalance, isActive, normalBalance } = body;
@@ -181,6 +189,9 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const { searchParams } = new URL(request.url);

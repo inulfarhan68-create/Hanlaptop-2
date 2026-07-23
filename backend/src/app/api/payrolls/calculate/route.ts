@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { employees, technicianCommissions, employeeLoans, attendances } from "@/db/schema";
 import { and, eq, like, ne } from "drizzle-orm";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         const employee = await db.query.employees.findFirst({
             where: and(
                 eq(employees.id, employeeId),
-                authResult.storeId !== "all" ? eq(employees.storeId, authResult.storeId) : undefined
+                storeScope(authResult, employees.storeId)
             )
         });
 

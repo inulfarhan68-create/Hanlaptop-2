@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { consignmentPayables, journalEntries, activityLogs, suppliers, inventory, transactions } from "@/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { consignmentPaymentSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -15,13 +15,12 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const status = searchParams.get("status") || "UNPAID";
 
+        const scope = storeScope(authResult, consignmentPayables.storeId);
+        const conditions = [eq(consignmentPayables.status, status)];
+        if (scope) conditions.push(scope);
+
         const data = await db.query.consignmentPayables.findMany({
-            where: authResult.storeId === "all" 
-                ? eq(consignmentPayables.status, status)
-                : and(
-                    eq(consignmentPayables.storeId, authResult.storeId),
-                    eq(consignmentPayables.status, status)
-                ),
+            where: and(...conditions),
             orderBy: [desc(consignmentPayables.createdAt)],
             with: {
                 supplier: true,
@@ -59,7 +58,8 @@ export async function POST(request: Request) {
 
             for (const payable of payables) {
                 if (payable.status === 'PAID') continue;
-                if (authResult.storeId !== "all" && payable.storeId !== authResult.storeId) continue;
+                // 🔒 Tenant isolation: skip payables not belonging to accessible stores
+                if (authResult.accessibleStoreIds && !authResult.accessibleStoreIds.includes(payable.storeId)) continue;
 
                 totalPaid += payable.amountDue;
 

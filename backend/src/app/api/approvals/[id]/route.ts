@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { approvalRequests, transactions, journalEntries, cashierShifts, userStoreAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (authResult instanceof NextResponse) return authResult;
 
     // Only managers or owners can approve/reject
-    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner") {
+    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
         return NextResponse.json({ error: "Akses ditolak. Anda bukan Manager/Owner." }, { status: 403 });
     }
 
@@ -25,11 +25,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             return NextResponse.json({ error: "Invalid action" }, { status: 400 });
         }
 
-        // 🔒 SaaS Tenant Isolation: Fetch with storeId check
+        // 🔒 SaaS Tenant Isolation: storeScope handles platform_admin vs tenant
         const approvalReq = await db.query.approvalRequests.findFirst({
-            where: authResult.storeId !== "all"
-                ? and(eq(approvalRequests.id, id), eq(approvalRequests.storeId, authResult.storeId))
-                : eq(approvalRequests.id, id)
+            where: and(
+                eq(approvalRequests.id, id),
+                storeScope(authResult, approvalRequests.storeId)
+            )
         });
 
         if (!approvalReq) {

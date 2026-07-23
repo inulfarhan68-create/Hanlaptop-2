@@ -20,10 +20,16 @@ export class InventoryService {
         const { id, storeId, userId, userName, newPrice } = params;
 
         return await db.transaction(async (tx) => {
+            // Note: Store access is already validated by the calling route via storeScope.
+            // The service layer trusts the validated storeId from the caller.
+            // When storeId is "all" (owner/platform_admin), we still need to find the item by ID
+            // and verify it belongs to any of the user's accessible stores (done at route level).
+            const itemConditions = [eq(inventory.id, id)];
+            if (storeId !== "all") {
+                itemConditions.push(eq(inventory.storeId, storeId));
+            }
             const [item] = await tx.select().from(inventory).where(
-                storeId === "all" 
-                ? eq(inventory.id, id)
-                : and(eq(inventory.id, id), eq(inventory.storeId, storeId))
+                and(...itemConditions)
             );
 
             if (!item) {

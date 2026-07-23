@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { purchaseRequisitions, inventory } from "@/db/schema";
 import { and, eq, like } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -20,15 +20,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             return NextResponse.json({ error: "Status wajib disertakan." }, { status: 400 });
         }
 
-        // 🔒 SaaS Tenant Isolation: Fetch with storeId check
+        // 🔒 SaaS Tenant Isolation: Fetch with storeScope
         const existing = await db.query.purchaseRequisitions.findFirst({
-            where: authResult.storeId !== "all"
-                ? and(eq(purchaseRequisitions.id, id), eq(purchaseRequisitions.storeId, authResult.storeId))
-                : eq(purchaseRequisitions.id, id)
+            where: and(eq(purchaseRequisitions.id, id), storeScope(authResult, purchaseRequisitions.storeId))
         });
 
         if (!existing) {
-            return NextResponse.json({ error: "Permintaan pembelian tidak ditemukan atau akses ditolak." }, { status: 404 });
+            return NextResponse.json({ error: "Permintaan pembelian tidak ditemukan." }, { status: 404 });
         }
 
         // Use the actual storeId from the requisition
@@ -39,7 +37,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (status === "APPROVED" || status === "REJECTED") {
             const isOwnerOrManager = authResult.storeRole === "owner" ||
                                      authResult.storeRole === "manager" ||
-                                     authResult.user.role === "owner" ||
+                                     (authResult.user.role === "owner" || authResult.user.role === "platform_admin") ||
                                      authResult.user.role === "manager";
             if (!isOwnerOrManager) {
                 return NextResponse.json({ error: "Hanya Owner atau Manager yang dapat menyetujui pengajuan pembelian." }, { status: 403 });

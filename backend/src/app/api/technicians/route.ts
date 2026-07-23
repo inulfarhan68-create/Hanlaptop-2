@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, activityLogs, serviceOrders, technicianCommissions } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { technicianSchema } from '@/lib/validators';
 import { eq, desc, like, and, sql } from 'drizzle-orm';
 
@@ -17,9 +17,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(technicians.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, technicians.storeId);
+        if (scope) conditions.push(scope);
 
         if (activeOnly) {
             conditions.push(eq(technicians.isActive, true));

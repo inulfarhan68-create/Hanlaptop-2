@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,12 +12,10 @@ export async function GET(request: Request) {
 
     try {
         const items = await db.query.inventory.findMany({
-            where: authResult.storeId === "all" 
-                ? gt(inventory.quantity, 0)
-                : and(
-                    eq(inventory.storeId, authResult.storeId),
-                    gt(inventory.quantity, 0)
-                ),
+            where: and(
+                gt(inventory.quantity, 0),
+                storeScope(authResult, inventory.storeId)
+            ),
         });
 
         const now = new Date();

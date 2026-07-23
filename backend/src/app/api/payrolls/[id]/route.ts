@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { payrolls, employees, transactions, journalEntries, cashierShifts, technicianCommissions, employeeLoans, activityLogs } from '@/db/schema';
-import { requireOwnerOrManager } from '@/lib/auth-guard';
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { eq, and, ne } from 'drizzle-orm';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -14,7 +14,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         const item = await db.query.payrolls.findFirst({
             where: and(
                 eq(payrolls.id, id),
-                authResult.storeId !== "all" ? eq(payrolls.storeId, authResult.storeId) : undefined
+                storeScope(authResult, payrolls.storeId)
             ),
             with: {
                 employee: true
@@ -39,19 +39,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
 
     try {
-        // Fetch payroll record - support storeId="all" for global owners
+        // Fetch payroll record - scoped via storeScope
         const payroll = await db.query.payrolls.findFirst({
-            where: authResult.storeId !== "all"
-                ? and(eq(payrolls.id, id), eq(payrolls.storeId, authResult.storeId))
-                : eq(payrolls.id, id)
+            where: and(eq(payrolls.id, id), storeScope(authResult, payrolls.storeId))
         });
 
         if (!payroll) {
-            return NextResponse.json({ error: "Payroll record not found or access denied" }, { status: 404 });
+            return NextResponse.json({ error: "Payroll record not found" }, { status: 404 });
         }
 
-        // Use actual storeId (either from auth or from payroll for global owners)
-        const actualStoreId = authResult.storeId !== "all" ? authResult.storeId : payroll.storeId;
+        // Use actual storeId from the payroll record
+        const actualStoreId = payroll.storeId;
 
         if (payroll.paymentStatus === 'PAID') {
             return NextResponse.json({ error: "Gaji ini sudah dibayarkan" }, { status: 400 });
@@ -194,22 +192,20 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { id } = await context.params;
 
     try {
-        // 🔒 SaaS Tenant Isolation: Support storeId="all" for global owners
+        // 🔒 SaaS Tenant Isolation: scoped via storeScope
         const existing = await db.query.payrolls.findFirst({
-            where: authResult.storeId !== "all"
-                ? and(eq(payrolls.id, id), eq(payrolls.storeId, authResult.storeId))
-                : eq(payrolls.id, id),
+            where: and(eq(payrolls.id, id), storeScope(authResult, payrolls.storeId)),
             with: {
                 employee: true
             }
         });
 
         if (!existing) {
-            return NextResponse.json({ error: "Payroll record not found or access denied" }, { status: 404 });
+            return NextResponse.json({ error: "Payroll record not found" }, { status: 404 });
         }
 
-        // Use actual storeId for global owners
-        const actualStoreId = authResult.storeId !== "all" ? authResult.storeId : existing.storeId;
+        // Use actual storeId from the record
+        const actualStoreId = existing.storeId;
 
         if (existing.paymentStatus === 'PAID') {
             return NextResponse.json({ error: "Gaji yang sudah dibayarkan tidak dapat dihapus" }, { status: 400 });

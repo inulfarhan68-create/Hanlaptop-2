@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireOwnerOrManager, requirePermission } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requirePermission, storeScope } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { AuditService } from "@/services/AuditService";
 import { inventorySchema } from "@/lib/validators";
@@ -12,19 +12,12 @@ import { del } from "@vercel/blob";
  * Helper: Verify inventory item belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifyInventoryAccess(authResult: any, inventoryId: string) {
-    // Owner (global) can access all inventory items
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const item = await db.query.inventory.findFirst({
-            where: eq(inventory.id, inventoryId)
-        });
-        return item ? { item, authorized: true } : { item: null, authorized: false, response: NextResponse.json({ error: "Inventory item not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope handles platform_admin (no filter) vs tenant (inArray).
+    // Always returns 404 to prevent enumeration attacks.
     const item = await db.query.inventory.findFirst({
         where: and(
             eq(inventory.id, inventoryId),
-            eq(inventory.storeId, authResult.storeId)
+            storeScope(authResult, inventory.storeId)
         )
     });
 
@@ -32,7 +25,7 @@ async function verifyInventoryAccess(authResult: any, inventoryId: string) {
         return {
             item: null,
             authorized: false,
-            response: NextResponse.json({ error: "Inventory item not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Inventory item not found" }, { status: 404 })
         };
     }
 
@@ -96,8 +89,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             .set(updateData)
             .where(and(
                 eq(inventory.id, id),
-                // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined
+                storeScope(authResult, inventory.storeId)
             ))
             .returning();
 
@@ -179,8 +171,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             .set({ deletedAt: new Date() })
             .where(and(
                 eq(inventory.id, id),
-                // 🔒 Double-check storeId in delete
-                authResult.storeId !== "all" ? eq(inventory.storeId, authResult.storeId) : undefined
+                storeScope(authResult, inventory.storeId)
             ));
 
         // ── Blob cleanup dihilangkan untuk soft delete (foto tetap disimpan) ──

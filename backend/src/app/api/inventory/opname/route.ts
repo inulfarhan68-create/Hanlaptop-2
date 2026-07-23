@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { createOpnameSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
@@ -17,9 +17,8 @@ export async function GET(request: Request) {
         const storeId = authResult.storeId;
         
         let conditions = [];
-        if (storeId !== "all") {
-            conditions.push(eq(stockOpnames.storeId, storeId));
-        }
+        const scope = storeScope(authResult, stockOpnames.storeId);
+        if (scope) conditions.push(scope);
 
         const opnames = await db.query.stockOpnames.findMany({
             where: conditions.length > 0 ? and(...conditions) : undefined,

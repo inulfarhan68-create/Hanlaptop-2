@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { payrolls, employees } from '@/db/schema';
-import { requireOwnerOrManager } from '@/lib/auth-guard';
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { payrollSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -17,9 +17,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(payrolls.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, payrolls.storeId);
+        if (scope) conditions.push(scope);
         if (period) {
             conditions.push(eq(payrolls.period, period));
         }

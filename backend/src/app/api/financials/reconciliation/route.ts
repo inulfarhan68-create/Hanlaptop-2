@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { bankMutations, transactions, journalEntries } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -13,9 +13,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(bankMutations.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, bankMutations.storeId);
+        if (scope) conditions.push(scope);
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

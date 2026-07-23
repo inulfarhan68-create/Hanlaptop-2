@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { warrantyClaims, activityLogs, transactions, customers } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { warrantyClaimSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     try {
         const data = await db.query.warrantyClaims.findMany({
-            where: authResult.storeId === "all" ? undefined : eq(warrantyClaims.storeId, authResult.storeId),
+            where: storeScope(authResult, warrantyClaims.storeId),
             orderBy: [desc(warrantyClaims.createdAt)],
             with: {
                 transaction: true,

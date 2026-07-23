@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cashierShifts, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -14,15 +14,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     try {
         const { id } = await context.params;
 
-        // 🔒 SaaS Tenant Isolation: Support storeId="all" for global owners
+        // 🔒 SaaS Tenant Isolation: storeScope handles platform_admin vs tenant
         const shift = await db.query.cashierShifts.findFirst({
-            where: authResult.storeId !== "all"
-                ? and(eq(cashierShifts.id, id), eq(cashierShifts.storeId, authResult.storeId))
-                : eq(cashierShifts.id, id)
+            where: and(eq(cashierShifts.id, id), storeScope(authResult, cashierShifts.storeId))
         });
 
         if (!shift) {
-            return NextResponse.json({ error: "Shift not found or access denied" }, { status: 404 });
+            return NextResponse.json({ error: "Shift not found" }, { status: 404 });
         }
 
         // Check permission: non-owners/non-managers/non-investors can only view their own shifts
@@ -31,7 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             authResult.storeRole !== "owner" &&
             authResult.storeRole !== "manager" &&
             authResult.storeRole !== "investor" &&
-            authResult.user.role !== "owner"
+            authResult.user.role !== "owner" && authResult.user.role !== "platform_admin"
         ) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }

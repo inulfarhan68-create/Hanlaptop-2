@@ -11,7 +11,7 @@ import {
     inventory
 } from "@/db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         const passport = await db.query.devicePassports.findFirst({
             where: and(
                 eq(devicePassports.id, id),
-                authResult.storeId !== "all" ? eq(devicePassports.storeId, authResult.storeId) : undefined
+                storeScope(authResult, devicePassports.storeId)
             ),
             with: {
                 inventory: {

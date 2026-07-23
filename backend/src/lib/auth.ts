@@ -55,18 +55,22 @@ export const auth = betterAuth({
     },
     user: {
         additionalFields: {
+            // SECURITY: input:false — these must NOT be settable via the public
+            // sign-up endpoint (`/api/auth/sign-up/email`), otherwise anyone could
+            // register as `platform_admin` or join an arbitrary tenant. They are set
+            // server-side only, via `db.update(user)` after signUp in the trusted
+            // provisioning routes (`api/register-tenant`, `api/users`).
             role: {
                 type: "string",
                 required: false,
                 defaultValue: "kasir",
-                input: true,
+                input: false,
             },
-            // Tenant the user belongs to. Set during onboarding (Phase 3); NULL for
-            // platform_admin. Persisted/read by Better-Auth so it rides on the session.
+            // Tenant the user belongs to. NULL for platform_admin. Set server-side.
             organizationId: {
                 type: "string",
                 required: false,
-                input: true,
+                input: false,
             }
         }
     },

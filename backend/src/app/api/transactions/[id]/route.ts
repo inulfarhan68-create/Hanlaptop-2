@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, stores, storeSettings } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireOwner, requireOwnerOrManager, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { requireAuth, requireOwner, requireOwnerOrManager, requireWriteAccess, requirePermission, storeScope } from "@/lib/auth-guard";
 import { Permissions, hasPermission } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
 import { getAccountCodeFromName } from "@/services/JournalMappingService";
@@ -175,7 +175,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             .where(and(
                 eq(transactions.id, id),
                 // 🔒 Double-check storeId in update query for extra security
-                authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                storeScope(authResult, transactions.storeId)
             ))
             .returning();
 
@@ -185,7 +185,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
         // Log activity with Enterprise Audit structure
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId !== "all" ? authResult.storeId : existingTx!.storeId,
+            storeId: existingTx!.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "UPDATE_TRANSACTION_METADATA",
@@ -234,7 +234,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             // If they don't have permission (e.g. Kasir), create an approval request
             const { createApprovalRequest } = await import("@/lib/workflow");
             await createApprovalRequest({
-                storeId: authResult.storeId !== "all" ? authResult.storeId : existingTx!.storeId,
+                storeId: existingTx!.storeId,
                 requesterId: authResult.user.id,
                 actionType: "VOID_TRANSACTION",
                 referenceId: id,
@@ -254,7 +254,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
                 where: and(
                     eq(transactions.id, id),
                     // 🔒 Double-check storeId in transaction
-                    authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                    storeScope(authResult, transactions.storeId)
                 ),
                 with: { items: true }
             });
@@ -272,7 +272,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
                             .where(and(
                                 eq(inventory.id, item.inventoryId),
                                 // 🔒 Ensure inventory belongs to same store
-                                authResult.storeId !== "all" ? eq(inventory.storeId, trx.storeId) : undefined
+                                storeScope(authResult, inventory.storeId)
                             ));
                     }
                 }
@@ -286,7 +286,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
                                 eq(inventory.id, item.inventoryId),
                                 gte(inventory.quantity, item.quantity),
                                 // 🔒 Ensure inventory belongs to same store
-                                authResult.storeId !== "all" ? eq(inventory.storeId, trx.storeId) : undefined
+                                storeScope(authResult, inventory.storeId)
                             ))
                             .returning();
 
@@ -302,7 +302,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             await tx.update(journalEntries).set({ isVoided: true }).where(and(
                 eq(journalEntries.transactionId, id),
                 // 🔒 Only void journals belonging to this store
-                authResult.storeId !== "all" ? eq(journalEntries.storeId, trx.storeId) : undefined
+                storeScope(authResult, journalEntries.storeId)
             ));
 
             // Log activity
@@ -359,7 +359,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             where: and(
                 eq(transactions.id, id),
                 // 🔒 Double-check storeId
-                authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                storeScope(authResult, transactions.storeId)
             )
         });
 
@@ -380,7 +380,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             .where(and(
                 eq(transactions.id, id),
                 // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                storeScope(authResult, transactions.storeId)
             ))
             .returning();
 

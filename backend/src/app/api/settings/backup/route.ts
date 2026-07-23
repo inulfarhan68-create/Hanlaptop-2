@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { storeSettings, customers, inventory, transactions, transactionItems, journalEntries, serviceOrders, activityLogs } from "@/db/schema";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { restoreBackupSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { eq, inArray } from "drizzle-orm";

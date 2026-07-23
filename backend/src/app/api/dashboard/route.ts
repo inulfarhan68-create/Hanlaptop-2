@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { journalEntries, transactions, inventory, transactionItems, warrantyClaims } from "@/db/schema";
 import { count, and, gte, lte, desc, eq, sum, isNull } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions, withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -35,8 +35,8 @@ function getPreviousPeriod(fromStr: string | null, toStr: string | null) {
     return { prevFrom, prevTo };
 }
 
-async function getAssetsAtDate(storeId: string, dateLimit: Date) {
-    const storeCond = storeId !== "all" ? eq(journalEntries.storeId, storeId) : undefined;
+async function getAssetsAtDate(authResult: { accessibleStoreIds: string[] | null }, dateLimit: Date) {
+    const storeCond = storeScope(authResult, journalEntries.storeId);
     
     const balances = await db.select({
         accountName: journalEntries.accountName,
@@ -97,7 +97,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") conditions.push(eq(journalEntries.storeId, authResult.storeId));
+        const scope = storeScope(authResult, journalEntries.storeId);
+        if (scope) conditions.push(scope);
         if (from) conditions.push(gte(journalEntries.createdAt, new Date(from)));
         if (to) {
             const toDate = new Date(to);
@@ -119,7 +120,8 @@ export async function GET(request: Request) {
         let prive = 0;
         
         let txConditions = [];
-        if (authResult.storeId !== "all") txConditions.push(eq(transactions.storeId, authResult.storeId));
+        const txScope = storeScope(authResult, transactions.storeId);
+        if (txScope) txConditions.push(txScope);
         if (from) txConditions.push(gte(transactions.transactionDate, new Date(from)));
         if (to) {
             const toDate = new Date(to);
@@ -134,12 +136,13 @@ export async function GET(request: Request) {
             earliestDate = new Date(from);
         }
 
-        const storeCond = authResult.storeId !== "all" ? eq(journalEntries.storeId, authResult.storeId) : undefined;
-        const txStoreCond = authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined;
+        const storeCond = storeScope(authResult, journalEntries.storeId);
+        const txStoreCond = storeScope(authResult, transactions.storeId);
         // Exclude soft-deleted items — otherwise deleted stock still counts toward
         // "Aset Persediaan" / total inventory value on the dashboard.
-        const invStoreCond = authResult.storeId !== "all"
-            ? and(eq(inventory.storeId, authResult.storeId), isNull(inventory.deletedAt))
+        const invScope = storeScope(authResult, inventory.storeId);
+        const invStoreCond = invScope
+            ? and(invScope, isNull(inventory.deletedAt))
             : isNull(inventory.deletedAt);
 
         const { prevFrom, prevTo } = getPreviousPeriod(from, to);
@@ -153,16 +156,17 @@ export async function GET(request: Request) {
                 gte(journalEntries.createdAt, prevFrom),
                 lte(journalEntries.createdAt, prevTo)
             ];
-            if (authResult.storeId !== "all") {
-                prevConditions.push(eq(journalEntries.storeId, authResult.storeId));
+            const prevScope = storeScope(authResult, journalEntries.storeId);
+            if (prevScope) {
+                prevConditions.push(prevScope);
             }
             prevJournalsPromise = db.select().from(journalEntries).where(withActiveJournalEntries(and(...prevConditions)));
             
-            prevAssetsPromise = getAssetsAtDate(authResult.storeId, prevTo);
+            prevAssetsPromise = getAssetsAtDate(authResult, prevTo);
             
             const toDate = new Date(to || new Date());
             toDate.setHours(23, 59, 59, 999);
-            currentAssetsPromise = getAssetsAtDate(authResult.storeId, toDate);
+            currentAssetsPromise = getAssetsAtDate(authResult, toDate);
         }
 
         const [

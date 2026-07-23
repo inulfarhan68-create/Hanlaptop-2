@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockTransfers, stockTransferItems, inventory, activityLogs, stores } from "@/db/schema";
 import { eq, or, and, gte, lte, count, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
 import { stockTransferSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,11 @@ export async function GET(request: Request) {
 
     try {
         let transfersList;
-        if (authResult.storeId === "all") {
+        // For transfers, scope by both source and target store membership.
+        // storeScope returns undefined for platform_admin (show all), or inArray for tenant.
+        const scope = storeScope(authResult, stockTransfers.sourceStoreId);
+        if (!scope) {
+            // platform_admin: no filter
             transfersList = await db.query.stockTransfers.findMany({
                 with: {
                     sourceStore: true,
@@ -24,10 +28,11 @@ export async function GET(request: Request) {
                 orderBy: [desc(stockTransfers.createdAt)]
             });
         } else {
+            // Tenant: show transfers where source OR target is in their accessible stores
             transfersList = await db.query.stockTransfers.findMany({
                 where: or(
-                    eq(stockTransfers.sourceStoreId, authResult.storeId),
-                    eq(stockTransfers.targetStoreId, authResult.storeId)
+                    storeScope(authResult, stockTransfers.sourceStoreId),
+                    storeScope(authResult, stockTransfers.targetStoreId)
                 ),
                 with: {
                     sourceStore: true,

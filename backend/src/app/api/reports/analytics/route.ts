@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, activityLogs, journalEntries } from "@/db/schema";
 import { and, eq, inArray, sum, desc, count, gte } from "drizzle-orm";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions, withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -18,9 +18,8 @@ export async function GET() {
         let cashierConditions = [
             inArray(transactions.transactionType, ["Penjualan", "Jasa Servis"])
         ];
-        if (storeId !== "all") {
-            cashierConditions.push(eq(transactions.storeId, storeId));
-        }
+        const txScope = storeScope(authResult, transactions.storeId);
+        if (txScope) cashierConditions.push(txScope);
 
         const cashierSalesRaw = await db.select({
             userName: activityLogs.userName,
@@ -48,9 +47,7 @@ export async function GET() {
         let customerConditions = [
             inArray(transactions.transactionType, ["Penjualan", "Jasa Servis"])
         ];
-        if (storeId !== "all") {
-            customerConditions.push(eq(transactions.storeId, storeId));
-        }
+        if (txScope) customerConditions.push(txScope);
 
         const topCustomersRaw = await db.select({
             customerName: transactions.customerName,
@@ -78,9 +75,8 @@ export async function GET() {
         let journalConditions = [
             gte(journalEntries.createdAt, sixMonthsAgo)
         ];
-        if (storeId !== "all") {
-            journalConditions.push(eq(journalEntries.storeId, storeId));
-        }
+        const jeScope = storeScope(authResult, journalEntries.storeId);
+        if (jeScope) journalConditions.push(jeScope);
 
         const recentJournals = await db.select()
             .from(journalEntries)

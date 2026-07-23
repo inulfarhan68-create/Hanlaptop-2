@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, cashierShifts, storeSettings } from "@/db/schema";
 import { eq, and, gte, like, desc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { returnTransactionSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";

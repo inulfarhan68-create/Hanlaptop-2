@@ -41,7 +41,9 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldAlert,
-  ShieldQuestion
+  ShieldQuestion,
+  CreditCard,
+  Server
 } from "lucide-react"
 import { useTheme } from "@/components/ThemeProvider"
 import { signOut } from "@/lib/auth-client"
@@ -95,7 +97,14 @@ const sidebarGroups = [
     items: [
       { title: "Persetujuan", href: "/approvals", icon: ShieldQuestion },
       { title: "Audit Trail", href: "/audit", icon: ShieldAlert },
+      { title: "Billing & Plan", href: "/settings/billing", icon: CreditCard },
       { title: "Pengaturan", href: "/settings", icon: SettingsIcon },
+    ]
+  },
+  {
+    group: "Platform Admin",
+    items: [
+      { title: "Tenants & Orgs", href: "/platform", icon: Server },
     ]
   }
 ];
@@ -186,9 +195,12 @@ export function Sidebar({ user }: { user?: any }) {
   }, [])
 
   const userRole = storeSettings?.userRole || user?.role || "kasir";
-  const isGlobalOwner = user?.role === "owner";
+  const isGlobalOwner = user?.role === "owner" || user?.role === "platform_admin";
 
   const isItemVisible = (href: string) => {
+    if (href.startsWith("/platform")) {
+      return user?.role === "platform_admin";
+    }
     if (isGlobalOwner || userRole === "owner") return true;
     if (userRole === "investor") {
       return href === "/dashboard" || href === "/reports";

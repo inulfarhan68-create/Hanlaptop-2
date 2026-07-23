@@ -1,4 +1,5 @@
 import { pgTable, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { organizations } from '@/db/schema/store';
 
 /**
  * SaaS subscription plans (pricing tiers).
@@ -36,6 +37,48 @@ export const plans = pgTable("plans", {
     // Whether the plan shows on the public pricing page (internal/unlimited = false).
     isPublic: boolean("is_public").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+});
+
+export const subscriptions = pgTable("subscriptions", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    planKey: text("plan_key").notNull().references(() => plans.key),
+    status: text("status", { enum: ['trialing', 'active', 'past_due', 'canceled', 'unpaid'] }).notNull().default('trialing'),
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }).notNull(),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+});
+
+export const subscriptionEvents = pgTable("subscription_events", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    type: text("type").notNull(), // e.g. trial_started, upgraded, payment_failed, canceled
+    payload: text("payload"), // JSON payload
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+});
+
+export const usageCounters = pgTable("usage_counters", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    resource: text("resource").notNull(), // e.g. transactions
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
+});
+
+export const invoices = pgTable("invoices", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    amount: integer("amount").notNull(), // in IDR
+    status: text("status", { enum: ['unpaid', 'paid', 'void'] }).notNull().default('unpaid'),
+    description: text("description"),
+    paymentUrl: text("payment_url"), // e.g. Midtrans/Xendit checkout URL (stub)
+    paidAt: timestamp('paid_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 });

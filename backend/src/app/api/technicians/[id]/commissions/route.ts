@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicianCommissions, serviceOrders } from '@/db/schema';
-import { requireAuth } from '@/lib/auth-guard';
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { eq, and, desc } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
         .where(
             and(
                 eq(technicianCommissions.technicianId, params.id),
-                authResult.storeId !== "all" ? eq(technicianCommissions.storeId, authResult.storeId) : undefined
+                storeScope(authResult, technicianCommissions.storeId)
             )
         )
         .orderBy(desc(technicianCommissions.createdAt));

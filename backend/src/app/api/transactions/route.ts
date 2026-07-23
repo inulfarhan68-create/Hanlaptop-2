@@ -4,11 +4,12 @@ import { transactions, transactionItems, journalEntries, inventory, activityLogs
 import { desc, eq, count, gte, lte, and, like, inArray, sql } from "drizzle-orm";
 import { withActiveTransactions } from "@/db/query-helpers";
 import crypto from "crypto";
-import { requireAuth, requireWriteAccess, requirePermission } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission, storeScope } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
 import { awardPoints } from "@/lib/crm-helper";
 import { TransactionService } from "@/services/TransactionService";
+import { incrementUsage } from "@/lib/usage-limits";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +24,8 @@ export async function GET(request: Request) {
         const limitParam = searchParams.get('limit');
         
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(transactions.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, transactions.storeId);
+        if (scope) conditions.push(scope);
         if (from) conditions.push(gte(transactions.transactionDate, new Date(from)));
         if (to) conditions.push(lte(transactions.transactionDate, new Date(to)));
 
@@ -177,6 +177,11 @@ export async function POST(request: Request) {
             activeShiftId: activeShift?.id || null,
             data: parsed.data
         });
+
+        if (authResult.organizationId) {
+            // Background track usage (fire and forget is fine here)
+            incrementUsage(authResult.organizationId, "transactions").catch(e => console.error("Usage tracking failed", e));
+        }
 
         return NextResponse.json({ success: true, transaction: newTx }, { status: 201 });
     } catch (error: any) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, technicianCommissions, transactions, journalEntries, cashierShifts, storeSettings } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { eq, and, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 

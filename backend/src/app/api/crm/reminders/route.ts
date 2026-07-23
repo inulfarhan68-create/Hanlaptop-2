@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { crmReminders } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +12,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(crmReminders.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, crmReminders.storeId);
+        if (scope) conditions.push(scope);
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, transactions, serviceOrders, stores } from "@/db/schema";
 import { and, eq, inArray, lte } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ export async function GET() {
 
     try {
         const storeId = authResult.storeId;
+        const isMultiStore = storeId === "all";
 
         // Fetch stores to map store ID to store name (helpful for "All Branches" view)
         const allStores = await db.select().from(stores);
@@ -31,18 +32,21 @@ export async function GET() {
             createdAt: Date;
         }> = [];
 
+        // 🔒 Tenant-safe: storeScope handles platform_admin vs tenant boundary
+        const invScope = storeScope(authResult, inventory.storeId);
+        const txScope = storeScope(authResult, transactions.storeId);
+        const svcScope = storeScope(authResult, serviceOrders.storeId);
+
         // 1. Low Stock Alerts (quantity <= 2)
         let invConditions = [lte(inventory.quantity, 2)];
-        if (storeId !== "all") {
-            invConditions.push(eq(inventory.storeId, storeId));
-        }
+        if (invScope) invConditions.push(invScope);
 
         const lowStockItems = await db.select()
             .from(inventory)
             .where(and(...invConditions));
 
         lowStockItems.forEach(item => {
-            const storePrefix = storeId === "all" ? `[${storeMap.get(item.storeId) || "Cabang"}] ` : "";
+            const storePrefix = isMultiStore ? `[${storeMap.get(item.storeId) || "Cabang"}] ` : "";
             alerts.push({
                 id: `low-stock-${item.id}`,
                 type: "warning",
@@ -57,9 +61,7 @@ export async function GET() {
         let txConditions = [
             eq(transactions.paymentStatus, "Belum Lunas")
         ];
-        if (storeId !== "all") {
-            txConditions.push(eq(transactions.storeId, storeId));
-        }
+        if (txScope) txConditions.push(txScope);
 
         const unpaidTransactions = await db.select()
             .from(transactions)
@@ -75,7 +77,7 @@ export async function GET() {
 
             if (due <= today) {
                 const isOverdue = due < today;
-                const storePrefix = storeId === "all" ? `[${storeMap.get(tx.storeId) || "Cabang"}] ` : "";
+                const storePrefix = isMultiStore ? `[${storeMap.get(tx.storeId) || "Cabang"}] ` : "";
                 const sisa = (tx.amount || 0) - (tx.dpAmount || 0);
                 alerts.push({
                     id: `overdue-piutang-${tx.id}`,
@@ -93,9 +95,7 @@ export async function GET() {
             eq(transactions.transactionType, "Pembelian Stok"),
             eq(transactions.paymentStatus, "Belum Lunas")
         ];
-        if (storeId !== "all") {
-            payConditions.push(eq(transactions.storeId, storeId));
-        }
+        if (txScope) payConditions.push(txScope);
 
         const unpaidPurchases = await db.select()
             .from(transactions)
@@ -108,7 +108,7 @@ export async function GET() {
 
             if (due <= today) {
                 const isOverdue = due < today;
-                const storePrefix = storeId === "all" ? `[${storeMap.get(tx.storeId) || "Cabang"}] ` : "";
+                const storePrefix = isMultiStore ? `[${storeMap.get(tx.storeId) || "Cabang"}] ` : "";
                 const sisa = (tx.amount || 0) - (tx.dpAmount || 0);
                 const supplierName = tx.description ? tx.description.replace("Supplier: ", "") : "Supplier";
                 alerts.push({
@@ -126,9 +126,7 @@ export async function GET() {
         let svcConditions = [
             inArray(serviceOrders.status, ["Diterima", "Dikerjakan", "Menunggu Part"])
         ];
-        if (storeId !== "all") {
-            svcConditions.push(eq(serviceOrders.storeId, storeId));
-        }
+        if (svcScope) svcConditions.push(svcScope);
 
         const activeServices = await db.select()
             .from(serviceOrders)
@@ -140,7 +138,7 @@ export async function GET() {
         activeServices.forEach(order => {
             const receivedDate = new Date(order.receivedDate);
             if (receivedDate < threeDaysAgo) {
-                const storePrefix = storeId === "all" ? `[${storeMap.get(order.storeId) || "Cabang"}] ` : "";
+                const storePrefix = isMultiStore ? `[${storeMap.get(order.storeId) || "Cabang"}] ` : "";
                 const diffTime = Math.abs(new Date().getTime() - receivedDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 alerts.push({

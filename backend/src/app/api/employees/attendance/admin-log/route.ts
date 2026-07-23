@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { attendances, employees, activityLogs } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     // Verify Owner or Manager role
     const isOwnerOrManager = authResult.storeRole === "owner" || 
                              authResult.storeRole === "manager" || 
-                             authResult.user.role === "owner" || 
+                             (authResult.user.role === "owner" || authResult.user.role === "platform_admin") || 
                              authResult.user.role === "manager";
 
     if (!isOwnerOrManager) {
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
                 
             // Log activity
             await db.insert(activityLogs).values({
-                storeId: authResult.storeId === "all" ? employee.storeId : authResult.storeId,
+                storeId: employee.storeId,
                 userId: authResult.user.id,
                 userName: authResult.user.name,
                 action: "UPDATE_ATTENDANCE_ADMIN",
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
             // Log activity
             await db.insert(activityLogs).values({
-                storeId: authResult.storeId === "all" ? employee.storeId : authResult.storeId,
+                storeId: employee.storeId,
                 userId: authResult.user.id,
                 userName: authResult.user.name,
                 action: "CREATE_ATTENDANCE_ADMIN",
@@ -113,7 +113,7 @@ export async function DELETE(request: Request) {
 
     const isOwnerOrManager = authResult.storeRole === "owner" || 
                              authResult.storeRole === "manager" || 
-                             authResult.user.role === "owner" || 
+                             (authResult.user.role === "owner" || authResult.user.role === "platform_admin") || 
                              authResult.user.role === "manager";
 
     if (!isOwnerOrManager) {
@@ -141,7 +141,7 @@ export async function DELETE(request: Request) {
 
         // Log activity
         await db.insert(activityLogs).values({
-            storeId: authResult.storeId === "all" ? existing.storeId : authResult.storeId,
+            storeId: existing.storeId,
             userId: authResult.user.id,
             userName: authResult.user.name,
             action: "DELETE_ATTENDANCE_ADMIN",

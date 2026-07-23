@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { devicePassports, deviceLifecycleLogs } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +15,8 @@ export async function GET(request: Request, context: { params: Promise<{ sn: str
         const decodedSn = decodeURIComponent(sn);
 
         let conditions = [eq(devicePassports.serialNumber, decodedSn)];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(devicePassports.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, devicePassports.storeId);
+        if (scope) conditions.push(scope);
 
         const passport = await db.query.devicePassports.findFirst({
             where: and(...conditions),

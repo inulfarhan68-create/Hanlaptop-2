@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { user, userStoreAccess, stores } from '@/db/schema';
-import { requireOwnerOnly } from '@/lib/auth-guard';
+import { requireOwnerOnly, checkQuota, storeScope } from '@/lib/auth-guard';
 import { createUserSchema } from '@/lib/validators';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/sanitize';
@@ -15,13 +15,15 @@ export async function GET() {
         const session = await requireOwnerOnly();
         if (session instanceof NextResponse) return session;
 
+        // Tenant isolation: only list users in the caller's org (platform_admin = all).
         const usersList = await db.select({
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
             createdAt: user.createdAt,
-        }).from(user);
+        }).from(user)
+        .where(session.isPlatformAdmin ? undefined : eq(user.organizationId, session.organizationId ?? ""));
 
         const allAccess = await db.select({
             userId: userStoreAccess.userId,
@@ -30,7 +32,8 @@ export async function GET() {
             storeName: stores.name,
         })
         .from(userStoreAccess)
-        .leftJoin(stores, eq(userStoreAccess.storeId, stores.id));
+        .leftJoin(stores, eq(userStoreAccess.storeId, stores.id))
+        .where(storeScope(session, userStoreAccess.storeId));
 
         const usersWithAccess = usersList.map(u => {
             const accesses = allAccess.filter(a => a.userId === u.id);
@@ -59,6 +62,9 @@ export async function POST(request: Request) {
         const session = await requireOwnerOnly();
         if (session instanceof NextResponse) return session;
 
+        const quotaCheck = await checkQuota(session, "users");
+        if (quotaCheck instanceof NextResponse) return quotaCheck;
+
         const rawBody = await request.json();
         const body = sanitizeInput(rawBody);
         const parsed = createUserSchema.safeParse(body);
@@ -76,13 +82,22 @@ export async function POST(request: Request) {
             );
         }
 
+        // Security: staff may only be assigned to stores within the owner's own
+        // tenant. (createUserSchema already restricts role to non-platform tenant roles.)
+        if (!session.isPlatformAdmin) {
+            const allowed = new Set(session.accessibleStoreIds ?? []);
+            if (!targetStoreIds.every((s: string) => allowed.has(s))) {
+                return NextResponse.json({ error: "Cabang di luar tenant Anda" }, { status: 403 });
+            }
+        }
+
         // Jalankan pendaftaran di server. Tidak akan mengganggu/mengeluarkan sesi Owner yang memanggil API ini.
+        // role is input:false — set server-side after creation (below), never here.
         const signUpResult = await auth.api.signUpEmail({
             body: {
                 name,
                 email,
                 password,
-                role,
             }
         });
 
@@ -91,6 +106,12 @@ export async function POST(request: Request) {
         }
 
         const newUser = signUpResult.user;
+
+        // Set the staff role + tenant server-side (input:false at sign-up). Staff
+        // belong to the owner's organization.
+        await db.update(user)
+            .set({ role: role || "kasir", organizationId: session.organizationId })
+            .where(eq(user.id, newUser.id));
 
         // Bersihkan jika ada akses lama (safety check)
         await db.delete(userStoreAccess).where(eq(userStoreAccess.userId, newUser.id));

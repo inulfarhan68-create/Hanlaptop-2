@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, inventory } from "@/db/schema";
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -20,9 +20,8 @@ export async function GET(request: Request) {
         let conditions = [
             inArray(transactions.transactionType, ["Penjualan", "Retur Penjualan"])
         ];
-        if (storeId !== "all") {
-            conditions.push(eq(transactions.storeId, storeId));
-        }
+        const scope = storeScope(authResult, transactions.storeId);
+        if (scope) conditions.push(scope);
         if (from) {
             conditions.push(gte(transactions.transactionDate, new Date(from)));
         }
@@ -133,9 +132,8 @@ export async function GET(request: Request) {
         let serviceConditions = [
             eq(transactions.transactionType, "Jasa Servis")
         ];
-        if (storeId !== "all") {
-            serviceConditions.push(eq(transactions.storeId, storeId));
-        }
+        const svcScope = storeScope(authResult, transactions.storeId);
+        if (svcScope) serviceConditions.push(svcScope);
         if (from) {
             serviceConditions.push(gte(transactions.transactionDate, new Date(from)));
         }
@@ -172,7 +170,7 @@ export async function GET(request: Request) {
         categories.sort((a, b) => b.profit - a.profit);
 
         // Fetch Dead Stock
-        let invStoreCond = storeId !== "all" ? eq(inventory.storeId, storeId) : undefined;
+        let invStoreCond = storeScope(authResult, inventory.storeId);
         const activeInventory = await db.select()
             .from(inventory)
             .where(and(

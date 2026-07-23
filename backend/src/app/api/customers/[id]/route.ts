@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { customers, activityLogs, transactions } from '@/db/schema';
-import { requireAuth, requireWriteAccess } from '@/lib/auth-guard';
+import { requireAuth, requireWriteAccess, storeScope } from '@/lib/auth-guard';
 import { customerSchema } from '@/lib/validators';
 import { eq, and } from 'drizzle-orm';
 
@@ -9,19 +9,12 @@ import { eq, and } from 'drizzle-orm';
  * Helper: Verify customer belongs to user's store (SaaS Tenant Isolation)
  */
 async function verifyCustomerAccess(authResult: any, customerId: string) {
-    // Owner (global) can access all customers
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const customer = await db.query.customers.findFirst({
-            where: eq(customers.id, customerId)
-        });
-        return customer ? { customer, authorized: true } : { customer: null, authorized: false, response: NextResponse.json({ error: "Customer not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // 🔒 Tenant-safe: storeScope returns undefined for platform_admin (no filter),
+    // inArray for tenant users. Always returns 404 to prevent enumeration attacks.
     const customer = await db.query.customers.findFirst({
         where: and(
             eq(customers.id, customerId),
-            eq(customers.storeId, authResult.storeId)
+            storeScope(authResult, customers.storeId)
         )
     });
 
@@ -29,7 +22,7 @@ async function verifyCustomerAccess(authResult: any, customerId: string) {
         return {
             customer: null,
             authorized: false,
-            response: NextResponse.json({ error: "Customer not found or access denied" }, { status: 404 })
+            response: NextResponse.json({ error: "Customer not found" }, { status: 404 })
         };
     }
 
@@ -61,8 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             .set({ name, phone, address, notes })
             .where(and(
                 eq(customers.id, id),
-                // 🔒 Double-check storeId in update
-                authResult.storeId !== "all" ? eq(customers.storeId, authResult.storeId) : undefined
+                storeScope(authResult, customers.storeId)
             ))
             .returning();
 
@@ -76,8 +68,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                 .set({ customerName: name })
                 .where(and(
                     eq(transactions.customerId, id),
-                    // 🔒 Only update transactions in same store
-                    authResult.storeId !== "all" ? eq(transactions.storeId, authResult.storeId) : undefined
+                    storeScope(authResult, transactions.storeId)
                 ));
         }
 
@@ -103,7 +94,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (authResult instanceof NextResponse) return authResult;
 
     // Only owner or manager can delete customers
-    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner') {
+    if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner' && authResult.user.role !== 'platform_admin') {
         return NextResponse.json({ error: "Forbidden. Only owner or manager can delete customers." }, { status: 403 });
     }
 
@@ -118,8 +109,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
             .set({ deletedAt: new Date() })
             .where(and(
                 eq(customers.id, id),
-                // 🔒 Double-check storeId in delete
-                authResult.storeId !== "all" ? eq(customers.storeId, authResult.storeId) : undefined
+                storeScope(authResult, customers.storeId)
             ))
             .returning();
 

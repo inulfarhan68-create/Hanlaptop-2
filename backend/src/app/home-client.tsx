@@ -381,6 +381,22 @@ export default function LandingPage() {
   const [activeSection, _setActiveSection] = useState<string>("hero")
   const [activeHeroTab, setActiveHeroTab] = useState<"cari" | "jual" | "tukar" | "servis">("cari")
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  
+  // Hero Image Carousel
+  const [heroImageIndex, setHeroImageIndex] = useState(0)
+  const heroSlides = [
+    { src: assetUrl("/hero-bg.png"), caption: "Han Laptop Official", sub: "Pusat Kebutuhan Laptop" },
+    { src: assetUrl("/beli-pilar.jpg"), caption: "Katalog Terlengkap", sub: "Pilihan Laptop Bergaransi" },
+    { src: assetUrl("/jual-pilar.jpg"), caption: "Tukar Tambah", sub: "Valuasi Harga Transparan" },
+    { src: assetUrl("/servis-pilar.jpg"), caption: "Servis Profesional", sub: "Ditangani Teknisi Ahli" }
+  ]
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroImageIndex((prev) => (prev + 1) % 4) // 4 is length of heroSlides
+    }, 4500)
+    return () => clearInterval(timer)
+  }, [])
 
   const setActiveSection = (section: string) => {
     if (section !== activeSection) {
@@ -1232,262 +1248,210 @@ export default function LandingPage() {
       {activeSection === "hero" && (
         <main className="relative z-10 max-w-6xl mx-auto px-4 pt-4 pb-8 space-y-4 sm:space-y-5">
           
-          {/* MOBILE HERO SECTION (Card with background image and shadow overlay) */}
-          <div className="block sm:hidden relative overflow-hidden rounded-[24px] p-5 min-h-[260px] flex flex-col justify-end bg-white">
-            {/* Background Image */}
-            <img 
-              src={assetUrl("/hero-bg.png")} 
-              alt="Han Laptop Store" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            {/* Dark gradient shadow overlay (from bottom to top) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent"></div>
+          {/* MINIMALIST EDITORIAL HERO */}
+          <div className="relative pt-4 pb-6 lg:pt-6 lg:pb-8 px-4 overflow-hidden">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+                
+                {/* Text Content (Left) */}
+                <div className="flex-1 space-y-5 lg:space-y-7 relative z-10 w-full text-center lg:text-left">
+                  {/* Subtle Top Badge */}
+                  <div className="inline-flex items-center justify-center lg:justify-start gap-3 text-slate-500 dark:text-slate-400 font-medium text-[10px] sm:text-xs tracking-[0.2em] uppercase">
+                    <span className="w-8 h-[1px] bg-slate-300 dark:bg-slate-700"></span>
+                    Han Laptop & Service
+                  </div>
+                  
+                  {/* Elegant Minimalist Headline */}
+                  <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.1]">
+                    Satu Tempat <br className="hidden sm:block" />
+                    <span className="font-serif italic font-normal text-slate-500 mr-2 lg:mr-3">untuk</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-500 dark:from-blue-400 dark:to-emerald-400">Semua</span> <br className="hidden sm:block" />
+                    Kebutuhan Laptop.
+                  </h1>
+                  
+                  <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mx-auto lg:mx-0">
+                    Nikmati pengalaman membeli, menjual, servis, dan tukar tambah laptop dengan proses yang transparan, penawaran harga terbaik, serta jaminan rasa tenang di setiap transaksi.
+                  </p>
 
-            {/* Text Content */}
-            <div className="relative z-10 space-y-3 text-left">
-              {/* Tag (Light glassmorphism style) */}
-              <div className="inline-flex items-center bg-white/15 border border-white/20 text-white text-[12px] font-bold px-2.5 py-0.5 rounded-md backdrop-blur-xs shadow-xs">
-                Satu Tempat untuk Semua Kebutuhan Laptop.
+                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mt-2">
+                    <Link href={`/catalog/${selectedBranch}`} className="group flex items-center justify-center gap-2 h-11 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-full transition-all hover:scale-105 active:scale-95 shadow-md shadow-slate-900/10 dark:shadow-white/5 w-full sm:w-auto">
+                      Katalog Stok
+                      <span className="bg-white/20 dark:bg-black/10 rounded-full p-0.5 group-hover:rotate-45 transition-transform">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                    </Link>
+                    <button onClick={() => setActiveSection("jual")} className="group flex items-center justify-center gap-2 h-11 px-5 text-slate-900 dark:text-white text-sm font-bold hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full sm:w-auto">
+                      Taksir Nilai Jual
+                      <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Image Content (Right - Editorial Frame) */}
+                <div className="lg:w-[50%] w-full relative">
+                  {/* Decorative background shape */}
+                  <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] transform rotate-3 scale-105 transition-transform duration-700 hover:rotate-6"></div>
+                  
+                  <div className="relative aspect-[4/3] sm:aspect-square lg:aspect-[6/5] overflow-hidden rounded-[2.5rem] border border-slate-200/80 dark:border-slate-700/80 shadow-2xl bg-slate-900 group">
+                    {/* Background Image Carousel with Cinematic Crossfade */}
+                    <AnimatePresence>
+                      <motion.img 
+                        key={heroImageIndex}
+                        src={heroSlides[heroImageIndex].src} 
+                        alt={heroSlides[heroImageIndex].caption} 
+                        initial={{ opacity: 0, scale: 1.03 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.2, ease: "easeInOut" }}
+                        className="absolute inset-0 w-full h-full object-cover grayscale-[15%] group-hover:grayscale-0 transition-all duration-700"
+                      />
+                    </AnimatePresence>
+                    
+                    {/* Shadow overlay for bottom edge */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80 pointer-events-none transition-opacity duration-700 group-hover:opacity-100"></div>
+                    
+                    {/* Dynamic Caption Overlay */}
+                    <div className="absolute bottom-6 left-6 right-6 p-4 z-10 transform transition-all duration-500 group-hover:-translate-y-1">
+                      <div className="flex items-center justify-between">
+                        <AnimatePresence mode="wait">
+                          <motion.div 
+                            key={heroImageIndex}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.4 }}
+                          >
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-0.5">{heroSlides[heroImageIndex].sub}</p>
+                            <p className="text-lg font-black text-white drop-shadow-sm">{heroSlides[heroImageIndex].caption}</p>
+                          </motion.div>
+                        </AnimatePresence>
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                          <Compass className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
               </div>
-              
-              {/* Heading */}
-              <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-                Laptop Berkualitas, Transaksi Lebih Tenang.
-              </h1>
-              
-              {/* Description */}
-              <p className="text-slate-200 text-[12px] leading-relaxed font-bold">
-                Nikmati pengalaman membeli, menjual, servis, dan upgrade laptop dengan proses yang mudah, penawaran harga terbaik, serta pelayanan yang mengutamakan rasa tenang di setiap transaksi.
-              </p>
             </div>
           </div>
 
-          {/* DESKTOP HERO CARD */}
-          <div className="hidden sm:block relative overflow-hidden rounded-[32px] p-8 border border-slate-200/80 min-h-[360px] flex flex-col justify-center bg-white">
-            {/* Background Image (Covering the entire card) */}
-            <img 
-              src={assetUrl("/hero-bg.png")} 
-              alt="Han Laptop Store" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            {/* Darker shadow overlay that fades out on the right */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent"></div>
-            
-            <div className="relative z-10 max-w-2xl space-y-4 text-left">
-              {/* Tag (Light glassmorphism style) */}
-              <div className="inline-flex items-center bg-white/10 border border-white/20 text-white text-sm font-semibold px-3.5 py-1 rounded-md shadow-xs backdrop-blur-xs">
-                Satu Tempat untuk Semua Kebutuhan Laptop.
-              </div>
+          {/* 4 PILARS COMBINED SECTION */}
+          <div className="space-y-6 lg:space-y-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight text-center flex items-center justify-center gap-4">
+              <span className="hidden sm:block w-10 sm:w-16 h-[2px] bg-gradient-to-r from-transparent to-slate-200 dark:to-slate-700"></span>
+              Pilih Layanan Utama Kami
+              <span className="hidden sm:block w-10 sm:w-16 h-[2px] bg-gradient-to-l from-transparent to-slate-200 dark:to-slate-700"></span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               
-              {/* Heading (White, very bold) */}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.15]">
-                Laptop Berkualitas, Transaksi Lebih Tenang.
-              </h1>
-              
-              {/* Description (Light gray, bold, highly readable over dark shadow) */}
-              <p className="text-slate-200 text-xs sm:text-sm leading-relaxed font-bold max-w-xl">
-                Nikmati pengalaman membeli, menjual, servis, dan upgrade laptop dengan proses yang mudah, penawaran harga terbaik, serta pelayanan yang mengutamakan rasa tenang di setiap transaksi.
-              </p>
-            </div>
-          </div>
-
-          {/* 4 PILAR NAVIGATION */}
-          <div className="space-y-2.5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-center lg:text-left">Pilih Layanan Utama Kami</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {/* Card Beli */}
-              <Link href={`/catalog/${selectedBranch}`} className="relative h-40 sm:h-52 rounded-[28px] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-end p-4 sm:p-5 cursor-pointer group border border-slate-200/50">
-                {/* Background Image */}
-                <img 
-                  src={assetUrl("/beli-pilar.jpg")} 
-                  alt="Beli Laptop" 
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20 group-hover:from-slate-950/95 transition-all duration-300"></div>
-                
-                {/* Icon Container (Top Left) */}
-                <div className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md text-white p-2 rounded-xl group-hover:bg-blue-600 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 border border-white/10 shadow-sm">
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+              <Link href={`/catalog/${selectedBranch}`} className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer">
+                <div className="relative w-full aspect-square overflow-hidden">
+                  <img src={assetUrl("/beli-pilar.jpg")} alt="Beli Laptop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent opacity-80"></div>
+                  <div className="absolute bottom-4 left-5 right-5 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="p-1.5 bg-blue-500/20 backdrop-blur-md rounded-lg">
+                        <Search className="w-4 h-4 text-blue-300" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="font-extrabold text-lg tracking-tight group-hover:text-blue-200 transition-colors">Beli Laptop</h3>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Arrow (Top Right) */}
-                <div className="absolute top-4 right-4 z-20 bg-white/10 backdrop-blur-md text-white/80 p-1.5 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 border border-white/5 shadow-xs">
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-
-                {/* Text Content */}
-                <div className="relative z-20 text-left">
-                  <h3 className="text-white font-extrabold text-sm sm:text-base tracking-tight mb-0.5 group-hover:text-blue-200 transition-colors">Beli Laptop</h3>
-                  <p className="text-[10px] text-slate-200/80 leading-normal font-medium">Garansi 100% aman & terpercaya.</p>
+                <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <h4 className="text-slate-900 dark:text-white font-bold text-sm leading-snug">Beli Laptop Second Tanpa Khawatir</h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-normal">
+                      Setiap laptop telah melalui pengecekan, pengujian, dan perawatan sebelum dijual. Pilih laptop yang sesuai kebutuhan dengan garansi penuh.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center text-blue-600 dark:text-blue-400 text-xs font-bold group-hover:gap-2 transition-all">
+                    Lihat Katalog <ArrowRight className="w-4 h-4 ml-1" />
+                  </div>
                 </div>
               </Link>
               
               {/* Card Jual */}
-              <div 
-               onClick={() => {
-                 setActiveSection("jual")
-                 setJualSubmitted(false)
-                 setJualResult(null)
-               }}
-               className="relative h-40 sm:h-52 rounded-[28px] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-end p-4 sm:p-5 cursor-pointer group border border-slate-200/50"
-              >
-                {/* Background Image */}
-                <img 
-                  src={assetUrl("/jual-pilar.jpg")} 
-                  alt="Jual Laptop" 
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20 group-hover:from-slate-950/95 transition-all duration-300"></div>
-                
-                {/* Icon Container */}
-                <div className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md text-white p-2 rounded-xl group-hover:bg-emerald-600 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 border border-white/10 shadow-sm">
-                  <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+              <div onClick={() => { setActiveSection("jual"); setJualSubmitted(false); setJualResult(null); }} className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer">
+                <div className="relative w-full aspect-square overflow-hidden">
+                  <img src={assetUrl("/jual-pilar.jpg")} alt="Jual Laptop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent opacity-80"></div>
+                  <div className="absolute bottom-4 left-5 right-5 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="p-1.5 bg-emerald-500/20 backdrop-blur-md rounded-lg">
+                        <ShoppingBag className="w-4 h-4 text-emerald-300" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="font-extrabold text-lg tracking-tight group-hover:text-emerald-200 transition-colors">Jual Laptop</h3>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Arrow */}
-                <div className="absolute top-4 right-4 z-20 bg-white/10 backdrop-blur-md text-white/80 p-1.5 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 border border-white/5 shadow-xs">
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-
-                {/* Text Content */}
-                <div className="relative z-20 text-left">
-                  <h3 className="text-white font-extrabold text-sm sm:text-base tracking-tight mb-0.5 group-hover:text-emerald-200 transition-colors">Jual Laptop</h3>
-                  <p className="text-[10px] text-slate-200/80 leading-normal font-medium">Taksir instan via AI & dapatkan harga terbaik.</p>
+                <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <h4 className="text-slate-900 dark:text-white font-bold text-sm leading-snug">Jual Laptop dengan Harga Terbaik</h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-normal">
+                      Tidak perlu bingung atau repot mencari pembeli. Kami memberikan penawaran kompetitif sesuai kondisi dengan proses yang transparan.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center text-emerald-600 dark:text-emerald-400 text-xs font-bold group-hover:gap-2 transition-all">
+                    Taksir Harga <ArrowRight className="w-4 h-4 ml-1" />
+                  </div>
                 </div>
               </div>
 
-              {/* Card Tukar */}
-              <div 
-               onClick={() => setActiveSection("tukar")} 
-               className="relative h-40 sm:h-52 rounded-[28px] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-end p-4 sm:p-5 cursor-pointer group border border-slate-200/50"
-              >
-                {/* Background Image */}
-                <img 
-                  src={assetUrl("/tukar-pilar.jpg")} 
-                  alt="Tukar Tambah" 
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20 group-hover:from-slate-950/95 transition-all duration-300"></div>
-                
-                {/* Icon Container */}
-                <div className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md text-white p-2 rounded-xl group-hover:bg-amber-600 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 border border-white/10 shadow-sm">
-                  <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+              {/* Card Tukar Tambah */}
+              <div onClick={() => setActiveSection("tukar")} className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer">
+                <div className="relative w-full aspect-square overflow-hidden">
+                  <img src={assetUrl("/tukar-pilar.jpg")} alt="Tukar Tambah" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent opacity-80"></div>
+                  <div className="absolute bottom-4 left-5 right-5 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="p-1.5 bg-amber-500/20 backdrop-blur-md rounded-lg">
+                        <RefreshCw className="w-4 h-4 text-amber-300" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="font-extrabold text-lg tracking-tight group-hover:text-amber-200 transition-colors">Tukar Tambah</h3>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Arrow */}
-                <div className="absolute top-4 right-4 z-20 bg-white/10 backdrop-blur-md text-white/80 p-1.5 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 border border-white/5 shadow-xs">
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-
-                {/* Text Content */}
-                <div className="relative z-20 text-left">
-                  <h3 className="text-white font-extrabold text-sm sm:text-base tracking-tight mb-0.5 group-hover:text-amber-200 transition-colors">Tukar Tambah</h3>
-                  <p className="text-[10px] text-slate-200/80 leading-normal font-medium">Upgrade laptop lama jadi baru dengan hemat.</p>
+                <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <h4 className="text-slate-900 dark:text-white font-bold text-sm leading-snug">Upgrade Laptop Tanpa Ribet</h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-normal">
+                      Ingin ganti laptop? Tukar tambah di Han Laptop membantu Anda menghemat waktu tanpa harus repot mencari pembeli lama Anda sendiri.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center text-amber-600 dark:text-amber-400 text-xs font-bold group-hover:gap-2 transition-all">
+                    Mulai Tukar <ArrowRight className="w-4 h-4 ml-1" />
+                  </div>
                 </div>
               </div>
 
               {/* Card Servis */}
-              <div 
-               onClick={() => {
-                 setActiveSection("servis")
-                 setServisSubmitted(false)
-                 setServisDiagnosisResult(null)
-               }}
-               className="relative h-40 sm:h-52 rounded-[28px] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-end p-4 sm:p-5 cursor-pointer group border border-slate-200/50"
-              >
-                {/* Background Image */}
-                <img 
-                  src={assetUrl("/servis-pilar.jpg")} 
-                  alt="Servis Laptop" 
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20 group-hover:from-slate-950/95 transition-all duration-300"></div>
-                
-                {/* Icon Container */}
-                <div className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md text-white p-2 rounded-xl group-hover:bg-purple-600 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300 border border-white/10 shadow-sm">
-                  <Wrench className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
-                </div>
-                
-                {/* Arrow */}
-                <div className="absolute top-4 right-4 z-20 bg-white/10 backdrop-blur-md text-white/80 p-1.5 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-all duration-300 border border-white/5 shadow-xs">
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-
-                {/* Text Content */}
-                <div className="relative z-20 text-left">
-                  <h3 className="text-white font-extrabold text-sm sm:text-base tracking-tight mb-0.5 group-hover:text-purple-200 transition-colors">Servis Laptop</h3>
-                  <p className="text-[10px] text-slate-200/80 leading-normal font-medium">Booking perbaikan & lacak status real-time.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4 PILARS VALUE PROPOSITIONS SECTION */}
-          <div className="space-y-2.5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-center lg:text-left">Mengapa Memilih Han Laptop?</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Pilar 1 */}
-              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <div onClick={() => { setActiveSection("servis"); setServisSubmitted(false); setServisDiagnosisResult(null); }} className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer">
+                <div className="relative w-full aspect-square overflow-hidden">
+                  <img src={assetUrl("/servis-pilar.jpg")} alt="Servis Laptop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent opacity-80"></div>
+                  <div className="absolute bottom-4 left-5 right-5 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="p-1.5 bg-purple-500/20 backdrop-blur-md rounded-lg">
+                        <Wrench className="w-4 h-4 text-purple-300" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="font-extrabold text-lg tracking-tight group-hover:text-purple-200 transition-colors">Lab Servis</h3>
+                    </div>
                   </div>
-                  <h4 className="text-slate-900 font-extrabold text-[12px] sm:text-xs md:text-sm leading-snug">
-                    Beli Laptop Second Tanpa Rasa Khawatir
-                  </h4>
                 </div>
-                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
-                  Setiap laptop telah melalui pengecekan, pengujian, dan perawatan sebelum dijual. Pilih laptop yang sesuai kebutuhan dengan garansi (resmi atau toko) untuk memberikan rasa tenang saat membeli.
-                </p>
-              </div>
-              
-              {/* Pilar 2 */}
-              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
-                    <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <h4 className="text-slate-900 dark:text-white font-bold text-sm leading-snug">Servis dengan Proses Jelas</h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-normal">
+                      Laptop bermasalah? Teknisi kami akan memeriksa kerusakan, dan memberikan estimasi biaya serta waktu secara terbuka.
+                    </p>
                   </div>
-                  <h4 className="text-slate-900 font-extrabold text-[12px] sm:text-xs md:text-sm leading-snug">
-                    Jual Laptop dengan Harga Terbaik
-                  </h4>
-                </div>
-                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
-                  Tidak perlu bingung menentukan harga atau repot mencari pembeli. Kami membantu memberikan penawaran yang kompetitif sesuai kondisi laptop dengan proses yang cepat dan transparan.
-                </p>
-              </div>
-
-              {/* Pilar 3 */}
-              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
-                    <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center text-purple-600 dark:text-purple-400 text-xs font-bold group-hover:gap-2 transition-all">
+                    Booking Servis <ArrowRight className="w-4 h-4 ml-1" />
                   </div>
-                  <h4 className="text-slate-900 font-extrabold text-[12px] sm:text-xs md:text-sm leading-snug">
-                    Servis dengan Proses yang Jelas
-                  </h4>
                 </div>
-                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
-                  Laptop bermasalah? Teknisi kami akan memeriksa, menjelaskan kerusakan, dan memberikan estimasi biaya serta waktu pengerjaan sebelum proses dimulai.
-                </p>
-              </div>
-
-              {/* Pilar 4 */}
-              <div className="flex flex-col gap-1.5 p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-xs border border-white/30 shadow-none hover:from-white/90 hover:to-white/40 transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-slate-100/90 text-slate-700 border border-slate-200/30 flex-shrink-0">
-                    <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </div>
-                  <h4 className="text-slate-900 font-extrabold text-[12px] sm:text-xs md:text-sm leading-snug">
-                    Upgrade Tanpa Ribet
-                  </h4>
-                </div>
-                <p className="text-slate-500 text-[11px] sm:text-xs leading-relaxed font-normal text-justify">
-                  Ingin ganti laptop? Tukar tambah di Han Laptop membantu Anda menghemat waktu dan tenaga tanpa harus repot mencari pembeli sendiri.
-                </p>
               </div>
             </div>
           </div>
@@ -1611,122 +1575,134 @@ export default function LandingPage() {
             </div>
           </section>
 
-          {/* HIGH-TRUST BLOCK: STATS & KEUNGGULAN (MODERN MINIMALIST) */}
-          <section className="mt-10 sm:mt-12 bg-slate-50 border border-slate-200/80 rounded-3xl overflow-hidden shadow-xs">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 p-8 sm:p-10">
-              {/* Kolom Kiri: Statistik (Minimalis) */}
-              <div className="md:col-span-5 flex flex-col justify-center">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
-                    Solusi Cerdas Hemat Uang & Tenaga
-                  </h2>
-                  <p className="mt-3 text-slate-500 text-xs sm:text-sm leading-relaxed font-normal">
-                    Han Laptop hadir sebagai solusi satu atap tepercaya. Dapatkan laptop berkualitas tinggi dengan jaminan mutu terbaik tanpa membuang banyak waktu dan energi.
-                  </p>
-                </div>
+          {/* HIGH-TRUST BLOCK: CLEAN MINIMALIST EDITORIAL */}
+          <section className="mt-16 sm:mt-20 max-w-5xl mx-auto px-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-8 sm:p-12 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16 items-center">
                 
-                <div className="pt-6 mt-6 border-t border-slate-200 grid grid-cols-2 gap-4">
+                {/* Kiri: Typografi Bersih */}
+                <div className="space-y-8">
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 mb-0.5">1,500+</div>
-                    <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Laptop Terjual</div>
+                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+                      Solusi Cerdas <br className="hidden sm:block" />
+                      <span className="font-serif italic font-normal text-slate-500">Hemat Uang & Tenaga</span>
+                    </h2>
+                    <p className="mt-4 text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-sm">
+                      Han Laptop hadir sebagai solusi satu atap tepercaya. Dapatkan laptop berkualitas tinggi dengan jaminan mutu terbaik tanpa membuang banyak waktu dan energi.
+                    </p>
                   </div>
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 mb-0.5">4.9★</div>
-                    <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Rating Kepuasan</div>
+                  
+                  {/* Statistik Super Bersih */}
+                  <div className="flex gap-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <div>
+                      <div className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">1,500<span className="text-slate-300 dark:text-slate-700 font-normal">+</span></div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Laptop Terjual</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">4.9<span className="text-slate-300 dark:text-slate-700 font-normal">★</span></div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Rating Kepuasan</div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Kolom Kanan: 3 Keuntungan Spesifik (Clean & Simple) */}
-              <div className="md:col-span-7 flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-200 pt-6 md:pt-0 md:pl-8">
+                {/* Kanan: List Minimalis */}
                 <div className="space-y-6">
                   
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
+                  <div className="flex gap-4 group">
+                    <div className="mt-1 text-slate-300 dark:text-slate-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      <ShieldCheck className="w-5 h-5 stroke-[1.5]" />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Inspeksi Fisik & Pembersihan Total</h4>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Setiap unit melewati uji kelayakan menyeluruh serta pembersihan fan dan penggantian thermal paste baru agar performa optimal.</p>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Inspeksi Fisik & Pembersihan Total</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Setiap unit melewati uji kelayakan menyeluruh serta pembersihan fan dan penggantian thermal paste baru agar performa optimal.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <Award className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
+                  <div className="flex gap-4 group">
+                    <div className="mt-1 text-slate-300 dark:text-slate-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      <Award className="w-5 h-5 stroke-[1.5]" />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Garansi Lengkap & Transparan</h4>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Kami berikan jaminan penuh: 1 bulan garansi hardware, 6 bulan garansi software gratis, ditambah perlindungan sisa garansi resmi pabrikan yang aktif.</p>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Garansi Lengkap & Transparan</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Kami memberikan jaminan penuh: 1 bulan garansi hardware, 6 bulan garansi software gratis, ditambah perlindungan sisa garansi pabrikan.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <Activity className="w-5 h-5 text-slate-600 shrink-0 stroke-[1.5] mt-0.5" />
+                  <div className="flex gap-4 group">
+                    <div className="mt-1 text-slate-300 dark:text-slate-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      <Activity className="w-5 h-5 stroke-[1.5]" />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Servis & Upgrade Transparan</h4>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Layanan perbaikan dan peningkatan spesifikasi dilakukan secara terbuka, mudah dipantau, dengan harga yang kompetitif.</p>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Servis & Upgrade Transparan</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Layanan perbaikan dan peningkatan spesifikasi dilakukan secara terbuka, mudah dipantau, dengan rincian harga yang kompetitif.
+                      </p>
                     </div>
                   </div>
 
                 </div>
+
               </div>
             </div>
           </section>
 
-          {/* VISUAL BUKTI: BEFORE-AFTER GALLERY */}
-          <section className="mt-12 sm:mt-16 space-y-6 sm:space-y-8">
-            <div className="text-center space-y-2">
-              <span className="bg-slate-100 text-slate-800 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-200">
-                Hasil Nyata Servis Kami
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Galeri Hasil Kerja Teknisi Han Laptop
+          {/* VISUAL BUKTI: CLEAN MINIMALIST GALLERY */}
+          <section className="mt-16 sm:mt-20 max-w-5xl mx-auto px-4 space-y-10">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                Galeri Hasil Servis
               </h2>
-              <p className="text-slate-600 max-w-xl mx-auto text-sm font-normal">
-                Lihat bukti nyata pengerjaan perbaikan berbagai tingkat kerusakan oleh teknisi profesional kami. Klik foto untuk melihat lebih dekat.
+              <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-sm leading-relaxed">
+                Lihat bukti nyata pengerjaan perbaikan berbagai tingkat kerusakan oleh teknisi profesional kami.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
                 {
                   title: "Servis Layar LCD Pecah",
                   img: "/before-after-lcd.jpg",
                   badge: "LCD Replacement",
-                  desc: "Layar pecah bergaris parah di Asus Zenbook diganti baru dengan layar berkualitas original, warna cerah presisi."
+                  desc: "Layar pecah bergaris parah di Asus Zenbook diganti baru dengan layar original berkualitas."
                 },
                 {
-                  title: "Servis Engsel Patah (Asus)",
+                  title: "Servis Engsel Patah",
                   img: "/before-after-engsel-1.jpg",
                   badge: "Hinge Repair",
-                  desc: "Konstruksi dudukan engsel casing yang hancur disolder dan diperbaiki kembali agar kokoh dibuka-tutup."
+                  desc: "Konstruksi dudukan engsel casing yang hancur diperbaiki kembali agar kokoh dibuka-tutup."
                 },
                 {
-                  title: "Perawatan & Cleaning Laptop",
+                  title: "Perawatan & Repasta",
                   img: "/before-after-cleaning.jpg",
                   badge: "Cleaning & Repasta",
-                  desc: "Suhu panas dan lemot diatasi dengan cleaning fan total dari debu serta penggantian thermal paste premium baru."
+                  desc: "Suhu panas diatasi dengan cleaning fan total dari debu serta penggantian thermal paste premium."
                 }
               ].map((item, idx) => (
                 <div 
                   key={idx}
-                  className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col group h-full"
+                  className="group flex flex-col h-full"
                 >
                   <div 
-                    className="relative overflow-hidden cursor-zoom-in h-52 sm:h-60 w-full bg-slate-50 flex items-center justify-center border-b border-slate-100" 
+                    className="relative overflow-hidden cursor-zoom-in h-56 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 mb-5" 
                     onClick={() => setLightboxImage(item.img)}
                   >
                     <img 
                       src={item.img} 
                       alt={item.title} 
-                      className="max-w-full max-h-full object-contain group-hover:scale-101 transition-transform duration-500"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <div className="p-3 flex-1 flex flex-col justify-between space-y-2.5">
-                    <div className="space-y-1.5">
-                      <span className="inline-block text-[8px] font-extrabold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        {item.badge}
-                      </span>
-                      <h3 className="font-bold text-slate-900 text-xs mt-0.5">{item.title}</h3>
-                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+                  <div className="flex-1 flex flex-col space-y-2">
+                    <div>
+                      <span className="inline-block px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md text-[9px] font-bold uppercase tracking-widest">{item.badge}</span>
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base mt-2 group-hover:text-blue-600 transition-colors">{item.title}</h3>
                     </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed flex-1 mt-1">{item.desc}</p>
+                    
                     <button
                       type="button"
                       onClick={() => {
@@ -1738,9 +1714,9 @@ export default function LandingPage() {
                           window.scrollTo({ top: 500, behavior: "smooth" });
                         }
                       }}
-                      className="w-full h-8 border border-slate-200 hover:border-slate-800 text-slate-800 hover:text-white hover:bg-slate-900 transition-colors rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      className="text-[11px] font-bold text-slate-900 dark:text-white text-left mt-3 hover:text-slate-500 transition-colors inline-flex items-center gap-1.5"
                     >
-                      Konsultasi Servis Ini →
+                      Konsultasi Servis Serupa <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1748,58 +1724,50 @@ export default function LandingPage() {
             </div>
           </section>
 
-          {/* TESTIMONI EDITORIAL & GALERI KONSUMEN */}
-          <section className="mt-16 sm:mt-20 space-y-8 sm:space-y-10">
-            <div className="text-center space-y-2">
-              <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-250/30">
-                Testimoni & Kepercayaan
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Kata Mereka Tentang Kami
+          {/* TESTIMONI: CLEAN MINIMALIST EDITORIAL */}
+          <section className="mt-20 sm:mt-28 max-w-5xl mx-auto px-4 space-y-12">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                Kata Mereka
               </h2>
-              <p className="text-slate-650 max-w-2xl mx-auto text-sm font-normal">
-                Senyum kebahagiaan dari ribuan pelanggan yang telah membuktikan langsung layanan jual-beli dan servis laptop terbaik, transparan, dan bergaransi di toko kami.
+              <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-sm leading-relaxed">
+                Ribuan pelanggan telah membuktikan langsung layanan jual-beli dan servis laptop di tempat kami.
               </p>
             </div>
 
             {/* Customer Photo Collage Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto px-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {[
                 {
-                  title: "Senyum Kepuasan Sahabat Han Laptop",
-                  img: assetUrl("/customer-testimonials-1.png"),
-                  count: "100+ Transaksi"
+                  title: "Senyum Kepuasan Kustomer",
+                  img: assetUrl("/customer-testimonials-1.png")
                 },
                 {
-                  title: "Bukti Nyata Ribuan Transaksi Sukses & Aman",
-                  img: assetUrl("/customer-testimonials-2.png"),
-                  count: "Layanan Terpercaya"
+                  title: "Bukti Ribuan Transaksi Sukses",
+                  img: assetUrl("/customer-testimonials-2.png")
                 }
               ].map((collage, idx) => (
                 <div 
                   key={idx}
-                  className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all group flex flex-col cursor-zoom-in"
+                  className="group cursor-zoom-in"
                   onClick={() => setLightboxImage(collage.img)}
                 >
-                  <div className="relative w-full overflow-hidden bg-slate-50 flex items-center justify-center border-b border-slate-100">
+                  <div className="relative w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <img 
                       src={collage.img} 
                       alt={collage.title} 
-                      className="w-full h-auto object-contain group-hover:scale-101 transition-transform duration-500"
+                      className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-700"
                     />
-                    <div className="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase border border-white/10">
-                      {collage.count}
-                    </div>
                   </div>
-                  <div className="p-3 bg-slate-50 text-center">
-                    <span className="text-xs font-bold text-slate-800">{collage.title}</span>
+                  <div className="pt-4 text-center">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{collage.title}</span>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Editorial Text Reviews */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-6xl mx-auto pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
               {[
                 {
                   name: "Budi Santoso", role: "Desainer Grafis",
@@ -1817,8 +1785,8 @@ export default function LandingPage() {
                   stars: 5
                 }
               ].map((testimonial, idx) => (
-                <div key={idx} className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col justify-between space-y-4 hover:shadow-lg hover:border-slate-350 transition-all">
-                  <div className="space-y-3">
+                <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] flex flex-col justify-between space-y-6 shadow-sm group hover:border-amber-200 dark:hover:border-amber-900/50 transition-colors">
+                  <div className="space-y-4">
                     <div className="flex text-amber-400">
                       {[...Array(testimonial.stars)].map((_, i) => (
                         <svg key={i} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 fill-current" viewBox="0 0 20 20">
@@ -1826,16 +1794,16 @@ export default function LandingPage() {
                         </svg>
                       ))}
                     </div>
-                    <p className="text-xs text-slate-650 leading-relaxed font-normal italic">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-serif italic">
                       "{testimonial.review}"
                     </p>
                   </div>
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-slate-800">{testimonial.name}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold">{testimonial.role}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{testimonial.name}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">{testimonial.role}</p>
                     </div>
-                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">Verified Buyer ✓</span>
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 px-2 py-1 rounded-full">✓ Terverifikasi</span>
                   </div>
                 </div>
               ))}

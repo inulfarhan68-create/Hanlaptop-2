@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicianCommissions } from '@/db/schema';
-import { requireAuth } from '@/lib/auth-guard';
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +19,8 @@ export async function GET(request: Request) {
     try {
         let conditions = [];
         
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(technicianCommissions.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, technicianCommissions.storeId);
+        if (scope) conditions.push(scope);
 
         if (technicianId) {
             conditions.push(eq(technicianCommissions.technicianId, technicianId));

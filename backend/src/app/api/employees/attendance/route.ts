@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { attendances, employees } from "@/db/schema";
 import { and, eq, like, desc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
         
         const isOwnerOrManager = authResult.storeRole === "owner" || 
                                  authResult.storeRole === "manager" || 
-                                 authResult.user.role === "owner" || 
+                                 (authResult.user.role === "owner" || authResult.user.role === "platform_admin") || 
                                  authResult.user.role === "manager";
 
         // Find employee record mapped to this user
@@ -33,9 +33,8 @@ export async function GET(request: Request) {
         let conditions = [];
         
         // 1. Filter by store
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(attendances.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, attendances.storeId);
+        if (scope) conditions.push(scope);
 
         // 2. Filter by employee (privacy/role check)
         if (!isOwnerOrManager && currentEmployee) {

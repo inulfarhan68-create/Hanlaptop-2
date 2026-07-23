@@ -174,9 +174,10 @@ export const PLAN_SEED: PlanSeed[] = [
 
 /** Paid add-ons (variable-cost / premium), billed separately from the base plan. */
 export const ADDONS = [
-    { key: "aiOcr", name: "AI OCR Invoice", desc: "Scan & impor nota otomatis." },
-    { key: "aiPricing", name: "AI Pricing Laptop", desc: "Estimasi harga jual & buyback." },
-    { key: "storage", name: "Storage Tambahan", desc: "Kapasitas foto/lampiran ekstra." },
-    { key: "whatsapp", name: "WhatsApp API", desc: "Kirim nota & pengingat otomatis." },
-    { key: "customDomain", name: "Custom Domain", desc: "Katalog di domain sendiri." },
+    { key: "aiSpec", name: "AI Cek Spesifikasi", desc: "Isi otomatis spek lengkap hanya dari foto atau serial number laptop." },
+    { key: "aiOcr", name: "AI OCR Invoice", desc: "Scan & impor nota/faktur supplier otomatis jadi data stok." },
+    { key: "aiPricing", name: "AI Pricing & Buyback", desc: "Prediksi cerdas estimasi harga jual & beli berdasarkan data pasar." },
+    { key: "whatsapp", name: "WhatsApp API (Verified)", desc: "Kirim nota & pengingat servis otomatis ke pelanggan." },
+    { key: "customDomain", name: "Custom Domain", desc: "Katalog online & portal pelanggan menggunakan domain toko Anda." },
+    { key: "storage", name: "Cloud Storage Ekstra", desc: "Kapasitas 100GB tambahan untuk foto barang, KTP, dan bukti servis." },
 ] as const;

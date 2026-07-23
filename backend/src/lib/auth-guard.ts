@@ -1,10 +1,12 @@
 import { auth } from "./auth";
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { db } from "@/db";
 import { userStoreAccess, stores } from "@/db/schema";
 import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission } from "./permissions";
+import { subscriptions, plans } from "@/db/schema/saas";
+import { hasFeature, type FeatureKey } from "./features";
 
 /** All store ids belonging to an organization (the org's tenant boundary). */
 export async function getOrgStoreIds(organizationId: string): Promise<string[]> {
@@ -43,6 +45,13 @@ export interface AuthContext {
      * store in their org; for other roles, their granted stores. Use with `storeScope()`.
      */
     accessibleStoreIds: string[] | null;
+    /**
+     * The active plan for the organization, fetched from the database.
+     * Contains the raw plan data (including limits and features JSON).
+     */
+    plan: typeof plans.$inferSelect | null;
+    /** Whether the platform admin is currently impersonating a tenant. */
+    isImpersonating?: boolean;
 }
 
 /**
@@ -111,32 +120,65 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         // ── Tenant resolution (Phase 2 isolation core) ──
         const authUser = session.user as AuthUser;
         const isPlatformAdmin = authUser.role === "platform_admin";
+        
+        // Phase 6 Impersonation: Intercept and override if cookie exists
+        let isImpersonating = false;
+        let impersonatedOrgId: string | null = null;
+        if (isPlatformAdmin) {
+            const cookieStore = await cookies();
+            const impCookie = cookieStore.get("x-impersonate-org-id");
+            if (impCookie?.value) {
+                isImpersonating = true;
+                impersonatedOrgId = impCookie.value;
+            }
+        }
+
         // Prefer the persisted user.organizationId; fall back to the org of the user's
         // first accessible store (keeps pre-backfill / stale sessions working).
-        let organizationId: string | null = (authUser as { organizationId?: string | null }).organizationId ?? null;
+        let organizationId: string | null = isImpersonating 
+            ? impersonatedOrgId 
+            : ((authUser as { organizationId?: string | null }).organizationId ?? null);
+
         if (!organizationId && !isPlatformAdmin && accessibleStores.length > 0) {
             const [row] = await db.select({ orgId: stores.organizationId })
                 .from(stores).where(eq(stores.id, accessibleStores[0].storeId)).limit(1);
             organizationId = row?.orgId ?? null;
         }
+        
         // Store-id boundary for the `storeId === "all"` path (see storeScope):
         let accessibleStoreIds: string[] | null;
-        if (isPlatformAdmin) {
+        if (isPlatformAdmin && !isImpersonating) {
             accessibleStoreIds = null; // unrestricted — global operator
-        } else if (authUser.role === "owner" && organizationId) {
+        } else if ((authUser.role === "owner" || isImpersonating) && organizationId) {
             accessibleStoreIds = await getOrgStoreIds(organizationId); // every store in the tenant
         } else {
             accessibleStoreIds = accessibleStores.map((s) => s.storeId);
         }
 
+        let plan: typeof plans.$inferSelect | null = null;
+        if (organizationId) {
+            // Fetch the active subscription and its plan
+            const [activeSub] = await db.select({ plan: plans })
+                .from(subscriptions)
+                .innerJoin(plans, eq(subscriptions.planKey, plans.key))
+                .where(eq(subscriptions.organizationId, organizationId))
+                .limit(1);
+            
+            if (activeSub?.plan) {
+                plan = activeSub.plan;
+            }
+        }
+
         return {
             session,
+            user: session.user as AuthUser,
             storeId: finalStoreId ?? "all",
-            storeRole: targetAccess.role,
-            user: authUser, // single boundary assertion for the custom `role` field
+            storeRole: isImpersonating ? "owner" : (targetAccess.role as AuthUser["role"]),
             organizationId,
             isPlatformAdmin,
+            isImpersonating,
             accessibleStoreIds,
+            plan
         };
     } catch {
         return NextResponse.json(
@@ -153,7 +195,7 @@ export async function requireOwner(): Promise<AuthContext | NextResponse> {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    if (authResult.storeRole !== "owner" && authResult.user.role !== "owner") {
+    if (authResult.storeRole !== "owner" && authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
         return NextResponse.json(
             { error: "Forbidden — owner access required for this store" },
             { status: 403 }
@@ -171,7 +213,7 @@ export async function requireOwnerOnly(): Promise<AuthContext | NextResponse> {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    if (authResult.user.role !== "owner") {
+    if (authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
         return NextResponse.json(
             { error: "Forbidden — global owner access required" },
             { status: 403 }
@@ -188,7 +230,7 @@ export async function requireOwnerOrManager(): Promise<AuthContext | NextRespons
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner") {
+    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
         return NextResponse.json(
             { error: "Forbidden — owner or manager access required for this store" },
             { status: 403 }
@@ -220,7 +262,7 @@ export async function requireReportAccess(): Promise<AuthContext | NextResponse>
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.storeRole !== "investor" && authResult.user.role !== "owner") {
+    if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.storeRole !== "investor" && authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
         return NextResponse.json(
             { error: "Forbidden — report access required for this store" },
             { status: 403 }
@@ -237,10 +279,10 @@ export async function requirePermission(permission: Permission): Promise<AuthCon
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    // A user might have a global role (authResult.user.role) OR a store-specific role (authResult.storeRole).
-    // If global owner, they have all permissions.
-    const globalRole = authResult.user.role;
-    if (globalRole === "owner") return authResult;
+    // Only platform_admin bypasses PBAC entirely. Tenant owners get their
+    // permissions from RolePermissionsMatrix["owner"] (= all permissions),
+    // but they're still tenant-scoped via storeScope() in each query.
+    if (authResult.isPlatformAdmin) return authResult;
 
     const role = authResult.storeRole;
     if (!hasPermission(role, permission)) {
@@ -288,4 +330,74 @@ export function storeScope(authResult: Pick<AuthContext, "accessibleStoreIds">, 
     if (ids === null) return undefined;       // platform_admin: unrestricted
     if (ids.length === 0) return sql`false`;  // no access: match nothing
     return inArray(column, ids);
+}
+
+/**
+ * Feature Flag Guard: Checks if the user's organization has a specific feature.
+ * Must be called in route handlers to enforce plan limits on the backend.
+ */
+export async function requireFeature(feature: FeatureKey): Promise<AuthContext | NextResponse> {
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
+    if (authResult.isPlatformAdmin) return authResult;
+
+    if (!authResult.plan || !hasFeature(authResult.plan, feature)) {
+        return NextResponse.json(
+            { error: `Payment Required — Your current plan does not support the '${feature}' feature.` },
+            { status: 402 }
+        );
+    }
+
+    return authResult;
+}
+
+/**
+ * Validates if the organization has reached its plan quota for a specific resource.
+ * Returns a NextResponse (402 Payment Required) if the quota is exceeded, otherwise null.
+ */
+export async function checkQuota(
+    authResult: AuthContext,
+    resource: "stores" | "users" | "transactions"
+): Promise<NextResponse | null> {
+    if (authResult.isPlatformAdmin) return null;
+    const plan = authResult.plan;
+    if (!plan) return null; // Defensive, if no plan found, don't hard block.
+
+    const orgId = authResult.organizationId;
+    if (!orgId) return null;
+
+    if (resource === "stores" && plan.maxStores !== null) {
+        const [{ count }] = await db.select({ count: sql<number>`count(*)` })
+            .from(stores).where(eq(stores.organizationId, orgId));
+        if (count >= plan.maxStores) {
+            return NextResponse.json(
+                { error: `Payment Required — Quota reached. Your plan allows a maximum of ${plan.maxStores} stores.` },
+                { status: 402 }
+            );
+        }
+    }
+
+    if (resource === "users" && plan.maxUsers !== null) {
+        // Count unique users who have access to any store in this org
+        const [{ count }] = await db.select({ count: sql<number>`count(distinct ${userStoreAccess.userId})` })
+            .from(userStoreAccess)
+            .innerJoin(stores, eq(userStoreAccess.storeId, stores.id))
+            .where(eq(stores.organizationId, orgId));
+            
+        if (count >= plan.maxUsers) {
+            return NextResponse.json(
+                { error: `Payment Required — Quota reached. Your plan allows a maximum of ${plan.maxUsers} users.` },
+                { status: 402 }
+            );
+        }
+    }
+
+    if (resource === "transactions" && plan.maxTransactionsPerMonth !== null) {
+        // Let's implement the soft limit warning on the frontend instead, 
+        // but if we want a hard block, we can do it here.
+        // For Phase 4, we will only do soft limits for transactions, so we skip hard block.
+    }
+
+    return null;
 }

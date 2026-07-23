@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stores, activityLogs, userStoreAccess, organizations } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
-import { requireOwner } from "@/lib/auth-guard";
+import { eq, desc, and } from "drizzle-orm";
+import { requireOwner, checkQuota, storeScope } from "@/lib/auth-guard";
 import { createStoreSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
@@ -23,13 +23,16 @@ function slugify(text: string) {
         .replace(/-+$/, '');
 }
 
-// GET /api/stores - Fetch all stores
+// GET /api/stores - Fetch all stores (tenant-scoped)
 export async function GET(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
     try {
+        // 🔒 Tenant isolation: platform_admin sees all; owner sees only their org's stores.
+        const scope = storeScope(authResult, stores.id);
         const data = await db.query.stores.findMany({
+            where: scope,
             orderBy: [desc(stores.createdAt)]
         });
         return NextResponse.json(data);
@@ -46,6 +49,9 @@ export async function POST(request: Request) {
 
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const quotaCheck = await checkQuota(authResult, "stores");
+    if (quotaCheck instanceof NextResponse) return quotaCheck;
 
     try {
         const rawBody = await request.json();

@@ -8,190 +8,182 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { db } from '../../src/db';
+import { stores, user, session, transactions, inventory, customers, serviceOrders } from '../../src/db/schema';
+import { eq } from 'drizzle-orm';
+import crypto from 'crypto';
 
 // Configuration
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const API_URL = process.env.E2E_API_URL || 'http://localhost:3000/api';
+const API_URL = '/api';
 
 test.describe('Multi-Tenant Isolation', () => {
-  let storeA: { id: string; name: string; userId: string };
-  let storeB: { id: string; name: string; userId: string };
+  let storeAId: string;
+  let storeBId: string;
   let storeAToken: string;
-  let storeBtoken: string;
+  let storeBToken: string;
+
+  let txBId: string;
+  let invBId: string;
+  let custBId: string;
+  let svcBId: string;
 
   test.beforeAll(async () => {
-    // Setup: Create two stores and users
-    // In real tests, you'd use seeded test data
-    storeA = {
-      id: 'store-a-test-id',
-      name: 'Toko A Test',
-      userId: 'user-a-test-id',
-    };
-    storeB = {
-      id: 'store-b-test-id',
-      name: 'Toko B Test',
-      userId: 'user-b-test-id',
-    };
+    // 1. Setup: Create two stores
+    storeAId = `store-a-${Date.now()}`;
+    storeBId = `store-b-${Date.now()}`;
+
+    await db.insert(stores).values([
+      { id: storeAId, name: 'Toko A Test', address: 'Alamat A', phone: '123' },
+      { id: storeBId, name: 'Toko B Test', address: 'Alamat B', phone: '456' },
+    ]);
+
+    // 2. Setup: Create two users
+    const userAId = `user-a-${Date.now()}`;
+    const userBId = `user-b-${Date.now()}`;
+
+    await db.insert(user).values([
+      { id: userAId, email: `a-${Date.now()}@test.com`, name: 'User A', role: 'admin', storeId: storeAId, emailVerified: true, createdAt: new Date(), updatedAt: new Date() },
+      { id: userBId, email: `b-${Date.now()}@test.com`, name: 'User B', role: 'admin', storeId: storeBId, emailVerified: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    // 3. Setup: Create sessions for both users (Simulate login)
+    storeAToken = crypto.randomBytes(32).toString('hex');
+    storeBToken = crypto.randomBytes(32).toString('hex');
+
+    await db.insert(session).values([
+      { id: storeAToken, userId: userAId, token: storeAToken, expiresAt: new Date(Date.now() + 1000000), ipAddress: '127.0.0.1', userAgent: 'test', createdAt: new Date(), updatedAt: new Date() },
+      { id: storeBToken, userId: userBId, token: storeBToken, expiresAt: new Date(Date.now() + 1000000), ipAddress: '127.0.0.1', userAgent: 'test', createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    // 4. Setup: Create data in Store B
+    txBId = `tx-b-${Date.now()}`;
+    await db.insert(transactions).values({
+      id: txBId,
+      storeId: storeBId,
+      transactionType: 'Penjualan',
+      invoiceNumber: `INV-B-${Date.now()}`,
+      amount: 1000,
+      paymentMethod: 'Tunai',
+      paymentStatus: 'Lunas',
+      transactionDate: new Date(),
+    });
+
+    invBId = `inv-b-${Date.now()}`;
+    await db.insert(inventory).values({
+      id: invBId,
+      storeId: storeBId,
+      itemCode: `ITEM-B-${Date.now()}`,
+      itemName: 'Laptop B',
+      category: 'Laptop',
+      brand: 'Test',
+      costPrice: 500,
+      sellingPrice: 1000,
+      quantity: 10,
+    });
+
+    custBId = `cust-b-${Date.now()}`;
+    await db.insert(customers).values({
+      id: custBId,
+      storeId: storeBId,
+      name: 'Customer B',
+      phone: '081234567890',
+    });
+
+    svcBId = `svc-b-${Date.now()}`;
+    await db.insert(serviceOrders).values({
+      id: svcBId,
+      storeId: storeBId,
+      customerId: custBId,
+      serviceNumber: `SVC-B-${Date.now()}`,
+      deviceName: 'Device B',
+      issue: 'Mati Total',
+      status: 'Antrian',
+    });
+
+  });
+
+  test.afterAll(async () => {
+    // Cleanup to keep DB clean
+    await db.delete(serviceOrders).where(eq(serviceOrders.id, svcBId));
+    await db.delete(customers).where(eq(customers.id, custBId));
+    await db.delete(inventory).where(eq(inventory.id, invBId));
+    await db.delete(transactions).where(eq(transactions.id, txBId));
+    await db.delete(session).where(eq(session.id, storeAToken));
+    await db.delete(session).where(eq(session.id, storeBToken));
+    await db.delete(user).where(eq(user.storeId, storeAId));
+    await db.delete(user).where(eq(user.storeId, storeBId));
+    await db.delete(stores).where(eq(stores.id, storeAId));
+    await db.delete(stores).where(eq(stores.id, storeBId));
   });
 
   test.describe('Store A should NOT access Store B data', () => {
     test('GET /api/transactions/[id] - Store A cannot fetch Store B transaction', async ({ request }) => {
-      // Get a transaction ID from Store B
-      const storeBTransactions = await request.get(`${API_URL}/transactions`, {
+      const storeAAccess = await request.get(`${API_URL}/transactions/${txBId}`, {
         headers: {
-          'x-store-id': storeB.id,
-          'Cookie': `better-auth.session_token=${storeBtoken}`,
-        },
-      });
-      const storeBData = await storeBTransactions.json();
-      const storeBTransactionId = storeBData[0]?.id;
-
-      if (!storeBTransactionId) {
-        test.skip();
-        return;
-      }
-
-      // Try to access from Store A
-      const storeAAccess = await request.get(`${API_URL}/transactions/${storeBTransactionId}`, {
-        headers: {
-          'x-store-id': storeA.id,
+          'x-store-id': storeAId,
           'Cookie': `better-auth.session_token=${storeAToken}`,
         },
       });
-
-      // Should be 404 (not found or access denied
+      // 404 because storeScope filters out Store B's transaction
       expect(storeAAccess.status()).toBe(404);
     });
 
     test('GET /api/inventory/[id] - Store A cannot fetch Store B inventory', async ({ request }) => {
-      // Get inventory from Store B
-      const storeBInventory = await request.get(`${API_URL}/inventory`, {
+      const storeAAccess = await request.get(`${API_URL}/inventory/${invBId}`, {
         headers: {
-          'x-store-id': storeB.id,
-          'Cookie': `better-auth.session_token=${storeBtoken}`,
-        },
-      });
-      const storeBData = await storeBInventory.json();
-      const storeBInventoryId = storeBData.data?.[0]?.id;
-
-      if (!storeBInventoryId) {
-        test.skip();
-        return;
-      }
-
-      // Try to access from Store A
-      const storeAAccess = await request.get(`${API_URL}/inventory/${storeBInventoryId}`, {
-        headers: {
-          'x-store-id': storeA.id,
+          'x-store-id': storeAId,
           'Cookie': `better-auth.session_token=${storeAToken}`,
         },
       });
-
       expect(storeAAccess.status()).toBe(404);
     });
 
     test('GET /api/customers/[id] - Store A cannot fetch Store B customer', async ({ request }) => {
-      const storeBCustomers = await request.get(`${API_URL}/customers`, {
+      const storeAAccess = await request.get(`${API_URL}/customers/${custBId}`, {
         headers: {
-          'x-store-id': storeB.id,
-          'Cookie': `better-auth.session_token=${storeBtoken}`,
-        },
-      });
-      const storeBData = await storeBCustomers.json();
-      const storeBCustomerId = storeBData.customers?.[0]?.id;
-
-      if (!storeBCustomerId) {
-        test.skip();
-        return;
-      }
-
-      const storeAAccess = await request.get(`${API_URL}/customers/${storeBCustomerId}`, {
-        headers: {
-          'x-store-id': storeA.id,
+          'x-store-id': storeAId,
           'Cookie': `better-auth.session_token=${storeAToken}`,
         },
       });
-
       expect(storeAAccess.status()).toBe(404);
     });
 
     test('GET /api/services/[id] - Store A cannot fetch Store B service order', async ({ request }) => {
-      const storeBServices = await request.get(`${API_URL}/services`, {
+      const storeAAccess = await request.get(`${API_URL}/services/${svcBId}`, {
         headers: {
-          'x-store-id': storeB.id,
-          'Cookie': `better-auth.session_token=${storeBtoken}`,
-        },
-      });
-      const storeBData = await storeBServices.json();
-      const storeBServiceId = storeBData.services?.[0]?.id;
-
-      if (!storeBServiceId) {
-        test.skip();
-        return;
-      }
-
-      const storeAAccess = await request.get(`${API_URL}/services/${storeBServiceId}`, {
-        headers: {
-          'x-store-id': storeA.id,
+          'x-store-id': storeAId,
           'Cookie': `better-auth.session_token=${storeAToken}`,
         },
       });
-
       expect(storeAAccess.status()).toBe(404);
     });
   });
 
   test.describe('Store should only see their own data', () => {
-    test('GET /api/transactions - Store A only gets Store A transactions', async ({ request }) => {
+    test('GET /api/transactions - Store A only gets Store A transactions (Empty)', async ({ request }) => {
       const response = await request.get(`${API_URL}/transactions`, {
         headers: {
-          'x-store-id': storeA.id,
+          'x-store-id': storeAId,
           'Cookie': `better-auth.session_token=${storeAToken}`,
         },
       });
-
       expect(response.status()).toBe(200);
       const data = await response.json();
-
-      // All transactions should belong to Store A
-      for (const tx of data.slice(0, 10)) {
-        expect(tx.storeId).toBe(storeA.id);
-      }
+      expect(data.length).toBe(0); // Store A has no transactions
     });
 
-    test('GET /api/inventory - Store B only gets Store B inventory', async ({ request }) => {
-      const response = await request.get(`${API_URL}/inventory?limit=50`, {
+    test('GET /api/transactions - Store B only gets Store B transactions (1 item)', async ({ request }) => {
+      const response = await request.get(`${API_URL}/transactions`, {
         headers: {
-          'x-store-id': storeB.id,
-          'Cookie': `better-auth.session_token=${storeBtoken}`,
+          'x-store-id': storeBId,
+          'Cookie': `better-auth.session_token=${storeBToken}`,
         },
       });
-
       expect(response.status()).toBe(200);
       const data = await response.json();
-
-      // All inventory should belong to Store B
-      for (const item of (data.data || []).slice(0, 10)) {
-        expect(item.storeId).toBe(storeB.id);
-      }
+      expect(data.length).toBe(1);
+      expect(data[0].id).toBe(txBId);
+      expect(data[0].storeId).toBe(storeBId);
     });
-  });
-});
-
-test.describe('Global Owner Access', () => {
-  let globalOwnerToken: string;
-
-  test('Global owner can access any store when storeId=current', async ({ request }) => {
-    // Owner should be able to access data from any store when they specify it
-    // This tests the "owner bypass" in storeId="all" scenario
-    const response = await request.get(`${API_URL}/transactions`, {
-      headers: {
-        'x-store-id': 'all',
-        'Cookie': `better-auth.session_token=${globalOwnerToken}`,
-      },
-    });
-
-    // Should succeed (even if empty)
-    expect([200, 404]).toContain(response.status());
   });
 });

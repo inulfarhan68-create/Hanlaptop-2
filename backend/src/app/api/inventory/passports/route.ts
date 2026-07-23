@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { devicePassports, inventory } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { registerDevicePassport } from "@/lib/digital-passport";
 
 export const dynamic = 'force-dynamic';
@@ -17,9 +17,8 @@ export async function GET(request: Request) {
 
     try {
         let conditions = [];
-        if (authResult.storeId !== "all") {
-            conditions.push(eq(devicePassports.storeId, authResult.storeId));
-        }
+        const scope = storeScope(authResult, devicePassports.storeId);
+        if (scope) conditions.push(scope);
         
         if (status) {
             conditions.push(eq(devicePassports.status, status as any));
@@ -61,21 +60,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "serialNumber and inventoryId are required" }, { status: 400 });
         }
 
-        // Verify inventory exists and belongs to this store
+        // 🔒 Tenant-safe: verify inventory belongs to user's accessible stores
+        const scope = storeScope(authResult, inventory.storeId);
         const inv = await db.query.inventory.findFirst({
-            where: eq(inventory.id, inventoryId)
+            where: and(eq(inventory.id, inventoryId), scope)
         });
 
         if (!inv) {
             return NextResponse.json({ error: "Inventory item not found" }, { status: 404 });
         }
 
-        if (inv.storeId !== authResult.storeId && authResult.storeId !== "all") {
-            return NextResponse.json({ error: "Unauthorized for this store" }, { status: 403 });
-        }
-
         const passport = await registerDevicePassport(
-            authResult.storeId === "all" ? inv.storeId : authResult.storeId,
+            inv.storeId,
             inventoryId,
             serialNumber,
             'READY_FOR_SALE',
