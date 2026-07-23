@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employees, activityLogs, user, technicians } from '@/db/schema';
-import { requireReportAccess, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import { employeeSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         let conditions = [];
@@ -36,6 +39,9 @@ export async function GET() {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { chartOfAccounts, journalEntries, transactions } from "@/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, requireFeature } from "@/lib/auth-guard";
 import { getGeneralLedger, calculateAccountBalance } from "@/services/AccountingService";
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +12,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const { searchParams } = new URL(request.url);

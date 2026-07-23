@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, activityLogs, serviceOrders, technicianCommissions } from '@/db/schema';
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { technicianSchema } from '@/lib/validators';
 import { eq, desc, like, and, sql } from 'drizzle-orm';
 
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
@@ -60,6 +63,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockTransfers, stockTransferItems, inventory, activityLogs, stores } from "@/db/schema";
 import { eq, or, and, gte, lte, count, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import { stockTransferSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("stockTransfer");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         let transfersList;
@@ -54,6 +57,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("stockTransfer");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Silakan pilih cabang asal yang spesifik" }, { status: 400 });

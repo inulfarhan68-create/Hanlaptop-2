@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, qcInspections, activityLogs, devicePassports } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { qcInspectionSchema } from "@/lib/validators";
 import { transitionDeviceStatus } from "@/lib/digital-passport";
 
@@ -81,6 +81,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("qc");
+    if (featureCheck instanceof NextResponse) return featureCheck;
     
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;

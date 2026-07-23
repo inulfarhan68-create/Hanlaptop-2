@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, suppliers } from "@/db/schema";
-import { requireAuth, requireWriteAccess } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requireFeature } from "@/lib/auth-guard";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("buyback");
+    if (featureCheck instanceof NextResponse) return featureCheck;
     
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;

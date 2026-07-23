@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { fixedAssets, depreciationEntries, fiscalPeriods, journalEntries, chartOfAccounts } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { requireReportAccess, requireOwner } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwner, requireFeature } from "@/lib/auth-guard";
 import { calculateMonthlyDepreciation, calculateAccumulatedDepreciation, getFixedAssetsWithDepreciation } from "@/services/AccountingService";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("fixedAssets");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const assets = await getFixedAssetsWithDepreciation(authResult.storeId);
@@ -28,6 +31,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("fixedAssets");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();
@@ -94,6 +100,9 @@ export async function PUT(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
+    const featureCheck = await requireFeature("fixedAssets");
+    if (featureCheck instanceof NextResponse) return featureCheck;
+
     try {
         const body = await request.json();
         const { id, name, description, status, disposedDate, disposedNotes, disposedProceeds } = body;
@@ -149,6 +158,9 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("fixedAssets");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const { searchParams } = new URL(request.url);

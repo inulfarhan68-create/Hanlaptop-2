@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { payrolls, employees } from '@/db/schema';
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import { payrollSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period');
@@ -45,6 +48,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("hr");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to create a payroll" }, { status: 400 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/auth-guard";
+import { requireReportAccess, requireFeature } from "@/lib/auth-guard";
 import { mapUnmappedJournalEntries, getMappingStats, validateMappings } from "@/services/JournalMappingService";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         // Map all unmapped entries
@@ -41,6 +44,9 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("accounting");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const { searchParams } = new URL(request.url);

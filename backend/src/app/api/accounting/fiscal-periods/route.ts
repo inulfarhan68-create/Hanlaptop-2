@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { fiscalPeriods, closingEntries, journalEntries, chartOfAccounts } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { requireReportAccess, requireOwner } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwner, requireFeature } from "@/lib/auth-guard";
 import { getIncomeStatement } from "@/services/AccountingService";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("closingPeriod");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const periods = await db.query.fiscalPeriods.findMany({
@@ -32,6 +35,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("closingPeriod");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();
@@ -84,6 +90,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("closingPeriod");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

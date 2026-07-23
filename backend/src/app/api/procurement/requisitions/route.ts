@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { purchaseRequisitions, employees } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireFeature } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("purchaseOrder");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         let conditions = [];
@@ -37,6 +40,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("purchaseOrder");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import { createOpnameSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
@@ -12,6 +12,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("stockOpname");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const storeId = authResult.storeId;
@@ -37,6 +40,9 @@ export async function POST(request: Request) {
 
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("stockOpname");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const rawBody = await request.json();

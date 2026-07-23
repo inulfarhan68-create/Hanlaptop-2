@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { devicePassports, inventory } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireFeature } from "@/lib/auth-guard";
 import { registerDevicePassport } from "@/lib/digital-passport";
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("devicePassport");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -51,6 +54,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("devicePassport");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

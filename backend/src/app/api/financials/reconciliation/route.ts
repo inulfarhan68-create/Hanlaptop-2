@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { bankMutations, transactions, journalEntries } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("bankReconciliation");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         let conditions = [];
@@ -37,6 +40,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("bankReconciliation");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Silakan pilih cabang terlebih dahulu untuk melakukan rekonsiliasi." }, { status: 400 });

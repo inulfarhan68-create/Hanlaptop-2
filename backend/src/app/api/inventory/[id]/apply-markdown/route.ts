@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs, journalEntries, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { InventoryService } from "@/services/InventoryService";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("markdown");
+    if (featureCheck instanceof NextResponse) return featureCheck;
     
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;

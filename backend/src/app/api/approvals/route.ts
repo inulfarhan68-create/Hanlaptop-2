@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { approvalRequests } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, requireFeature } from "@/lib/auth-guard";
 import { Permissions, hasPermission } from "@/lib/permissions";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const featureCheck = await requireFeature("approvals");
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     // Only managers or owners can view approvals
     if (authResult.storeRole !== "owner" && authResult.storeRole !== "manager" && authResult.user.role !== "owner" && authResult.user.role !== "platform_admin") {
