@@ -10,6 +10,14 @@ import { eq, and } from "drizzle-orm";
  */
 export async function POST(request: Request) {
     try {
+        // SECURITY: gate the billing webhook (it mutates subscription/invoice state).
+        // When a real gateway (Midtrans/Xendit) is wired, replace this shared-secret
+        // check with the provider's signature verification. Fail-closed if unset.
+        const secret = process.env.BILLING_WEBHOOK_SECRET;
+        if (!secret || request.headers.get("x-webhook-secret") !== secret) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const payload = await request.json();
         
         // Example mock payload: { type: "payment_success", invoiceId: "xyz", planKey: "pro", orgId: "123" }

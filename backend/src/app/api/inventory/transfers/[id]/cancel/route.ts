@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockTransfers, activityLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { eq, and } from "drizzle-orm";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export async function POST(
     try {
         // Fetch Transfer Data
         const transfer = await db.query.stockTransfers.findFirst({
-            where: eq(stockTransfers.id, transferId)
+            where: and(eq(stockTransfers.id, transferId), storeScope(authResult, stockTransfers.sourceStoreId))
         });
 
         if (!transfer) {

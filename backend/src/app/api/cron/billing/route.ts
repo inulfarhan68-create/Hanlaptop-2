@@ -9,8 +9,12 @@ import { eq, lt, and } from "drizzle-orm";
  */
 export async function POST(request: Request) {
     try {
-        // Normally we'd verify an Authorization header matching CRON_SECRET.
-        // Skipping for now since it's a stub phase.
+        // SECURITY: only the platform scheduler may run billing. Vercel Cron sends
+        // `Authorization: Bearer <CRON_SECRET>`. Fail-closed if the secret is unset.
+        const cronSecret = process.env.CRON_SECRET;
+        if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const now = new Date();
 

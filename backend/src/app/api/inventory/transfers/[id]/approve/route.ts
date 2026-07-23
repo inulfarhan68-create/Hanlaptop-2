@@ -11,7 +11,7 @@ import {
     stores 
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
@@ -31,7 +31,7 @@ export async function POST(
     try {
         // 1. Fetch Transfer Data
         const transfer = await db.query.stockTransfers.findFirst({
-            where: eq(stockTransfers.id, transferId),
+            where: and(eq(stockTransfers.id, transferId), storeScope(authResult, stockTransfers.sourceStoreId)),
             with: {
                 items: true
             }

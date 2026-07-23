@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptions, plans, invoices, subscriptionEvents } from "@/db/schema/saas";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireOwner } from "@/lib/auth-guard";
 import { eq } from "drizzle-orm";
 
 export async function POST(request: Request) {
     try {
-        const authResult = await requireAuth();
+        const authResult = await requireOwner();
         if (authResult instanceof NextResponse) return authResult;
 
         const orgId = authResult.organizationId;
@@ -27,6 +27,12 @@ export async function POST(request: Request) {
 
         if (!targetPlan) {
             return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+        }
+
+        // SECURITY: only allow upgrading to a public, self-serve plan. Blocks a tenant
+        // from self-assigning `internal` (unlimited, price 0) or `enterprise` (custom).
+        if (!targetPlan.isActive || !targetPlan.isPublic || targetPlan.priceMonthly === null) {
+            return NextResponse.json({ error: "Paket tidak tersedia untuk upgrade mandiri" }, { status: 400 });
         }
 
         // Scaffold: Create an unpaid invoice

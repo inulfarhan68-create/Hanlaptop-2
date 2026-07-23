@@ -27,19 +27,14 @@ function createJournalEntry(storeId: string, transactionId: string, accountName:
  * Returns the transaction if authorized, or a NextResponse if forbidden.
  */
 async function verifyTransactionAccess(authResult: any, transactionId: string) {
-    // Owner (global) can access all transactions
-    if (authResult.user.role === "owner" || authResult.storeId === "all") {
-        const tx = await db.query.transactions.findFirst({
-            where: eq(transactions.id, transactionId)
-        });
-        return tx ? { tx, authorized: true } : { tx: null, authorized: false, response: NextResponse.json({ error: "Transaction not found" }, { status: 404 }) };
-    }
-
-    // Non-owner: must check storeId match
+    // Tenant-safe: storeScope() bounds the lookup to the caller's org stores
+    // (undefined = no filter, platform_admin only). Replaces the previous owner-bypass
+    // that fetched by id with NO store filter — a cross-tenant record-ID IDOR that let
+    // an owner read/void/return any org's transaction by id.
     const tx = await db.query.transactions.findFirst({
         where: and(
             eq(transactions.id, transactionId),
-            eq(transactions.storeId, authResult.storeId)
+            storeScope(authResult, transactions.storeId)
         )
     });
 

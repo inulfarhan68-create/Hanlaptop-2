@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { buybackLeads } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { eq, and } from "drizzle-orm";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -19,17 +19,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             return NextResponse.json({ error: "Status required" }, { status: 400 });
         }
 
+        // 🔒 Tenant isolation: storeScope confines the lookup to the caller's stores
+        // (org-scoped for owner, single store otherwise). Prevents cross-org IDOR.
         const existing = await db.query.buybackLeads.findFirst({
-            where: eq(buybackLeads.id, id)
+            where: and(eq(buybackLeads.id, id), storeScope(authResult, buybackLeads.storeId))
         });
 
         if (!existing) {
             return NextResponse.json({ error: "Lead tidak ditemukan." }, { status: 404 });
-        }
-
-        // Check if user has access to this store
-        if (authResult.storeId !== 'all' && existing.storeId !== authResult.storeId) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const result = await db.update(buybackLeads)
@@ -50,17 +47,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (authResult instanceof NextResponse) return authResult;
 
     try {
+        // 🔒 Tenant isolation: storeScope confines the lookup to the caller's stores.
         const existing = await db.query.buybackLeads.findFirst({
-            where: eq(buybackLeads.id, id)
+            where: and(eq(buybackLeads.id, id), storeScope(authResult, buybackLeads.storeId))
         });
 
         if (!existing) {
             return NextResponse.json({ error: "Lead tidak ditemukan." }, { status: 404 });
-        }
-
-        // Check if user has access to this store
-        if (authResult.storeId !== 'all' && existing.storeId !== authResult.storeId) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         await db.delete(buybackLeads).where(eq(buybackLeads.id, id));

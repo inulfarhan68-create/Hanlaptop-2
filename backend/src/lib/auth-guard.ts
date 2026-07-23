@@ -155,6 +155,18 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
             accessibleStoreIds = accessibleStores.map((s) => s.storeId);
         }
 
+        // SECURITY (cross-tenant IDOR): the owner branch above keeps the requested
+        // `x-store-id` verbatim. Reject a specific store that isn't in the caller's
+        // accessible set (e.g. a store id spoofed from another org) by falling back to
+        // "all" — which storeScope() then bounds to the org. Fail-closed. (Non-owners
+        // were already validated against their granted stores.)
+        if (
+            finalStoreId && finalStoreId !== "all" &&
+            accessibleStoreIds !== null && !accessibleStoreIds.includes(finalStoreId)
+        ) {
+            finalStoreId = "all";
+        }
+
         let plan: typeof plans.$inferSelect | null = null;
         if (organizationId) {
             // Fetch the active subscription and its plan

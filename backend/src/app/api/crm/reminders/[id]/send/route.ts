@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { crmReminders } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { eq, and } from "drizzle-orm";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +12,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (authResult instanceof NextResponse) return authResult;
 
     try {
+        // 🔒 Tenant isolation: without storeScope any authenticated user could mark
+        // another org's reminder as SENT (cross-org IDOR).
         const existing = await db.query.crmReminders.findFirst({
-            where: eq(crmReminders.id, id)
+            where: and(eq(crmReminders.id, id), storeScope(authResult, crmReminders.storeId))
         });
 
         if (!existing) {

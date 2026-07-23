@@ -52,7 +52,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
         // Fetch original transaction
         const originalTx = await db.query.transactions.findFirst({
-            where: eq(transactions.id, id),
+            where: and(eq(transactions.id, id), storeScope(authResult, transactions.storeId)),
             with: {
                 items: true
             }

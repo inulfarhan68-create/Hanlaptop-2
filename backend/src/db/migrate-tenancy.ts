@@ -1,6 +1,7 @@
 import { db } from "./index";
-import { organizations, user, userStoreAccess, stores } from "./schema";
+import { organizations, user, userStoreAccess, stores, subscriptions } from "./schema";
 import { eq, isNull } from "drizzle-orm";
+import { seedPlans } from "./seed-plans";
 
 /**
  * One-time Phase-2 tenancy backfill. Idempotent — safe to re-run.
@@ -14,10 +15,44 @@ import { eq, isNull } from "drizzle-orm";
  * before self-serve Register (Phase 3) goes live.
  */
 async function main() {
+    // 0. Ensure the base plans exist (idempotent) so the subscription→plan join
+    //    below — and requireFeature()/checkQuota() at runtime — can resolve.
+    await seedPlans();
+    console.log("Plans seeded/synced.");
+
     // 1. Rename the legacy default org → the flagship tenant.
-    await db.update(organizations)
+    const [defaultOrg] = await db.update(organizations)
         .set({ name: "Han Laptop", updatedAt: new Date() })
-        .where(eq(organizations.id, "org-default"));
+        .where(eq(organizations.id, "org-default"))
+        .returning({ id: organizations.id });
+
+    // 1b. Ensure the flagship tenant has an ACTIVE subscription on the internal
+    //     (unlimited) plan. Without a subscription, resolveAuthContext() leaves
+    //     `plan` null and every requireFeature() route 402s Han Laptop. New tenants
+    //     get their own subscription at register-time; only this backfilled org lacks one.
+    if (defaultOrg) {
+        const [existingSub] = await db.select({ id: subscriptions.id })
+            .from(subscriptions)
+            .where(eq(subscriptions.organizationId, "org-default"))
+            .limit(1);
+        if (!existingSub) {
+            const now = new Date();
+            const farFuture = new Date(now);
+            farFuture.setFullYear(farFuture.getFullYear() + 100); // effectively non-expiring
+            await db.insert(subscriptions).values({
+                organizationId: "org-default",
+                planKey: "internal",
+                status: "active",
+                currentPeriodStart: now,
+                currentPeriodEnd: farFuture,
+            });
+            console.log("Created internal 'active' subscription for Han Laptop (org-default).");
+        } else {
+            console.log("Han Laptop already has a subscription — skipped.");
+        }
+    } else {
+        console.log("org-default not found — skipped flagship subscription (fresh DB?).");
+    }
 
     // 2. Backfill user.organizationId from each user's store access (their store's org).
     const usersWithoutOrg = await db.select({ id: user.id }).from(user).where(isNull(user.organizationId));
