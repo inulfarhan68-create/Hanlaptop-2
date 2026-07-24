@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Check, X, Store, Boxes, LineChart, ShieldCheck, ArrowRight, Sparkles, Building2, CheckCircle2, Cpu, HardDrive, MessageCircle, Globe, FileText, Zap, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DemoButton } from "@/components/marketing/DemoButton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { getPublicPlans, type PublicPlan } from "@/lib/public/plans";
@@ -101,16 +102,18 @@ export default async function ProductLandingPage() {
                                     Mulai sekarang <ArrowRight className="h-5 w-5" />
                                 </Button>
                             </Link>
+                            <DemoButton className="h-14 px-8 text-lg font-bold rounded-lg gap-2 hover:bg-muted transition-all duration-300" />
                             <Link href="#harga">
-                                <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-bold rounded-lg hover:bg-muted transition-all duration-300">
+                                <Button size="lg" variant="ghost" className="h-14 px-6 text-lg font-bold rounded-lg hover:bg-muted transition-all duration-300">
                                     Lihat harga
                                 </Button>
                             </Link>
                         </div>
-                        
-                        <div className="mt-8 flex items-center gap-4 text-sm text-muted-foreground font-medium animate-in fade-in duration-700 delay-700">
+
+                        <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground font-medium animate-in fade-in duration-700 delay-700">
                             <div className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-primary" /> Tanpa kartu kredit</div>
                             <div className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-primary" /> Setup 5 menit</div>
+                            <div className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-primary" /> Coba demo tanpa daftar</div>
                         </div>
                     </div>
                     

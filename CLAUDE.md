@@ -102,6 +102,8 @@ npx playwright test tests/e2e            # e2e (butuh server jalan)
 
 **Ops/flags:** `CRON_SECRET`, `ENABLE_FACTORY_RESET`, `ADMIN_DEFAULT_EMAIL`, `ADMIN_DEFAULT_PASSWORD`, `NODE_ENV`, `GIT_SHA`/`VERCEL_GIT_COMMIT_SHA`, `VERCEL`, `NEXT_PHASE`.
 
+**SaaS / billing / demo:** `BILLING_WEBHOOK_SECRET` (gate `api/webhooks/billing`), `DEFAULT_ORGANIZATION_ID` (flagship tenant id for `migrate-tenancy`, fallback `org-default`), `PLATFORM_ADMIN_EMAIL` (designate the platform operator in `migrate-tenancy`), `DEMO_LOGIN_EMAIL` + `DEMO_LOGIN_PASSWORD` (read-only demo account for `api/demo/login` — must match `seed-demo-tenant`), `DEMO_ORGANIZATION_ID`/`DEMO_STORE_ID` (demo tenant ids, fallback `org-demo`/`store-demo`).
+
 ---
 
 ## 6. Coding Convention (ikuti pola yang sudah ada)
