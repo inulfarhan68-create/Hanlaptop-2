@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitTier } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
  * tenant (storeScope confines it to the demo store). Seed it with `seed-demo-tenant`.
  */
 export async function POST(req: Request) {
-    const rateLimited = await checkRateLimit(req);
+    // Session-creating endpoint → use the app's stricter tier (not the 60/min default).
+    const rateLimited = await checkRateLimitTier(req, "strict");
     if (rateLimited) return rateLimited;
 
     const email = process.env.DEMO_LOGIN_EMAIL;
