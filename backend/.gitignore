@@ -7,3 +7,7 @@ data/*.db-wal
 data/*.db-shm
 
 .vercel
+
+# Playwright e2e output (regenerated per run)
+test-results/
+playwright-report/
