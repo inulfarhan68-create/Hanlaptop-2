@@ -20,38 +20,41 @@ async function main() {
     await seedPlans();
     console.log("Plans seeded/synced.");
 
-    // 1. Rename the legacy default org → the flagship tenant.
+    // 1. Get the flagship tenant ID from env (fallback to legacy 'org-default')
+    const flagshipOrgId = process.env.DEFAULT_ORGANIZATION_ID || "org-default";
+
+    // 2. Rename the explicitly configured tenant → the flagship tenant.
     const [defaultOrg] = await db.update(organizations)
         .set({ name: "Han Laptop", updatedAt: new Date() })
-        .where(eq(organizations.id, "org-default"))
+        .where(eq(organizations.id, flagshipOrgId))
         .returning({ id: organizations.id });
 
-    // 1b. Ensure the flagship tenant has an ACTIVE subscription on the internal
+    // 3. Ensure the flagship tenant has an ACTIVE subscription on the internal
     //     (unlimited) plan. Without a subscription, resolveAuthContext() leaves
     //     `plan` null and every requireFeature() route 402s Han Laptop. New tenants
     //     get their own subscription at register-time; only this backfilled org lacks one.
     if (defaultOrg) {
         const [existingSub] = await db.select({ id: subscriptions.id })
             .from(subscriptions)
-            .where(eq(subscriptions.organizationId, "org-default"))
+            .where(eq(subscriptions.organizationId, defaultOrg.id))
             .limit(1);
         if (!existingSub) {
             const now = new Date();
             const farFuture = new Date(now);
             farFuture.setFullYear(farFuture.getFullYear() + 100); // effectively non-expiring
             await db.insert(subscriptions).values({
-                organizationId: "org-default",
+                organizationId: defaultOrg.id,
                 planKey: "internal",
                 status: "active",
                 currentPeriodStart: now,
                 currentPeriodEnd: farFuture,
             });
-            console.log("Created internal 'active' subscription for Han Laptop (org-default).");
+            console.log(`Created internal 'active' subscription for Han Laptop (${defaultOrg.id}).`);
         } else {
             console.log("Han Laptop already has a subscription — skipped.");
         }
     } else {
-        console.log("org-default not found — skipped flagship subscription (fresh DB?).");
+        console.log("Han Laptop org not found — skipped flagship subscription (fresh DB?).");
     }
 
     // 2. Backfill user.organizationId from each user's store access (their store's org).
