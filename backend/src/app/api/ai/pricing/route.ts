@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { aiPricingLogs } from "@/db/schema";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, requireWritable } from "@/lib/auth-guard";
 import { checkRateLimitTier } from "@/lib/rate-limit";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
@@ -37,6 +37,9 @@ export async function POST(request: Request) {
 
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const body = await request.json();

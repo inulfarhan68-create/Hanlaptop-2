@@ -11,7 +11,7 @@ import {
     stores 
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
@@ -27,6 +27,9 @@ export async function POST(
     const { id: transferId } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         // 1. Fetch Transfer Data

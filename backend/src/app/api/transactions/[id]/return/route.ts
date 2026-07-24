@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, cashierShifts, storeSettings } from "@/db/schema";
 import { eq, and, gte, like, desc } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
 import { returnTransactionSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
@@ -15,6 +15,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to process returns" }, { status: 400 });

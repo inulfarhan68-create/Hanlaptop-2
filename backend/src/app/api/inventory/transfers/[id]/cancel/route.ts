@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockTransfers, activityLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,9 @@ export async function POST(
     const { id: transferId } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         // Fetch Transfer Data

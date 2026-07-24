@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { attendances, employees } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, requireWritable } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const body = await request.json();

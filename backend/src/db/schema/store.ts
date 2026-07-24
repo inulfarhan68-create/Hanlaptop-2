@@ -5,6 +5,10 @@ import { user } from '@/db/schema/users';
 export const organizations = pgTable("organizations", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     name: text("name").notNull(),
+    // When true, this tenant is a public demo: every mutation is blocked server-side
+    // (see AuthContext.isReadOnly / requireWritable in lib/auth-guard). Visitors explore
+    // real flows without being able to change data. Default false for all real tenants.
+    isDemo: boolean('is_demo').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().$defaultFn(() => new Date()),
 });

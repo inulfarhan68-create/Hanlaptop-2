@@ -2,7 +2,7 @@ import { auth } from "./auth";
 import { NextResponse } from "next/server";
 import { headers, cookies } from "next/headers";
 import { db } from "@/db";
-import { userStoreAccess, stores } from "@/db/schema";
+import { userStoreAccess, stores, organizations } from "@/db/schema";
 import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission } from "./permissions";
 import { subscriptions, plans } from "@/db/schema/saas";
@@ -52,6 +52,13 @@ export interface AuthContext {
     plan: typeof plans.$inferSelect | null;
     /** Whether the platform admin is currently impersonating a tenant. */
     isImpersonating?: boolean;
+    /**
+     * True when this request belongs to a demo tenant (`organizations.isDemo`).
+     * Mutations must be refused — enforce with {@link requireWritable} (and it is
+     * already hard-blocked inside {@link requireWriteAccess}). platform_admin is
+     * never read-only.
+     */
+    isReadOnly: boolean;
 }
 
 /**
@@ -168,17 +175,21 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         }
 
         let plan: typeof plans.$inferSelect | null = null;
+        let isReadOnly = false;
         if (organizationId) {
-            // Fetch the active subscription and its plan
-            const [activeSub] = await db.select({ plan: plans })
-                .from(subscriptions)
-                .innerJoin(plans, eq(subscriptions.planKey, plans.key))
-                .where(eq(subscriptions.organizationId, organizationId))
+            // One query: the org's demo flag + its active plan. Base on organizations
+            // (left-joined to subscriptions/plans) so a tenant without a subscription
+            // still resolves isDemo — and we never pay a second roundtrip for it.
+            const [row] = await db.select({ plan: plans, isDemo: organizations.isDemo })
+                .from(organizations)
+                .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
+                .leftJoin(plans, eq(subscriptions.planKey, plans.key))
+                .where(eq(organizations.id, organizationId))
                 .limit(1);
-            
-            if (activeSub?.plan) {
-                plan = activeSub.plan;
-            }
+
+            if (row?.plan) plan = row.plan;
+            // platform_admin (incl. while impersonating) is never demo-locked.
+            if (!isPlatformAdmin) isReadOnly = row?.isDemo ?? false;
         }
 
         return {
@@ -190,7 +201,8 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
             isPlatformAdmin,
             isImpersonating,
             accessibleStoreIds,
-            plan
+            plan,
+            isReadOnly
         };
     } catch {
         return NextResponse.json(
@@ -253,10 +265,33 @@ export async function requireOwnerOrManager(): Promise<AuthContext | NextRespons
 }
 
 /**
- * Checks if the user has write access (i.e. is not an investor).
- * If the user's role at the store is 'investor', returns a 403 NextResponse, otherwise returns null.
+ * Refuse the request if it belongs to a demo tenant (read-only). Role-independent:
+ * even an owner session in a demo org cannot mutate. Call this at the top of any
+ * mutation handler that does NOT already go through {@link requireWriteAccess}.
+ * Returns a 403 NextResponse when locked, otherwise null.
  */
-export function requireWriteAccess(authResult: { storeRole: string }) {
+export function requireWritable(authResult: { isReadOnly?: boolean }) {
+    if (authResult.isReadOnly) {
+        return NextResponse.json(
+            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
+            { status: 403 }
+        );
+    }
+    return null;
+}
+
+/**
+ * Checks if the user has write access (i.e. is not an investor) and is not in a
+ * read-only demo tenant. Returns a 403 NextResponse if either fails, otherwise null.
+ */
+export function requireWriteAccess(authResult: { storeRole: string; isReadOnly?: boolean }) {
+    // Demo tenants are read-only regardless of role (see requireWritable).
+    if (authResult.isReadOnly) {
+        return NextResponse.json(
+            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
+            { status: 403 }
+        );
+    }
     if (authResult.storeRole === "investor") {
         return NextResponse.json(
             { error: "Forbidden — investor role is read-only" },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, requireWritable } from "@/lib/auth-guard";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const formData = await request.formData();

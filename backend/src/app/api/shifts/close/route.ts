@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cashierShifts, transactions, journalEntries, activityLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
 import { withActiveJournalEntries } from "@/db/query-helpers";
 import { closeShiftSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -16,6 +16,9 @@ export async function POST(request: Request) {
 
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to close a shift" }, { status: 400 });
