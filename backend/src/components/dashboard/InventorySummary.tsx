@@ -53,7 +53,7 @@ export function InventorySummary({ isOwner }: { isOwner: boolean }) {
     <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 animate-in fade-in">
       {/* Active Inventory Summary Card */}
       {data.inventoryStats && (
-        <Card className="hover:border-primary/30 transition-colors lg:col-span-2">
+        <Card className="hover:border-primary/30 transition-colors">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
@@ -65,7 +65,7 @@ export function InventorySummary({ isOwner }: { isOwner: boolean }) {
             <Button variant="outline" size="sm" asChild><Link href="/inventory">Lihat Semua</Link></Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
                 { label: "Laptop", qty: data.inventoryStats.laptopQty, value: Math.round(data.inventoryStats.laptopValue || 0), color: "text-sky-500", bg: "bg-sky-500/10" },
                 { label: "Sparepart", qty: data.inventoryStats.spareQty, value: Math.round(data.inventoryStats.spareValue || 0), color: "text-cyan-500", bg: "bg-cyan-500/10" },
@@ -115,7 +115,7 @@ export function InventorySummary({ isOwner }: { isOwner: boolean }) {
       )}
 
       {/* Low Stock Alerts */}
-      <Card className="border-destructive/20 lg:col-span-2">
+      <Card className="border-destructive/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2 text-destructive">
             <AlertCircle className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function InventorySummary({ isOwner }: { isOwner: boolean }) {
 
       {/* Markdown Liquidator */}
       {isOwner && (
-        <Card className="border-amber-500/20 lg:col-span-2 bg-amber-50/30 dark:bg-amber-950/20">
+        <Card className="border-amber-500/20 bg-amber-50/30 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-amber-600 dark:text-amber-500">
               <Tag className="h-4 w-4" />
