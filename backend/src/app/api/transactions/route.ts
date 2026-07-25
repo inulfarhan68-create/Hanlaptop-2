@@ -4,7 +4,7 @@ import { transactions, transactionItems, journalEntries, inventory, activityLogs
 import { desc, eq, count, gte, lte, and, like, inArray, sql } from "drizzle-orm";
 import { withActiveTransactions } from "@/db/query-helpers";
 import crypto from "crypto";
-import { requireAuth, requireWriteAccess, requirePermission, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, requirePermission, storeScope, checkQuota } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { transactionSchema } from "@/lib/validators";
 import { awardPoints } from "@/lib/crm-helper";
@@ -169,6 +169,10 @@ export async function POST(request: Request) {
             customerId,
             supplierId
         } = parsed.data;
+
+        // Enforce the plan's monthly transaction cap (no-op unless the plan sets one).
+        const quota = await checkQuota(authResult, "transactions");
+        if (quota) return quota;
 
         const newTx = await TransactionService.createTransaction({
             storeId: authResult.storeId,

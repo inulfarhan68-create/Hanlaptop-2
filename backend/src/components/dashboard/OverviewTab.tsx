@@ -5,11 +5,13 @@ import { FinanceSummary } from "./FinanceSummary";
 import { InventorySummary } from "./InventorySummary";
 import { RecentTransactions } from "./RecentTransactions";
 import { DemoBanner } from "./DemoBanner";
+import { UsageBanner } from "./UsageBanner";
 
 export function OverviewTab({ isOwner }: { isOwner: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <DemoBanner isOwner={isOwner} />
+      <UsageBanner />
       <div className="order-3 lg:order-1">
         <KPICards isOwner={isOwner} />
       </div>
