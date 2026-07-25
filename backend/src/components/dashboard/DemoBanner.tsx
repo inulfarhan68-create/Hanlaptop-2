@@ -25,15 +25,20 @@ export function DemoBanner({ isOwner }: { isOwner: boolean }) {
         if (!confirm("Are you sure you want to load dummy data? This will create dummy customers, items, and transactions.")) return;
         setLoading(true);
         try {
-            const res = await fetch("/api/tenant/seed-demo", { method: "POST" });
+            const res = await apiFetch("/api/tenant/seed-demo", { 
+                method: "POST",
+                headers: activeStore?.id ? { "x-store-id": activeStore.id } : undefined
+            });
             if (res.ok) {
                 window.location.reload();
             } else {
-                alert("Failed to load demo data.");
+                const err = await res.json().catch(() => ({}));
+                alert("Gagal memuat demo data: " + (err.error || res.statusText));
                 setLoading(false);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
+            alert("Terjadi kesalahan sistem: " + e.message);
             setLoading(false);
         }
     };
