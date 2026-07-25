@@ -7,6 +7,7 @@ import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission } from "./permissions";
 import { subscriptions, plans } from "@/db/schema/saas";
 import { hasFeature, type FeatureKey } from "./features";
+import { checkLimit, type UsageMetric } from "./usage-limits";
 
 /** All store ids belonging to an organization (the org's tenant boundary). */
 export async function getOrgStoreIds(organizationId: string): Promise<string[]> {
@@ -405,46 +406,32 @@ export async function requireFeature(feature: FeatureKey): Promise<AuthContext |
  */
 export async function checkQuota(
     authResult: AuthContext,
-    resource: "stores" | "users" | "transactions"
+    resource: UsageMetric
 ): Promise<NextResponse | null> {
     if (authResult.isPlatformAdmin) return null;
-    const plan = authResult.plan;
-    if (!plan) return null; // Defensive, if no plan found, don't hard block.
-
     const orgId = authResult.organizationId;
-    if (!orgId) return null;
+    if (!orgId || !authResult.plan) return null; // Defensive — no org/plan → don't hard block.
 
-    if (resource === "stores" && plan.maxStores !== null) {
-        const [{ count }] = await db.select({ count: sql<number>`count(*)` })
-            .from(stores).where(eq(stores.organizationId, orgId));
-        if (count >= plan.maxStores) {
-            return NextResponse.json(
-                { error: `Payment Required — Quota reached. Your plan allows a maximum of ${plan.maxStores} stores.` },
-                { status: 402 }
-            );
-        }
+    // Live-count enforcement + structured 402 (so the client can show an upgrade CTA).
+    // Soft warnings (80%/90%) are surfaced separately via getUsage()/`GET /api/usage`.
+    const { blocked, used, limit } = await checkLimit(orgId, authResult.plan, resource);
+    if (blocked) {
+        const label: Record<UsageMetric, string> = {
+            stores: "cabang",
+            users: "pengguna",
+            transactions: "transaksi bulan ini",
+        };
+        return NextResponse.json(
+            {
+                error: `Batas paket tercapai — paket Anda maksimal ${limit} ${label[resource]}. Upgrade paket untuk menambah.`,
+                code: "QUOTA_EXCEEDED",
+                metric: resource,
+                used,
+                limit,
+                upgrade: true,
+            },
+            { status: 402 }
+        );
     }
-
-    if (resource === "users" && plan.maxUsers !== null) {
-        // Count unique users who have access to any store in this org
-        const [{ count }] = await db.select({ count: sql<number>`count(distinct ${userStoreAccess.userId})` })
-            .from(userStoreAccess)
-            .innerJoin(stores, eq(userStoreAccess.storeId, stores.id))
-            .where(eq(stores.organizationId, orgId));
-            
-        if (count >= plan.maxUsers) {
-            return NextResponse.json(
-                { error: `Payment Required — Quota reached. Your plan allows a maximum of ${plan.maxUsers} users.` },
-                { status: 402 }
-            );
-        }
-    }
-
-    if (resource === "transactions" && plan.maxTransactionsPerMonth !== null) {
-        // Let's implement the soft limit warning on the frontend instead, 
-        // but if we want a hard block, we can do it here.
-        // For Phase 4, we will only do soft limits for transactions, so we skip hard block.
-    }
-
     return null;
 }

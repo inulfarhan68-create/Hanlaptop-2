@@ -1,11 +1,11 @@
 import { db } from "./src/db";
-import { journals, transactions, transactionItems } from "./src/db/schema";
+import { journalEntries, transactions, transactionItems } from "./src/db/schema";
 import { sql } from "drizzle-orm";
 
 async function main() {
     console.log("=== Checking July Journals ===");
     // Filter directly from JS just to be absolutely sure about dates
-    const allJournals = await db.select().from(journals);
+    const allJournals = await db.select().from(journalEntries);
     let pendapatan = 0;
     allJournals.forEach(j => {
         const d = new Date(j.createdAt);
