@@ -26,7 +26,12 @@ export function ApprovalBoard({ isOwner }: { isOwner: boolean }) {
         isOwner && activeStore ? ["approval", activeStore.id] : null,
         async () => {
             const res = await apiFetch(`/api/approvals?storeId=${activeStore?.id}`);
-            return res.json();
+            // Roles that can view the dashboard but not approvals (e.g. investor / the
+            // read-only demo user) get a 403 here — treat it as "nothing to approve"
+            // instead of letting a non-array error body crash requests.map().
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
         },
         { refreshInterval: 15000 }
     );
