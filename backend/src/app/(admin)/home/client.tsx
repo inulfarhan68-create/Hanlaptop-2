@@ -73,7 +73,13 @@ export default function HomeClient({ user }: { user: any }) {
   // Fetch Dashboard API for KPIs and Recent History
   const { data, isLoading } = useSWR((process.env.NEXT_PUBLIC_API_URL || '') + '/api/dashboard');
   
-  const kpi = data?.kpi || { totalAssets: 0, kasAndBank: 0, persediaan: 0, revenue: 0, netIncome: 0 };
+  const kpi = { 
+    totalAssets: data?.totalAssets || 0, 
+    kasAndBank: data?.kasLiquid || 0, 
+    persediaan: data?.inventoryStats?.totalValue || 0, 
+    revenue: data?.revenue || 0, 
+    netIncome: data?.netProfit || 0 
+  };
   const recentTransactions = data?.recentTransactions || [];
 
   return (
