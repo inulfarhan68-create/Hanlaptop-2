@@ -9,6 +9,7 @@ import { useTheme } from "@/components/ThemeProvider"
 import { signOut } from "@/lib/auth-client"
 import { useSessionUser } from "@/components/SessionUserProvider"
 import { BranchSelector } from "@/components/BranchSelector"
+import { cn } from "@/lib/utils"
 
 export function MobileHeader() {
   const { theme, setTheme } = useTheme()
@@ -46,8 +47,16 @@ export function MobileHeader() {
     else setTheme("dark")
   }
 
+  const pathname = usePathname()
+  const isHome = pathname === "/home"
+
   return (
-    <header className="md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl sticky top-0 z-50">
+    <header className={cn(
+      "md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] sticky top-0 z-50 transition-colors duration-300",
+      isHome 
+        ? "bg-primary border-transparent text-primary-foreground" 
+        : "bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl"
+    )}>
       <div className="flex items-center justify-between w-full mb-2">
         {/* Logo & Brand */}
         <Link href="/home" className="flex items-center gap-2.5">
@@ -63,7 +72,7 @@ export function MobileHeader() {
               const name = storeName || "Han Laptop";
               const match = name.match(/^(laphack|han\s+laptop|hanlaptop)(?:\s*-\s*|\s+)(.*)$/i);
               const displayName = match ? match[1] : name;
-              return <span className="text-sm font-extrabold tracking-tight text-foreground truncate leading-snug">{displayName}</span>;
+              return <span className={cn("text-sm font-extrabold tracking-tight truncate leading-snug", isHome ? "text-primary-foreground" : "text-foreground")}>{displayName}</span>;
             })()}
             <BranchSelector variant="minimal" className="px-0 mb-0 w-auto shrink-0" />
           </div>
@@ -73,14 +82,14 @@ export function MobileHeader() {
         <div className="flex items-center gap-2 relative">
           <button
             onClick={cycleTheme}
-            className="h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className={cn("h-9 w-9 rounded-full flex items-center justify-center transition-colors border", isHome ? "bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/20" : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted")}
           >
             {theme === "dark" ? <Moon className="h-4 w-4" /> : theme === "light-blue" ? <Droplets className="h-4 w-4 text-blue-500" /> : <Sun className="h-4 w-4 text-amber-500" />}
           </button>
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+          className={cn("h-9 w-9 rounded-full flex items-center justify-center border transition-colors", isHome ? "bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/20" : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20")}
         >
           <User className="h-5 w-5" />
         </button>

@@ -78,22 +78,24 @@ export default function HomeClient({ user }: { user: any }) {
     <div className="flex-1 pb-24 md:pb-8 bg-background min-h-screen">
       
       {/* HEADER & HERO CARD */}
-      <div className="bg-primary pt-6 pb-20 px-4 rounded-b-[2.5rem] relative overflow-hidden">
+      <div className="bg-primary pt-0 pb-20 px-4 rounded-b-[2rem] relative overflow-hidden">
         {/* Background Decorations */}
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
         
-        <div className="relative z-10">
-          <p className="text-white/80 text-sm font-medium">Selamat datang,</p>
-          <h1 className="text-white text-2xl font-bold mt-1 tracking-tight truncate">
-            {user?.name || "Admin"}
-          </h1>
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-white/80 text-xs font-medium">Selamat datang,</p>
+            <h1 className="text-white text-xl font-bold mt-0.5 tracking-tight truncate">
+              {user?.name || "Admin"}
+            </h1>
+          </div>
         </div>
       </div>
 
       {/* OVERLAPPING KPI CARD */}
-      <div className="px-4 -mt-12 relative z-20">
-        <div className="bg-card rounded-3xl p-4 shadow-xl shadow-black/5 border border-border/40">
+      <div className="px-4 -mt-14 relative z-20">
+        <div className="bg-card rounded-[1.5rem] p-4 shadow-lg shadow-black/5 border border-border/40">
           
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -156,9 +158,9 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* MENU FITUR */}
-      <div className="px-5 mt-8">
-        <div className="flex justify-between items-center mb-5">
-          <h3 className="text-lg font-bold text-foreground tracking-tight">Menu Fitur</h3>
+      <div className="px-5 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-[15px] font-bold text-foreground tracking-tight">Menu Fitur</h3>
           <button 
             onClick={() => setShowAllFeatures(true)}
             className="text-primary text-xs font-bold hover:underline flex items-center gap-1"
@@ -190,25 +192,25 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* ANALISIS CEPAT BANNER */}
-      <div className="px-4 mt-8">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] p-5 flex items-center justify-between shadow-lg shadow-blue-500/20 relative overflow-hidden">
+      <div className="px-4 mt-6">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[1.25rem] p-3 flex items-center justify-between shadow-md shadow-blue-500/10 relative overflow-hidden">
           {/* Subtle background waves */}
           <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIj48cGF0aCBkPSJNMCAxMDBDMTAwIDEwMCAxNTAgMCAyMDAgMHMxMDAgMTAwIDIwMCAxMDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==')] bg-no-repeat bg-center" />
           
           <div className="relative z-10">
-            <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider mb-1">Analisis Cepat</p>
-            <p className="text-white font-bold text-sm leading-tight max-w-[140px]">Lihat grafik performa toko</p>
+            <p className="text-white/80 text-[9px] font-bold uppercase tracking-wider mb-0.5">Analisis Cepat</p>
+            <p className="text-white font-semibold text-xs leading-tight">Grafik performa toko</p>
           </div>
-          <Link href="/dashboard" className="relative z-10 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
-            Buka Statistik
+          <Link href="/dashboard" className="relative z-10 bg-white text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors">
+            Lihat Detail
           </Link>
         </div>
       </div>
 
       {/* RIWAYAT TERBARU */}
-      <div className="px-5 mt-8 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-foreground tracking-tight">Riwayat Terbaru</h3>
+      <div className="px-5 mt-6 mb-6">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-[15px] font-bold text-foreground tracking-tight">Riwayat Terbaru</h3>
           <Link href="/transactions" className="text-primary text-xs font-bold hover:underline flex items-center gap-1">
             Semua <ArrowRight className="w-3 h-3" />
           </Link>
