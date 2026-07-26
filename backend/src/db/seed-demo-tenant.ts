@@ -83,8 +83,29 @@ async function main() {
         .where(eq(organizations.id, orgId))
         .limit(1);
     if (existingOrg) {
+        if (process.env.DEMO_RESEED === "1") {
+            // Rebuild the demo's sample content WITHOUT touching the org/user/subscription:
+            // delete the demo store (cascades all its data + userStoreAccess), recreate it,
+            // reseed the COA, re-grant the demo user's access, and repopulate sample data.
+            // Use this when an earlier seed only half-completed.
+            console.log("DEMO_RESEED=1 → rebuilding demo store sample data…");
+            await seedPlans();
+            await db.delete(stores).where(eq(stores.id, storeId));
+            await db.transaction(async (tx) => {
+                await tx.insert(stores).values({
+                    id: storeId,
+                    organizationId: orgId,
+                    name: "Demo Han Laptop (Read-only)",
+                });
+                await seedStoreCoa(storeId, { tx });
+            });
+            const reseedUserId = await ensureDemoUser();
+            await seedDemoData(storeId, reseedUserId);
+            console.log("Demo sample data rebuilt.");
+            return;
+        }
         await ensureDemoUser();
-        console.log(`Demo tenant '${orgId}' already exists — synced demo user to role '${DEMO_ROLE}'.`);
+        console.log(`Demo tenant '${orgId}' already exists — synced demo user to role '${DEMO_ROLE}'. (Set DEMO_RESEED=1 to rebuild sample data.)`);
         return;
     }
 
