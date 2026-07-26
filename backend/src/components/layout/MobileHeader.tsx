@@ -54,7 +54,7 @@ export function MobileHeader() {
     <header className={cn(
       "md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] sticky top-0 z-50 transition-colors duration-300",
       isHome 
-        ? "bg-primary border-transparent text-primary-foreground" 
+        ? "bg-primary border-primary text-primary-foreground" 
         : "bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl"
     )}>
       <div className="flex items-center justify-between w-full mb-2">

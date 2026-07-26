@@ -78,7 +78,7 @@ export default function HomeClient({ user }: { user: any }) {
     <div className="flex-1 pb-24 md:pb-8 bg-background min-h-screen">
       
       {/* HEADER & HERO CARD */}
-      <div className="bg-primary pt-0 pb-20 px-4 rounded-b-[2rem] relative overflow-hidden">
+      <div className="bg-primary pt-0 pb-16 px-4 rounded-b-3xl relative overflow-hidden">
         {/* Background Decorations */}
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
@@ -94,10 +94,10 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* OVERLAPPING KPI CARD */}
-      <div className="px-4 -mt-14 relative z-20">
-        <div className="bg-card rounded-[1.5rem] p-4 shadow-lg shadow-black/5 border border-border/40">
+      <div className="px-4 -mt-12 relative z-20">
+        <div className="bg-card rounded-[1.25rem] p-3 shadow-lg shadow-black/5 border border-border/40">
           
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-3">
             <div>
               <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase mb-0.5">
                 Total Aset Tersedia
@@ -117,7 +117,7 @@ export default function HomeClient({ user }: { user: any }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {/* KAS & BANK */}
             <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800">
               <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1.5 mb-1 uppercase tracking-wide">
@@ -158,8 +158,8 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* MENU FITUR */}
-      <div className="px-5 mt-6">
-        <div className="flex justify-between items-center mb-4">
+      <div className="px-4 mt-4">
+        <div className="flex justify-between items-center mb-3">
           <h3 className="text-[15px] font-bold text-foreground tracking-tight">Menu Fitur</h3>
           <button 
             onClick={() => setShowAllFeatures(true)}
@@ -169,7 +169,7 @@ export default function HomeClient({ user }: { user: any }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+        <div className="grid grid-cols-4 gap-y-5 gap-x-2">
           {MAIN_FEATURES.map((feat) => {
             const Icon = feat.icon;
             return (
@@ -192,8 +192,8 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* ANALISIS CEPAT BANNER */}
-      <div className="px-4 mt-6">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[1.25rem] p-3 flex items-center justify-between shadow-md shadow-blue-500/10 relative overflow-hidden">
+      <div className="px-4 mt-4">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[1rem] p-2.5 px-3 flex items-center justify-between shadow-sm relative overflow-hidden">
           {/* Subtle background waves */}
           <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIj48cGF0aCBkPSJNMCAxMDBDMTAwIDEwMCAxNTAgMCAyMDAgMHMxMDAgMTAwIDIwMCAxMDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==')] bg-no-repeat bg-center" />
           
@@ -208,15 +208,15 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* RIWAYAT TERBARU */}
-      <div className="px-5 mt-6 mb-6">
-        <div className="flex justify-between items-center mb-3">
+      <div className="px-4 mt-4 mb-4">
+        <div className="flex justify-between items-center mb-2">
           <h3 className="text-[15px] font-bold text-foreground tracking-tight">Riwayat Terbaru</h3>
           <Link href="/transactions" className="text-primary text-xs font-bold hover:underline flex items-center gap-1">
             Semua <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {isLoading ? (
             Array(3).fill(0).map((_, i) => (
               <div key={i} className="bg-card rounded-2xl p-4 border border-border flex items-center gap-4">
@@ -240,8 +240,8 @@ export default function HomeClient({ user }: { user: any }) {
               
               return (
                 <Link key={tx.id} href={`/transactions?id=${tx.id}`} className="block">
-                  <div className="bg-card hover:bg-muted/50 rounded-2xl p-4 border border-border flex items-center gap-4 transition-colors">
-                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", bg)}>
+                  <div className="bg-card hover:bg-muted/50 rounded-xl p-3 border border-border flex items-center gap-3 transition-colors">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0", bg)}>
                       {isIncome ? <ShoppingCart className={cn("w-5 h-5", color)} /> : 
                        isExpense ? <CreditCard className={cn("w-5 h-5", color)} /> : 
                        <ArrowLeftRight className={cn("w-5 h-5", color)} />}

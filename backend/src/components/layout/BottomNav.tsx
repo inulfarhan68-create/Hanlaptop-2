@@ -26,14 +26,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const { isOwner, isManager, isInvestor } = useUserRole()
 
-  const filteredNavItems = navItems.filter(item => {
-    const hasReportAccess = isOwner || isManager || isInvestor
-    const hasSettingsAccess = isOwner || isManager
-    
-    if (item.href === "/reports" && !hasReportAccess) return false
-    if (item.href === "/settings" && !hasSettingsAccess) return false
-    return true
-  })
+  const filteredNavItems = navItems;
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
