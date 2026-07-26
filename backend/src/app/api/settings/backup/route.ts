@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { storeSettings, customers, inventory, transactions, transactionItems, journalEntries, serviceOrders, activityLogs } from "@/db/schema";
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { restoreBackupSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { eq, inArray } from "drizzle-orm";
@@ -73,6 +73,9 @@ export async function POST(request: Request) {
     try {
         const authResult = await requireOwnerOrManager();
         if (authResult instanceof NextResponse) return authResult;
+
+        const demoBlock = requireWritable(authResult);
+        if (demoBlock) return demoBlock;
 
         const storeId = authResult.storeId;
         if (storeId === "all") {

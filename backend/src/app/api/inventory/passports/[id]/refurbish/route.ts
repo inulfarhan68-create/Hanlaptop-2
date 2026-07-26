@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { deviceRefurbishments, devicePassports, deviceLifecycleLogs, inventory, journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { ACCOUNT_CODES } from "@/constants/accounting";
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +29,9 @@ export async function POST(
     // Require owner or manager role for refurbishment records
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const { id } = await context.params;

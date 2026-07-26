@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { bankMutations, transactions, journalEntries } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireOwnerOrManager } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requireWritable } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +10,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const body = await request.json();

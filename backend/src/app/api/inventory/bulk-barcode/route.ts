@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const body = await request.json(); // Expected: Array of { id: string, barcode: string }

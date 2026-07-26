@@ -4,7 +4,7 @@ import { headers, cookies } from "next/headers";
 import { db } from "@/db";
 import { userStoreAccess, stores, organizations } from "@/db/schema";
 import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
-import { Permission, hasPermission } from "./permissions";
+import { Permission, hasPermission, isWritePermission } from "./permissions";
 import { subscriptions, plans } from "@/db/schema/saas";
 import { hasFeature, type FeatureKey } from "./features";
 import { checkLimit, type UsageMetric } from "./usage-limits";
@@ -331,6 +331,16 @@ export async function requirePermission(permission: Permission): Promise<AuthCon
     // permissions from RolePermissionsMatrix["owner"] (= all permissions),
     // but they're still tenant-scoped via storeScope() in each query.
     if (authResult.isPlatformAdmin) return authResult;
+
+    // Read-only demo tenants: block any write-intent permission regardless of the
+    // caller's role. This is the central choke that lets a demo user carry a broad
+    // role (e.g. manager/owner) for a full menu while staying fully read-only.
+    if (authResult.isReadOnly && isWritePermission(permission)) {
+        return NextResponse.json(
+            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
+            { status: 403 }
+        );
+    }
 
     const role = authResult.storeRole;
     if (!hasPermission(role, permission)) {

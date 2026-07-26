@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { updateOpnameSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { and, eq } from "drizzle-orm";
@@ -41,6 +41,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const { id } = await params;

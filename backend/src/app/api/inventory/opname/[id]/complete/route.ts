@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory, transactions, journalEntries, activityLogs } from "@/db/schema";
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
@@ -14,6 +14,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const { id: opnameId } = await params;

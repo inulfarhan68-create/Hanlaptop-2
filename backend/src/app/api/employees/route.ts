@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employees, activityLogs, user, technicians } from '@/db/schema';
-import { requireReportAccess, requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwnerOrManager, storeScope, requireFeature, requireWritable } from "@/lib/auth-guard";
 import { employeeSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -39,6 +39,9 @@ export async function GET() {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     const featureCheck = await requireFeature("hr");
     if (featureCheck instanceof NextResponse) return featureCheck;

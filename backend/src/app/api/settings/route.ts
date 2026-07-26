@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { storeSettings, activityLogs, stores } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { storeSettingsSchema } from "@/lib/validators";
 import { eq } from "drizzle-orm";
 
@@ -129,6 +129,9 @@ export async function GET() {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     try {
         const body = await request.json();

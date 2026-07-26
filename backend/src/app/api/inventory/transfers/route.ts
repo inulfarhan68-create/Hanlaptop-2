@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockTransfers, stockTransferItems, inventory, activityLogs, stores } from "@/db/schema";
 import { eq, or, and, gte, lte, count, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireFeature, requireWritable } from "@/lib/auth-guard";
 import { stockTransferSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +57,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     const featureCheck = await requireFeature("stockTransfer");
     if (featureCheck instanceof NextResponse) return featureCheck;

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employeeLoans, activityLogs } from '@/db/schema';
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { eq, and } from 'drizzle-orm';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -35,6 +35,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     const { id } = await context.params;
 

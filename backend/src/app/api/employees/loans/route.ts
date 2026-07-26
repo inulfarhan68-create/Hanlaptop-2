@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employeeLoans, employees, transactions, journalEntries, cashierShifts, activityLogs } from '@/db/schema';
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
 import { employeeLoanSchema } from '@/lib/validators';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -35,6 +35,9 @@ export async function GET() {
 export async function POST(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    const demoBlock = requireWritable(authResult);
+    if (demoBlock) return demoBlock;
 
     if (authResult.storeId === "all") {
         return NextResponse.json({ error: "Please select a specific branch to create a loan" }, { status: 400 });

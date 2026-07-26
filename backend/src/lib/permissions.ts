@@ -98,3 +98,15 @@ export function hasPermission(role: string, permission: Permission): boolean {
     const perms = RolePermissionsMatrix[role] || [];
     return perms.includes(permission);
 }
+
+/** Read-only permissions end in one of these; everything else mutates data. */
+const READ_PERMISSION_SUFFIXES = [".read", ".export"] as const;
+
+/**
+ * Whether a permission grants a data mutation (create/edit/delete/adjust/void/
+ * update/…) vs a pure read/export. Used to block writes in read-only demo tenants
+ * centrally at the `requirePermission` guard.
+ */
+export function isWritePermission(permission: Permission): boolean {
+    return !READ_PERMISSION_SUFFIXES.some((s) => permission.endsWith(s));
+}
