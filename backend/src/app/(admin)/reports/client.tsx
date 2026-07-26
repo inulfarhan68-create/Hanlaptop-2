@@ -30,7 +30,7 @@ const fmt = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(v)
 
 export default function ReportsClient() {
-  const { isOwner, isManager, isInvestor } = useUserRole()
+  const { isOwner, isManager, isInvestor, isLoading: roleLoading } = useUserRole()
   const { data: session, isPending } = useSessionUser()
   const router = useRouter()
   // Simplified tabs: 6 main tabs + 1 sub-tab for Akuntansi
@@ -48,7 +48,7 @@ export default function ReportsClient() {
   // Gate on the session having loaded (a fresh Next load resolves the role
   // asynchronously; acting before it would bounce even an owner). Redirect via
   // effect, and let every hook below still run — only the final render is gated.
-  const roleReady = !isPending && !!session
+  const roleReady = !isPending && !roleLoading && !!session
   const isDenied = roleReady && !isOwner && !isManager && !isInvestor
   useEffect(() => {
     if (isDenied) router.replace("/dashboard")

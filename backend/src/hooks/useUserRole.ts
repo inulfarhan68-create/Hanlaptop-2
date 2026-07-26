@@ -3,8 +3,8 @@ import { useSessionUser } from "@/components/SessionUserProvider"
 import useSWR from "swr"
 
 export function useUserRole() {
-  const { data: session } = useSessionUser()
-  const { data: settings } = useSWR<any>('/api/settings')
+  const { data: session, isPending: sessionLoading } = useSessionUser()
+  const { data: settings, isLoading: settingsLoading } = useSWR<any>('/api/settings')
   
   const role = settings?.userRole || (session?.user as any)?.role || "kasir"
   
@@ -14,5 +14,6 @@ export function useUserRole() {
     isManager: role === "manager",
     isKasir: role === "kasir",
     isInvestor: role === "investor",
+    isLoading: sessionLoading || settingsLoading,
   }
 }
