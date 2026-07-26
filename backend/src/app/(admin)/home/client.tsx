@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 
 // Format Rupiah
 const formatRp = (num: number) => {
@@ -78,12 +80,15 @@ export default function HomeClient({ user }: { user: any }) {
     <div className="flex-1 pb-24 md:pb-8 bg-background min-h-screen">
       
       {/* HEADER & HERO CARD */}
-      <div className="bg-primary pt-0 pb-16 px-4 rounded-b-3xl relative overflow-hidden">
+      <div className="bg-primary pt-0 pb-16 rounded-b-3xl relative overflow-hidden">
         {/* Background Decorations */}
         <div className="absolute top-16 right-0 -mr-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
         
-        <div className="relative z-10 flex items-center gap-3">
+        {/* Render Mobile Header inside the blue area to share the exact same background */}
+        <MobileHeader variant="home" />
+
+        <div className="relative z-10 flex items-center gap-3 px-4 pt-2">
           <div className="flex-1 min-w-0">
             <p className="text-white/80 text-xs font-medium">Selamat datang,</p>
             <h1 className="text-white text-xl font-bold mt-0.5 tracking-tight truncate">

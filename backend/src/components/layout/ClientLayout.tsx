@@ -15,7 +15,7 @@ export function ClientLayout({ children, user }: { children: React.ReactNode, us
     <div className="flex flex-col md:flex-row h-screen w-full bg-gradient-to-br from-teal-100 via-cyan-100 to-emerald-100 dark:from-background dark:via-background dark:to-background dark:bg-background light-blue:bg-none light-blue:bg-slate-50 overflow-hidden print:bg-none print:h-auto print:overflow-visible text-foreground transition-colors duration-500">
       
       {/* Mobile: Top Header */}
-      {pathname !== "/dashboard" && <MobileHeader />}
+      {pathname !== "/dashboard" && pathname !== "/home" && <MobileHeader />}
 
       {/* Desktop: Sidebar (hidden on mobile) */}
       <div className="hidden md:block print:hidden relative z-50 h-full">

@@ -11,7 +11,7 @@ import { useSessionUser } from "@/components/SessionUserProvider"
 import { BranchSelector } from "@/components/BranchSelector"
 import { cn } from "@/lib/utils"
 
-export function MobileHeader() {
+export function MobileHeader({ variant = "default" }: { variant?: "default" | "home" }) {
   const { theme, setTheme } = useTheme()
   const { data: session } = useSessionUser()
   const [isOpen, setIsOpen] = useState(false)
@@ -48,16 +48,12 @@ export function MobileHeader() {
   }
 
   const pathname = usePathname()
-  const isHome = pathname === "/home"
+  const isHome = variant === "home" || pathname === "/home"
 
-  return (
-    <header className={cn(
-      "md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] sticky top-0 z-50 transition-colors duration-300",
-      isHome 
-        ? "bg-primary text-primary-foreground -mb-[1px]" 
-        : "bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl"
-    )}>
-      <div className="flex items-center justify-between w-full mb-2">
+  if (variant === "home") {
+    return (
+      <div className="md:hidden flex flex-col px-4 pb-0 pt-[calc(env(safe-area-inset-top)+0.5rem)] relative z-50">
+        <div className="flex items-center justify-between w-full mb-2">
         {/* Logo & Brand */}
         <Link href="/home" className="flex items-center gap-2.5">
           <div className="h-8 w-10 flex items-center justify-center shrink-0">
@@ -115,9 +111,74 @@ export function MobileHeader() {
             </div>
           </>
         )}
+        </div>
       </div>
+    </div>
+    )
+  }
+
+  return (
+    <header className="md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] sticky top-0 z-50 bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl">
+      <div className="flex items-center justify-between w-full mb-2">
+        {/* Logo & Brand */}
+        <Link href="/home" className="flex items-center gap-2.5">
+          <div className="h-8 w-10 flex items-center justify-center shrink-0">
+            <img src={storeLogo} alt="Logo" className="w-full h-full object-contain dark:invert" onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              img.onerror = null;
+              img.src = assetUrl("/logo.png");
+            }} />
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            {(() => {
+              const name = storeName || "Han Laptop";
+              const match = name.match(/^(laphack|han\s+laptop|hanlaptop)(?:\s*-\s*|\s+)(.*)$/i);
+              const displayName = match ? match[1] : name;
+              return <span className="text-sm font-extrabold tracking-tight truncate leading-snug text-foreground">{displayName}</span>;
+            })()}
+            <BranchSelector variant="minimal" className="px-0 mb-0 w-auto shrink-0" />
+          </div>
+        </Link>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 relative">
+          <button
+            onClick={cycleTheme}
+            className="h-9 w-9 rounded-full flex items-center justify-center transition-colors border bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            {theme === "dark" ? <Moon className="h-4 w-4" /> : theme === "light-blue" ? <Droplets className="h-4 w-4 text-blue-500" /> : <Sun className="h-4 w-4 text-amber-500" />}
+          </button>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="h-9 w-9 rounded-full flex items-center justify-center border transition-colors bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
+        >
+          <User className="h-5 w-5" />
+        </button>
+
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <div className="absolute top-full right-0 mt-3 w-56 bg-card rounded-xl border border-border shadow-xl z-50 p-2 animate-in fade-in slide-in-from-top-2">
+              <div className="px-2 pb-2 mb-2 border-b border-border/50">
+                <p className="font-semibold text-sm truncate">{session?.user?.name || "Admin"}</p>
+                <p className="text-xs text-muted-foreground truncate">{session?.user?.email || "admin@hanlaptop.com"}</p>
+              </div>
+              <button
+                onClick={async () => {
+                  await signOut()
+                  window.location.href = "/login"
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Keluar
+              </button>
+            </div>
+          </>
+        )}
+        </div>
       </div>
-      {/* BranchSelector has been moved to logo area */}
     </header>
   )
 }
