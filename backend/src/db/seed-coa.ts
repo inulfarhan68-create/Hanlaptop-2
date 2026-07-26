@@ -150,7 +150,7 @@ export async function seedStoreCoa(storeId: string, opts: { isSaaSPlatform?: boo
 }
 
 // CLI: DATABASE_URL=<postgres> npx tsx src/db/seed-coa.ts <storeId>
-if (require.main === module) {
+if (process.argv[1] && process.argv[1].endsWith("seed-coa.ts")) {
     const storeId = process.argv[2];
     if (!storeId) {
         console.error("Usage: DATABASE_URL=<postgres> npx tsx src/db/seed-coa.ts <storeId>");

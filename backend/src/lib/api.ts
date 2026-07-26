@@ -61,7 +61,7 @@ export async function apiFetch(
 export async function fetcher(args: string | any[]) {
   const url = Array.isArray(args) ? args[0] : args;
   if (!url || typeof url !== 'string') throw new Error("Invalid fetcher URL");
-  
+
   const res = await apiFetch(url);
   if (!res.ok) {
     // If unauthorized, session expired or logged out. Send to the Next app's
