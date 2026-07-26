@@ -105,7 +105,7 @@ export default function LoginClient() {
       if (signInError) {
         setError(signInError.message || "Email atau password salah")
       } else {
-        router.push("/dashboard") // Redirect to dashboard after login
+        router.push("/home") // Redirect to home after login
         router.refresh() // Force refresh layout to update server-side auth guards
       }
     } catch (err) {

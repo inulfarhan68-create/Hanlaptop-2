@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "HanLaptop Store",
     short_name: "HanLaptop",
     description: "Aplikasi Kasir dan Manajemen HanLaptop",
-    start_url: "/",
+    start_url: "/home",
     scope: "/",
     display: "standalone",
     theme_color: "#ffffff",

@@ -24,7 +24,7 @@ export function DemoButton({ className }: { className?: string }) {
                 return;
             }
             toast.success("Membuka demo (mode baca-saja)…");
-            router.push("/dashboard");
+            router.push("/home");
             router.refresh();
         } catch {
             toast.error("Gagal membuka demo. Coba lagi.");

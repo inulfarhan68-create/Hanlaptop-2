@@ -78,7 +78,7 @@ export function RegisterClient({
             }
 
             toast.success("Toko berhasil dibuat! Selamat datang di HanLaptop ERP.");
-            router.push("/dashboard");
+            router.push("/home");
             router.refresh();
         } catch (error: any) {
             toast.error("Terjadi kesalahan jaringan");
