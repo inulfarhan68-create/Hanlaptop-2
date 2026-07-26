@@ -19,12 +19,16 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], display: "swap" });
+
 // Root layout for the (migrating) public pages served by the Next app.
 // API route handlers ignore layouts, so this does not affect /api.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body>
+      <body className={inter.className}>
         {/* Apply the persisted theme class before first paint so SSR pages
             don't flash the wrong theme. Must stay in sync with ThemeProvider
             (storageKey "vite-ui-theme"; themes: dark | light | light-blue |
