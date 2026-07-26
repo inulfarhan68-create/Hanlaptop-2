@@ -20,6 +20,18 @@ import { normalizeServiceParts } from "@/lib/serviceParts"
 
 const COLUMNS = ['Diterima', 'Dikerjakan', 'Menunggu Part', 'Selesai', 'Diambil', 'Batal']
 
+// Mirror of the backend FSM (api/services/[id] PATCH) so the Kanban only offers
+// valid drag targets — dropping into an invalid column is blocked client-side
+// instead of bouncing back with a "SOP Violation" error toast from the server.
+const FSM_TRANSITIONS: Record<string, string[]> = {
+  'Diterima': ['Dikerjakan', 'Menunggu Part', 'Batal'],
+  'Menunggu Part': ['Dikerjakan', 'Batal'],
+  'Dikerjakan': ['Selesai', 'Menunggu Part', 'Batal'],
+  'Selesai': ['Diambil', 'Dikerjakan'],
+  'Diambil': [],
+  'Batal': [],
+}
+
 const getCleanedNotes = (notesStr: string) => {
   if (!notesStr) return "";
   return notesStr
@@ -129,6 +141,11 @@ export default function ServicesClient({ user }: { user: any }) {
   const [kelengkapanDus, setKelengkapanDus] = useState(false)
   const [kelengkapanLainnya, setKelengkapanLainnya] = useState("")
   const [activeModalTab, setActiveModalTab] = useState<'detail' | 'history'>('detail')
+
+  // Kanban v2: FSM-aware drag + toolbar filters
+  const [draggingStatus, setDraggingStatus] = useState<string | null>(null)
+  const [technicianFilter, setTechnicianFilter] = useState<string>('all')
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false)
 
   const getQcPassCount = (notesStr: string) => {
     const match = (notesStr || "").match(/\[QC:\s*(.*?)\]/);
@@ -287,12 +304,23 @@ export default function ServicesClient({ user }: { user: any }) {
 
 
 
-  const filteredServices = (Array.isArray(services) ? services : []).filter((s: any) => 
-    !searchQuery || 
-    s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.deviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.issue.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredServices = (Array.isArray(services) ? services : []).filter((s: any) => {
+    const matchesSearch = !searchQuery ||
+      s.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.deviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.issue?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesTech = technicianFilter === 'all' ||
+      (technicianFilter === '__none__' ? !s.technicianName : s.technicianName === technicianFilter)
+    const sla = getSlaStatus(s.receivedDate, s.status)
+    const matchesOverdue = !showOverdueOnly || (sla ? sla.level === 'warning' || sla.level === 'critical' : false)
+    return matchesSearch && matchesTech && matchesOverdue
+  })
+
+  // Count of active units past their SLA (Warning/Critical) — drives the "Terlambat" toggle badge.
+  const overdueCount = (Array.isArray(services) ? services : []).reduce((n: number, s: any) => {
+    const sla = getSlaStatus(s.receivedDate, s.status)
+    return sla && (sla.level === 'warning' || sla.level === 'critical') ? n + 1 : n
+  }, 0)
 
   // Stats Calculations for Servis
   const activeStatuses = ['Diterima', 'Dikerjakan', 'Menunggu Part']
@@ -664,14 +692,36 @@ export default function ServicesClient({ user }: { user: any }) {
       <div className="flex flex-col md:flex-row gap-3 mb-4 shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input 
-            type="search" 
-            placeholder="Cari nama pelanggan, unit, atau keluhan..." 
+          <Input
+            type="search"
+            placeholder="Cari nama pelanggan, unit, atau keluhan..."
             className="pl-9 bg-card rounded-xl h-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        <select
+          value={technicianFilter}
+          onChange={(e) => setTechnicianFilter(e.target.value)}
+          className="rounded-xl border border-border bg-card px-3 h-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary md:w-52"
+          title="Filter per teknisi"
+        >
+          <option value="all">Semua Teknisi</option>
+          <option value="__none__">Belum ada teknisi</option>
+          {technicianOptions.map((t: string) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          variant={showOverdueOnly ? "default" : "outline"}
+          onClick={() => setShowOverdueOnly((v) => !v)}
+          className="rounded-xl h-10 gap-1.5 whitespace-nowrap"
+          title="Tampilkan hanya servis yang lewat SLA (Warning/Critical)"
+        >
+          <AlertCircle className="h-4 w-4" />
+          Terlambat{overdueCount > 0 ? ` (${overdueCount})` : ''}
+        </Button>
       </div>
 
       {/* Kanban Board */}
@@ -690,17 +740,31 @@ export default function ServicesClient({ user }: { user: any }) {
           <div className="flex h-full gap-4 pb-4 px-1 min-w-max">
             {COLUMNS.map(col => {
               const colItems = filteredServices.filter((s:any) => s.status === col)
+              const isDragValid = !!draggingStatus && col !== draggingStatus && (FSM_TRANSITIONS[draggingStatus] || []).includes(col)
+              const isDragInvalid = !!draggingStatus && col !== draggingStatus && !(FSM_TRANSITIONS[draggingStatus] || []).includes(col)
               return (
-                <div 
-                  key={col} 
-                  onDragOver={(e) => e.preventDefault()}
+                <div
+                  key={col}
+                  onDragOver={(e) => { if (!isDragInvalid) e.preventDefault(); }}
                   onDrop={(e) => {
+                    e.preventDefault();
                     const id = e.dataTransfer.getData("text/plain");
-                    if (id) {
-                      handleStatusChange(id, col);
+                    const from = draggingStatus;
+                    setDraggingStatus(null);
+                    if (!id || !from || from === col) return;
+                    if (!(FSM_TRANSITIONS[from] || []).includes(col)) {
+                      toast.error(`Servis tidak bisa langsung dari "${from}" ke "${col}".`);
+                      return;
                     }
+                    handleStatusChange(id, col);
                   }}
-                  className="w-80 flex flex-col h-full max-h-full bg-muted/40 rounded-2xl border border-border overflow-hidden"
+                  className={`w-80 flex flex-col h-full max-h-full rounded-2xl border overflow-hidden transition-all duration-200 ${
+                    isDragValid
+                      ? 'bg-primary/5 border-primary ring-2 ring-primary/40'
+                      : isDragInvalid
+                      ? 'bg-muted/40 border-border opacity-40'
+                      : 'bg-muted/40 border-border'
+                  }`}
                 >
                   <div className="p-3 border-b border-border bg-card/50 flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-sm">{col}</h3>
@@ -710,12 +774,14 @@ export default function ServicesClient({ user }: { user: any }) {
                     {colItems.map((item:any) => {
                       const sla = getSlaStatus(item.receivedDate, item.status);
                       return (
-                        <Card 
-                          key={item.id} 
+                        <Card
+                          key={item.id}
                           draggable
                           onDragStart={(e) => {
                             e.dataTransfer.setData("text/plain", item.id);
+                            setDraggingStatus(item.status);
                           }}
+                          onDragEnd={() => setDraggingStatus(null)}
                           className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow border-border/60 bg-card text-left ${
                             sla
                               ? sla.level === 'critical'
@@ -731,6 +797,10 @@ export default function ServicesClient({ user }: { user: any }) {
                               <div className="flex-1 overflow-hidden">
                                 <h4 className="font-bold text-sm truncate" title={item.deviceName}>{item.deviceName}</h4>
                                 <p className="text-xs text-muted-foreground truncate">{item.customerName}</p>
+                                <p className="text-[10px] text-muted-foreground/80 truncate flex items-center gap-1 mt-0.5">
+                                  <Wrench className="h-2.5 w-2.5 shrink-0" />
+                                  {item.technicianName || <span className="italic opacity-70">Belum ada teknisi</span>}
+                                </p>
                               </div>
                               <div className="flex flex-col items-end gap-1 ml-2 whitespace-nowrap shrink-0">
                                 <div className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${getStatusColor(item.status)}`}>

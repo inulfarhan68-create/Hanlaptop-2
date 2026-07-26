@@ -50,7 +50,7 @@ export function MobileHeader() {
     <header className="md:hidden flex flex-col px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] bg-white/80 light-blue:bg-white dark:bg-card border-b border-border backdrop-blur-xl sticky top-0 z-50">
       <div className="flex items-center justify-between w-full mb-2">
         {/* Logo & Brand */}
-        <Link href="/admin" className="flex items-center gap-2.5">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           <div className="h-8 w-10 flex items-center justify-center shrink-0">
             <img src={storeLogo} alt="Logo" className="w-full h-full object-contain dark:invert" onError={(e) => {
               const img = e.target as HTMLImageElement;

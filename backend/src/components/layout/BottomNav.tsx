@@ -10,12 +10,13 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   Wallet,
+  Wrench,
 } from "lucide-react"
 import { useUserRole } from "@/hooks/useUserRole"
 
 const navItems = [
-  { title: "Home", href: "/admin", icon: Home },
-  { title: "Statistik", href: "/dashboard", icon: BarChart3 },
+  { title: "Home", href: "/dashboard", icon: Home },
+  { title: "Servis", href: "/services", icon: Wrench },
   { title: "Transaksi", href: "/transactions", icon: ShoppingCart }, // Center button
   { title: "Inventori", href: "/inventory", icon: Package },
   { title: "Laporan", href: "/reports", icon: FileText },
