@@ -80,8 +80,8 @@ export default function HomeClient({ user }: { user: any }) {
       {/* HEADER & HERO CARD */}
       <div className="bg-primary pt-0 pb-16 px-4 rounded-b-3xl relative overflow-hidden">
         {/* Background Decorations */}
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
+        <div className="absolute top-16 right-0 -mr-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
         
         <div className="relative z-10 flex items-center gap-3">
           <div className="flex-1 min-w-0">
