@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.12",
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@google/genai": "^2.10.0",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-label": "^2.1.11",
