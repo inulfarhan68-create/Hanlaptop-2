@@ -43,11 +43,11 @@ const formatRp = (num: number) => {
 };
 
 const MAIN_FEATURES = [
-  { name: "Penjualan", icon: ShoppingCart, href: "/transactions?tab=sales", color: "text-blue-500", bg: "bg-blue-500/10" },
+  { name: "Penjualan", icon: ShoppingCart, href: "/transactions?mode=Penjualan", color: "text-blue-500", bg: "bg-blue-500/10" },
   { name: "Manajemen Servis", icon: Wrench, href: "/services", color: "text-purple-500", bg: "bg-purple-500/10" },
   { name: "Beli Stok", icon: PackagePlus, href: "/procurement", color: "text-fuchsia-600", bg: "bg-fuchsia-600/10" },
-  { name: "Pengeluaran", icon: CreditCard, href: "/transactions?tab=expenses", color: "text-rose-500", bg: "bg-rose-500/10" },
-  { name: "Riwayat", icon: History, href: "/transactions", color: "text-amber-500", bg: "bg-amber-500/10" },
+  { name: "Pengeluaran", icon: CreditCard, href: "/transactions?mode=Pengeluaran", color: "text-rose-500", bg: "bg-rose-500/10" },
+  { name: "Riwayat", icon: History, href: "/transactions?mode=Riwayat", color: "text-amber-500", bg: "bg-amber-500/10" },
   { name: "Inventori", icon: Package, href: "/inventory", color: "text-emerald-500", bg: "bg-emerald-500/10" },
   { name: "Laporan", icon: BarChart3, href: "/reports", color: "text-teal-500", bg: "bg-teal-500/10" },
   { name: "Pengaturan", icon: Settings, href: "/settings", color: "text-slate-500", bg: "bg-slate-500/10" },
@@ -216,7 +216,7 @@ export default function HomeClient({ user }: { user: any }) {
       <div className="px-4 mt-4 mb-4">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-[15px] font-bold text-foreground tracking-tight">Riwayat Terbaru</h3>
-          <Link href="/transactions" className="text-primary text-xs font-bold hover:underline flex items-center gap-1">
+          <Link href="/transactions?mode=Riwayat" className="text-primary text-xs font-bold hover:underline flex items-center gap-1">
             Semua <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
