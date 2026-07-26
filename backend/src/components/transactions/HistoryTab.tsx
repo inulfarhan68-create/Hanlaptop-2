@@ -815,22 +815,25 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
                 <span className="font-bold">{formatCurrency(viewDetailTrx.amount)}</span>
               </div>
               
-              {viewDetailTrx.transactionType === "Penjualan" && !isKasir && (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Harga Pokok Penjualan (COGS)</span>
-                    <span className="font-semibold text-destructive">
-                      -{formatCurrency(viewDetailTrx.journals?.find((j: any) => j.accountName === "HPP")?.debit || 0)}
-                    </span>
-                  </div>
-                  <div className="pt-2 mt-2 border-t flex justify-between text-sm">
-                    <span className="font-semibold text-foreground">Gross Margin (Laba Kotor)</span>
-                    <span className="font-bold text-emerald-600">
-                      {formatCurrency(viewDetailTrx.amount - (viewDetailTrx.journals?.find((j: any) => j.accountName === "HPP")?.debit || 0))}
-                    </span>
-                  </div>
-                </>
-              )}
+              {viewDetailTrx.transactionType === "Penjualan" && !isKasir && (() => {
+                const totalCogs = viewDetailTrx.journals?.reduce((sum: number, j: any) => sum + (j.accountName?.startsWith("HPP") ? Number(j.debit || 0) : 0), 0) || 0;
+                return (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Harga Pokok Penjualan (COGS)</span>
+                      <span className="font-semibold text-destructive">
+                        -{formatCurrency(totalCogs)}
+                      </span>
+                    </div>
+                    <div className="pt-2 mt-2 border-t flex justify-between text-sm">
+                      <span className="font-semibold text-foreground">Gross Margin (Laba Kotor)</span>
+                      <span className="font-bold text-emerald-600">
+                        {formatCurrency(viewDetailTrx.amount - totalCogs)}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-2">
