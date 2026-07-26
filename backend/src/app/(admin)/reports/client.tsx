@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+
 import { useUserRole } from "@/hooks/useUserRole"
 import { useSessionUser } from "@/components/SessionUserProvider"
 import { Button } from "@/components/ui/button"
@@ -30,9 +30,8 @@ const fmt = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(v)
 
 export default function ReportsClient() {
-  const { isOwner, isManager, isInvestor, isLoading: roleLoading } = useUserRole()
-  const { data: session, isPending } = useSessionUser()
-  const router = useRouter()
+  const { isOwner, isManager, isInvestor } = useUserRole()
+  const { data: session } = useSessionUser()
   // Simplified tabs: 6 main tabs + 1 sub-tab for Akuntansi
   const [activeTab, setActiveTab] = useState<"labarugi" | "neraca" | "produk" | "shift" | "komisi" | "akuntansi">("labarugi")
   // Sub-tab for Akuntansi section
@@ -45,14 +44,6 @@ export default function ReportsClient() {
   const selectedYear = period.from ? new Date(period.from).getFullYear() : new Date().getFullYear()
   const selectedMonth = period.from ? new Date(period.from).getMonth() + 1 : new Date().getMonth() + 1
 
-  // Gate on the session having loaded (a fresh Next load resolves the role
-  // asynchronously; acting before it would bounce even an owner). Redirect via
-  // effect, and let every hook below still run — only the final render is gated.
-  const roleReady = !isPending && !roleLoading && !!session
-  const isDenied = roleReady && !isOwner && !isManager && !isInvestor
-  useEffect(() => {
-    if (isDenied) router.replace("/dashboard")
-  }, [isDenied, router])
 
   const queryParams = new URLSearchParams()
   if (period.from) queryParams.append('from', period.from)
@@ -196,9 +187,7 @@ export default function ReportsClient() {
     }, 500)
   }
 
-  if (isDenied) {
-    return null
-  }
+
 
   return (
     <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
