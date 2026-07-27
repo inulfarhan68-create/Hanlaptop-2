@@ -48,7 +48,7 @@ export function DrillDownModal({
     onClose: () => void;
 }) {
     const { data, isLoading } = useSWR<DrillData>(
-        `/api/accounting/account-detail?accountCode=${encodeURIComponent(accountCode)}&year=${year}&month=${month}`,
+        [`/api/accounting/account-detail?accountCode=${encodeURIComponent(accountCode)}&year=${year}&month=${month}`],
         fetcher
     );
 
