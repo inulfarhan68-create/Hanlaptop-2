@@ -38,8 +38,8 @@ test.describe('Tenant Onboarding Flow', () => {
     // 3. Submit
     await page.click('button[type="submit"]');
 
-    // 4. Verify redirection to dashboard
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // 4. Verify redirection to the app home (register-client pushes to /home on success)
+    await expect(page).toHaveURL('/home', { timeout: 15000 });
     
     // 5. Verify the DB was provisioned correctly
     const user = await db.query.user.findFirst({
