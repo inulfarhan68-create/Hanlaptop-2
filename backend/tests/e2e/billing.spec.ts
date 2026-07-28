@@ -13,13 +13,14 @@ test.describe('Billing & Subscription Phase 5', () => {
         expect(response.status()).toBeGreaterThanOrEqual(400); 
     });
 
-    test('Webhook should require valid payload', async ({ request }) => {
+    test('Webhook should reject calls without a valid secret', async ({ request }) => {
+        // The billing webhook is secret-gated (D3): without a matching
+        // x-webhook-secret it is rejected as Unauthorized BEFORE any payload is
+        // parsed. CI does not set BILLING_WEBHOOK_SECRET, so this is always 401.
         const response = await request.post('/api/webhooks/billing', {
             data: { type: 'invalid_event' }
         });
-        
-        expect(response.status()).toBe(400);
-        const data = await response.json();
-        expect(data.error).toBe('Invalid webhook payload');
+
+        expect(response.status()).toBe(401);
     });
 });

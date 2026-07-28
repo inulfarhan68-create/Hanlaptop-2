@@ -10,8 +10,10 @@
 import { test, expect } from '@playwright/test';
 import { db } from '../../src/db';
 import { organizations, stores, userStoreAccess } from '../../src/db/schema';
+import { subscriptions } from '../../src/db/schema/saas';
 import { user, session } from '../../src/db/schema/users';
 import { transactions, inventory, customers, serviceOrders } from '../../src/db/schema';
+import { seedPlans } from '../../src/db/seed-plans';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -42,6 +44,19 @@ test.describe('Multi-Tenant Isolation', () => {
     await db.insert(organizations).values([
       { id: orgAId, name: 'Org A Test' },
       { id: orgBId, name: 'Org B Test' },
+    ]);
+
+    // Both tenants need an active subscription, otherwise the SaaS feature gates
+    // (requireFeature) return 402 before the isolation check runs — e.g. the
+    // /api/services/[id] test would see 402 instead of the expected 404. Seed the
+    // base plans first (CI's test DB is schema-only), then subscribe both orgs to
+    // the internal (all-features) plan.
+    await seedPlans();
+    const subNow = new Date();
+    const subEnd = new Date(subNow.getFullYear() + 100, 0, 1);
+    await db.insert(subscriptions).values([
+      { organizationId: orgAId, planKey: 'internal', status: 'active', currentPeriodStart: subNow, currentPeriodEnd: subEnd },
+      { organizationId: orgBId, planKey: 'internal', status: 'active', currentPeriodStart: subNow, currentPeriodEnd: subEnd },
     ]);
 
     // 2. Setup: Create two stores (one per org)
@@ -115,10 +130,9 @@ test.describe('Multi-Tenant Isolation', () => {
       storeId: storeBId,
       customerId: custBId,
       customerName: 'Customer B',
-      serviceNumber: `SVC-B-${ts}`,
       deviceName: 'Device B',
       issue: 'Mati Total',
-      status: 'Antrian',
+      status: 'Diterima',
     });
 
   });
