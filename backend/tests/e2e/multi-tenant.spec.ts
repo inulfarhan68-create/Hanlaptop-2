@@ -20,6 +20,12 @@ import crypto from 'crypto';
 // Configuration
 const API_URL = '/api';
 
+// TODO(e2e): `.fixme` is TEMPORARY, not a permanent skip. These tests inject a raw
+// session token, but Better-Auth v1.6 signs the session cookie, so every request 401s
+// — the tenant-isolation feature itself is fine (covered by tests/unit/tenant-isolation.test.ts
+// + storeScope). Restore end-to-end coverage by authenticating for real (signUp → signIn →
+// use the real signed cookie) via a shared tests/helpers/auth.ts (loginAsOwner /
+// createTestTenant), then remove `.fixme`. Tracked as a post-release task.
 test.describe.fixme('Multi-Tenant Isolation', () => {
   let orgAId: string;
   let orgBId: string;
