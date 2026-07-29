@@ -3,9 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Building2, CheckCircle, XCircle, ChevronRight, ChevronDown } from "lucide-react"
+import { Building2, CheckCircle, XCircle, ChevronRight, ChevronDown, Search } from "lucide-react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { DrillDownModal } from "./DrillDownModal"
 
 interface BalanceSheetReportProps {
     data: any
@@ -18,17 +19,19 @@ const CollapsibleList = ({
     accounts, 
     total, 
     fmt, 
-    colorClass, 
+    colorClass,
     bgClass,
-    defaultOpen = false
-}: { 
-    title: string, 
-    accounts: any[], 
-    total: number, 
-    fmt: any, 
-    colorClass: string, 
+    defaultOpen = false,
+    onAccountClick
+}: {
+    title: string,
+    accounts: any[],
+    total: number,
+    fmt: any,
+    colorClass: string,
     bgClass: string,
-    defaultOpen?: boolean
+    defaultOpen?: boolean,
+    onAccountClick?: (account: any) => void
 }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -57,8 +60,13 @@ const CollapsibleList = ({
                         <Table>
                             <TableBody>
                                 {accounts.map((account: any) => (
-                                    <TableRow key={account.code} className="hover:bg-slate-50 dark:hover:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                                        <TableCell className="text-xs py-1.5 pl-6 text-slate-500">{account.name}</TableCell>
+                                    <TableRow key={account.code} onClick={() => onAccountClick?.(account)} className={`hover:bg-slate-50 dark:hover:bg-slate-900 border-b border-slate-100 dark:border-slate-800 group/acc ${onAccountClick ? 'cursor-pointer' : ''}`}>
+                                        <TableCell className="text-xs py-1.5 pl-6 text-slate-500">
+                                            <span className="inline-flex items-center gap-1.5">
+                                                {account.name}
+                                                {onAccountClick && <Search className="h-3 w-3 opacity-0 group-hover/acc:opacity-60 transition-opacity" />}
+                                            </span>
+                                        </TableCell>
                                         <TableCell className="text-right py-1.5 pr-4 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(account.amount)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -72,6 +80,8 @@ const CollapsibleList = ({
 }
 
 export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportProps) {
+    const [drill, setDrill] = useState<{ code: string; name: string } | null>(null);
+    const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name });
     if (isLoading) {
         return (
             <Card className="border-none shadow-md bg-white/50 dark:bg-card/50 backdrop-blur-sm">
@@ -229,6 +239,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                                 accounts={assets.current}
                                 total={assets.totalCurrent}
                                 fmt={fmt}
+                                onAccountClick={handleDrill}
                                 colorClass="text-slate-800 dark:text-slate-200"
                                 bgClass="bg-slate-50/70 hover:bg-slate-100/50 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
                                 defaultOpen={true}
@@ -241,6 +252,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                                 accounts={assets.fixed}
                                 total={assets.totalFixed}
                                 fmt={fmt}
+                                onAccountClick={handleDrill}
                                 colorClass="text-slate-800 dark:text-slate-200"
                                 bgClass="bg-slate-50/70 hover:bg-slate-100/50 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
                                 defaultOpen={true}
@@ -270,6 +282,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                                 accounts={liabilities.current}
                                 total={liabilities.totalCurrent}
                                 fmt={fmt}
+                                onAccountClick={handleDrill}
                                 colorClass="text-slate-800 dark:text-slate-200"
                                 bgClass="bg-slate-50/70 hover:bg-slate-100/50 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
                                 defaultOpen={true}
@@ -282,6 +295,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                                 accounts={liabilities.longTerm}
                                 total={liabilities.totalLongTerm}
                                 fmt={fmt}
+                                onAccountClick={handleDrill}
                                 colorClass="text-slate-800 dark:text-slate-200"
                                 bgClass="bg-slate-50/70 hover:bg-slate-100/50 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
                                 defaultOpen={true}
@@ -294,6 +308,7 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                                 accounts={equity.accounts}
                                 total={equity.total}
                                 fmt={fmt}
+                                onAccountClick={handleDrill}
                                 colorClass="text-slate-800 dark:text-slate-200"
                                 bgClass="bg-slate-50/70 hover:bg-slate-100/50 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
                                 defaultOpen={true}
@@ -337,6 +352,16 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                             </div>
                         </div>
                     </div>
+                )}
+                {drill && period && (
+                    <DrillDownModal
+                        accountCode={drill.code}
+                        accountName={drill.name}
+                        year={period.year}
+                        month={period.month}
+                        fmt={fmt}
+                        onClose={() => setDrill(null)}
+                    />
                 )}
             </CardContent>
         </Card>

@@ -3,6 +3,7 @@ import path from 'path';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  globalSetup: './tests/e2e/global-setup.ts', // seed base SaaS plans into the test DB
   fullyParallel: false, // Run tests sequentially to avoid DB collisions
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

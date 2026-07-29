@@ -2,11 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TrendingUp, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertTriangle, PieChart as PieChartIcon, Activity } from "lucide-react"
+import { TrendingUp, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertTriangle, PieChart as PieChartIcon, Activity, Search } from "lucide-react"
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
+import { DrillDownModal } from "./DrillDownModal"
 
 interface IncomeStatementReportProps {
     data: any
@@ -19,19 +20,21 @@ const CollapsibleSection = ({
     accounts, 
     total, 
     fmt, 
-    colorClass, 
-    bgClass, 
+    colorClass,
+    bgClass,
     defaultOpen = false,
-    isNegative = false
-}: { 
-    title: string, 
-    accounts: any[], 
-    total: number, 
-    fmt: any, 
-    colorClass: string, 
-    bgClass: string, 
+    isNegative = false,
+    onAccountClick
+}: {
+    title: string,
+    accounts: any[],
+    total: number,
+    fmt: any,
+    colorClass: string,
+    bgClass: string,
     defaultOpen?: boolean,
-    isNegative?: boolean
+    isNegative?: boolean,
+    onAccountClick?: (account: any) => void
 }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -61,10 +64,14 @@ const CollapsibleSection = ({
                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                         exit={{ opacity: 0, height: 0, y: -5 }}
                         transition={{ duration: 0.2, delay: idx * 0.02 }}
-                        className="bg-transparent border-b border-slate-100/50 dark:border-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                        onClick={() => onAccountClick?.(account)}
+                        className={`bg-transparent border-b border-slate-100/50 dark:border-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group/acc ${onAccountClick ? 'cursor-pointer' : ''}`}
                     >
                         <TableCell className="pl-10 py-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                            {account.name}
+                            <span className="inline-flex items-center gap-1.5">
+                                {account.name}
+                                {onAccountClick && <Search className="h-3 w-3 opacity-0 group-hover/acc:opacity-60 transition-opacity" />}
+                            </span>
                         </TableCell>
                         <TableCell className="text-right py-1.5 pr-4 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
                             {isNegative || account.amount < 0 ? `(${fmt(Math.abs(account.amount))})` : fmt(account.amount)}
@@ -77,6 +84,8 @@ const CollapsibleSection = ({
 }
 
 export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementReportProps) {
+    const [drill, setDrill] = useState<{ code: string; name: string } | null>(null);
+    const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name });
     if (isLoading) {
         return (
             <Card className="border-none shadow-2xl bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl">
@@ -385,6 +394,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         accounts={revenueSection.accounts}
                                         total={revenueSection.total}
                                         fmt={fmt}
+                                        onAccountClick={handleDrill}
                                         colorClass="text-slate-800 dark:text-slate-100"
                                         bgClass="bg-indigo-50/30 hover:bg-indigo-50/80 dark:bg-indigo-950/20 dark:hover:bg-indigo-900/30"
                                         defaultOpen={true}
@@ -398,6 +408,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         accounts={cogsSection.accounts}
                                         total={cogsSection.total}
                                         fmt={fmt}
+                                        onAccountClick={handleDrill}
                                         colorClass="text-rose-700 dark:text-rose-400"
                                         bgClass="bg-rose-50/30 hover:bg-rose-50/80 dark:bg-rose-950/10 dark:hover:bg-rose-900/20"
                                         isNegative={true}
@@ -421,6 +432,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         accounts={opexSections.flatMap((s: any) => s.accounts)}
                                         total={opex}
                                         fmt={fmt}
+                                        onAccountClick={handleDrill}
                                         colorClass="text-amber-700 dark:text-amber-400"
                                         bgClass="bg-amber-50/30 hover:bg-amber-50/80 dark:bg-amber-950/10 dark:hover:bg-amber-900/20"
                                         isNegative={true}
@@ -434,6 +446,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         accounts={otherSection.accounts}
                                         total={otherSection.total}
                                         fmt={fmt}
+                                        onAccountClick={handleDrill}
                                         colorClass="text-slate-700 dark:text-slate-300"
                                         bgClass="bg-slate-50/50 hover:bg-slate-100/80 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
                                     />
@@ -473,6 +486,16 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                     </div>
                 </CardContent>
             </Card>
+            {drill && period && (
+                <DrillDownModal
+                    accountCode={drill.code}
+                    accountName={drill.name}
+                    year={period.year}
+                    month={period.month}
+                    fmt={fmt}
+                    onClose={() => setDrill(null)}
+                />
+            )}
         </motion.div>
     )
 }

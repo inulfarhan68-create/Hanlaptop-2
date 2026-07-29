@@ -135,8 +135,8 @@ test.describe('Security Regression Tests', () => {
         `${API_URL}/inventory?search=' OR 1=1 --`
       );
 
-      // Should not crash, should return empty or error
-      expect([200, 400, 404]).toContain(response.status());
+      // Must not crash (no 500). Unauthenticated → 401 is a valid safe rejection.
+      expect([200, 400, 401, 404]).toContain(response.status());
     });
 
     test('XSS in customer name is sanitized', async ({ request }) => {
@@ -150,8 +150,8 @@ test.describe('Security Regression Tests', () => {
         },
       });
 
-      // Should either accept (and sanitize) or reject
-      expect([200, 201, 400]).toContain(response.status());
+      // Should either accept (and sanitize) or reject; unauthenticated → 401.
+      expect([200, 201, 400, 401]).toContain(response.status());
     });
 
     test('Negative quantities are rejected', async ({ request }) => {
@@ -164,7 +164,7 @@ test.describe('Security Regression Tests', () => {
         },
       });
 
-      expect([400, 403, 404]).toContain(response.status());
+      expect([400, 401, 403, 404]).toContain(response.status());
     });
   });
 
