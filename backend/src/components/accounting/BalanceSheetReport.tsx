@@ -169,9 +169,9 @@ export function BalanceSheetReport({ data, fmt, isLoading }: BalanceSheetReportP
                             <Building2 className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                             Neraca Keuangan
                         </CardTitle>
-                        <p className="text-xs text-slate-500 mt-0.5 font-medium flex items-center gap-1">
+                        <div className="text-xs text-slate-500 mt-0.5 font-medium flex items-center gap-1">
                             Posisi Keuangan Per: <Badge variant="outline" className="font-semibold bg-slate-50/50 text-[10px] py-0 px-1.5">{period?.month}/{period?.year}</Badge>
-                        </p>
+                        </div>
                     </div>
                     <Badge variant={isBalanced ? "default" : "destructive"} className={`gap-1 px-2.5 py-0.5 shadow-none text-xs border ${isBalanced ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'}`}>
                         {isBalanced ? (

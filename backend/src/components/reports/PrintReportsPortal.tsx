@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { Printer, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,29 @@ interface PrintReportsPortalProps {
 }
 
 export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, setPrintType, onClose, fmt }: PrintReportsPortalProps) {
-  if (!incomeStatement || !balanceSheet) return null;
+  const [storeDetails, setStoreDetails] = useState({
+    name: "HanLaptop",
+    address: "Jl. Komputer Raya No.123",
+    phone: "0812-3456-7890",
+    logo: "/logo-print.png"
+  });
+
+  useEffect(() => {
+    setStoreDetails({
+      name: localStorage.getItem("storeName") || "HanLaptop",
+      address: localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123",
+      phone: localStorage.getItem("storePhone") || "0812-3456-7890",
+      logo: localStorage.getItem("storeLogo") || "/logo-print.png"
+    });
+  }, []);
+
+  // Make sure we only render portal on the client
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !incomeStatement || !balanceSheet) return null;
 
   const totalRevenue = incomeStatement.revenue || 0;
   const grossProfit = incomeStatement.grossProfit || 0;
@@ -73,12 +95,12 @@ export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, s
           <div className="flex justify-between items-start border-b border-slate-900 pb-4 mb-5 gap-4">
             <div className="flex items-start gap-4 sm:gap-6">
               <div className="w-24 sm:w-32 h-auto flex items-start justify-center shrink-0">
-                <img src={localStorage.getItem("storeLogo") || "/logo-print.png"} alt="Logo" className="w-full h-auto object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+                <img src={storeDetails.logo} alt="Logo" className="w-full h-auto object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
               </div>
               <div className="flex flex-col pt-1 sm:pt-2">
-                <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase leading-none mb-1">{localStorage.getItem("storeName") || "HanLaptop"}</h1>
-                <p className="text-[12px] text-slate-600 font-medium max-w-[280px] leading-relaxed mt-1">{localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123"}</p>
-                <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {localStorage.getItem("storePhone") || "0812-3456-7890"}</p>
+                <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase leading-none mb-1">{storeDetails.name}</h1>
+                <p className="text-[12px] text-slate-600 font-medium max-w-[280px] leading-relaxed mt-1">{storeDetails.address}</p>
+                <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {storeDetails.phone}</p>
               </div>
             </div>
             <div className="text-right flex flex-col items-end">
@@ -278,7 +300,7 @@ export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, s
               <div className="h-16 flex items-center justify-center my-1 relative">
                 <img src="/ttd.png" alt="Ttd" className="max-h-full object-contain filter grayscale opacity-80" onError={(e) => e.currentTarget.style.display = 'none'} />
               </div>
-              <p className="border-t border-slate-300 pt-1 text-[12px] font-bold text-slate-800 mt-1">{localStorage.getItem("storeName") || "HanLaptop"}</p>
+              <p className="border-t border-slate-300 pt-1 text-[12px] font-bold text-slate-800 mt-1">{storeDetails.name}</p>
             </div>
           </div>
 

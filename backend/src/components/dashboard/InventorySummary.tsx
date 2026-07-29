@@ -47,6 +47,10 @@ export function InventorySummary({ isOwner }: { isOwner: boolean }) {
     return <div className="h-[200px] w-full bg-muted/20 rounded-xl animate-pulse"></div>;
   }
 
+  if (data.error) {
+    return <div className="h-[200px] w-full bg-rose-50/50 dark:bg-rose-950/20 rounded-xl flex items-center justify-center text-rose-500 font-medium text-sm">Gagal memuat data: {data.error}</div>;
+  }
+
   const lowStockCount = inventoryKpi?.lowStockCount || 0;
 
   return (

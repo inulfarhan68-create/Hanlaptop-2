@@ -67,6 +67,7 @@ export function FinanceSummary({ isOwner }: { isOwner: boolean }) {
 
   if (!isOwner) return null;
   if (isLoading || !data) return <div className="h-[200px] w-full bg-muted/20 rounded-xl animate-pulse"></div>;
+  if (data.error) return <div className="h-[200px] w-full bg-rose-50/50 dark:bg-rose-950/20 rounded-xl flex items-center justify-center text-rose-500 font-medium text-sm">Gagal memuat data: {data.error}</div>;
 
   return (
     <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 animate-in fade-in">

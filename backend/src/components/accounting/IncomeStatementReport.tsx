@@ -248,9 +248,9 @@ export function IncomeStatementReport({ data, comparison, fmt, isLoading }: Inco
                                 <TrendingUp className="h-6 w-6 text-indigo-500" />
                                 Laporan Laba Rugi
                             </CardTitle>
-                            <p className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1.5 uppercase tracking-widest">
+                            <div className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1.5 uppercase tracking-widest">
                                 Periode Terkonsolidasi: <Badge variant="secondary" className="font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 py-0.5 px-2">{period?.month}/{period?.year}</Badge>
-                            </p>
+                            </div>
                         </div>
                         <Badge variant={netIncome >= 0 ? "default" : "destructive"} className={`gap-1.5 px-3 py-1 shadow-sm text-xs font-bold border ${netIncome >= 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'}`}>
                             {netIncome >= 0 ? (

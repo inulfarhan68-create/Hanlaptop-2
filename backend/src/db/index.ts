@@ -3,9 +3,13 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 // Supabase/Postgres connection via postgres-js.
-const connectionString = process.env.DATABASE_URL;
+// Use DIRECT_URL in local development to avoid transaction pool exhaustion locks when the dev server restarts.
+const connectionString = process.env.NODE_ENV === "development" && process.env.DIRECT_URL
+  ? process.env.DIRECT_URL 
+  : process.env.DATABASE_URL;
+
 if (!connectionString) {
-  throw new Error("DATABASE_URL (Postgres connection string) is required");
+  throw new Error("DATABASE_URL or DIRECT_URL is required");
 }
 
 // Cache the client across Next.js hot-reloads / serverless invocations to avoid

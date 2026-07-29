@@ -17,7 +17,11 @@ interface TechnicianCommissionTabProps {
 }
 
 export function TechnicianCommissionTab({ period, fmt }: TechnicianCommissionTabProps) {
-  const selectedStoreId = localStorage.getItem('selectedStoreId') || 'all';
+  const [selectedStoreId, setSelectedStoreId] = useState('all');
+  
+  useEffect(() => {
+    setSelectedStoreId(localStorage.getItem('selectedStoreId') || 'all');
+  }, []);
   const apiBase = '';
 
   // Filter States
