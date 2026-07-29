@@ -27,7 +27,7 @@ test.describe('Tenant Onboarding Flow', () => {
     await page.goto('/register?plan=starter');
     
     // Check if the plan is pre-selected
-    await expect(page.locator('text=Starter — Rp69.000/bln')).toBeVisible();
+    await expect(page.locator('text=Starter — Rp69.000/bln').first()).toBeVisible();
 
     // 2. Fill the form
     await page.fill('input[name="storeName"]', testStoreName);
