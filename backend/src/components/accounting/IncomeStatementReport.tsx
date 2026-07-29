@@ -111,6 +111,29 @@ const CollapsibleSection = ({
 export function IncomeStatementReport({ data, comparison, fmt, isLoading }: IncomeStatementReportProps) {
     const [drill, setDrill] = useState<{ code: string; name: string } | null>(null);
     const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name });
+
+    // Opex chart data — computed before any early return so the hook order stays
+    // stable across loading/loaded renders (React requires hooks to run unconditionally).
+    const opexChartData = useMemo(() => {
+        const opexSecs = ((data?.sections ?? []) as any[]).filter((s: any) => s.name.startsWith('Beban') && s.name !== 'Beban Pajak');
+        const flatAccounts = opexSecs.flatMap((s: any) => s.accounts);
+        const sorted = flatAccounts.sort((a: any, b: any) => b.amount - a.amount);
+        const top5 = sorted.slice(0, 5);
+        const others = sorted.slice(5);
+
+        const chartData = top5.map((acc: any) => ({
+            name: acc.name.replace('Beban ', ''),
+            value: acc.amount
+        }));
+
+        if (others.length > 0) {
+            const othersTotal = others.reduce((sum: number, acc: any) => sum + acc.amount, 0);
+            chartData.push({ name: 'Lainnya', value: othersTotal });
+        }
+
+        return chartData.filter((d: any) => d.value > 0);
+    }, [data]);
+
     if (isLoading) {
         return (
             <Card className="border-none shadow-2xl bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl">
@@ -166,26 +189,6 @@ export function IncomeStatementReport({ data, comparison, fmt, isLoading }: Inco
     const opexRatio = revenue > 0 ? ((opex / revenue) * 100) : 0
     const cogsRatio = revenue > 0 ? ((cogs / revenue) * 100) : 0
 
-    // Opex Data for Chart
-    const opexChartData = useMemo(() => {
-        const flatAccounts = opexSections.flatMap((s: any) => s.accounts);
-        const sorted = flatAccounts.sort((a: any, b: any) => b.amount - a.amount);
-        const top5 = sorted.slice(0, 5);
-        const others = sorted.slice(5);
-        
-        const chartData = top5.map((acc: any) => ({
-            name: acc.name.replace('Beban ', ''),
-            value: acc.amount
-        }));
-        
-        if (others.length > 0) {
-            const othersTotal = others.reduce((sum: number, acc: any) => sum + acc.amount, 0);
-            chartData.push({ name: 'Lainnya', value: othersTotal });
-        }
-        
-        return chartData.filter((d: any) => d.value > 0);
-    }, [opexSections]);
-    
     const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#64748b'];
 
     // Waterfall Progress
