@@ -1,12 +1,8 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TrendingUp, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertTriangle, PieChart as PieChartIcon, Activity, Search } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { ChevronRight, ChevronDown, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 import { useState, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Badge } from "@/components/ui/badge"
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { DrillDownModal } from "./DrillDownModal"
 
 interface IncomeStatementReportProps {
@@ -17,151 +13,174 @@ interface IncomeStatementReportProps {
 }
 
 /**
- * Month-over-month delta badge. Green when the figure grew vs last month, red when
- * it shrank — used only on "up is good" metrics (revenue & profit lines).
+ * Composition palette — validated (dataviz six-checks) against both the light card
+ * (#ffffff) and the dark card (hsl(220 15% 11%)). Slots 1-3 of the categorical order;
+ * the green sits below 3:1 on white, so the bar always ships direct labels beneath it.
  */
-function DeltaBadge({ current, prev }: { current: number; prev: number | undefined | null }) {
+const SEG = {
+    cogs: "bg-[#2a78d6] dark:bg-[#3987e5]",
+    opex: "bg-[#eb6834] dark:bg-[#d95926]",
+    profit: "bg-[#1baf7a] dark:bg-[#199e70]",
+}
+
+/** Accounting convention: negatives are shown in parentheses, never with a minus sign. */
+const paren = (v: number, fmt: (n: number) => string) =>
+    v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v)
+
+/**
+ * Month-over-month delta. Arrow + value carry the meaning; colour is a reinforcement,
+ * never the only channel.
+ */
+function Delta({ current, prev }: { current: number; prev: number | undefined | null }) {
     if (prev === undefined || prev === null) return null
     const diff = current - prev
     const base = Math.max(Math.abs(prev), Math.abs(current), 1)
     if (Math.abs(diff) < base * 0.001) {
-        return <span className="ml-1.5 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold align-middle bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" title="Sama dengan bulan lalu">— 0%</span>
+        return <span className="ml-2 text-[10px] font-medium text-muted-foreground tabular-nums" title="Sama dengan bulan lalu">— 0%</span>
     }
     const up = diff > 0
     const pct = prev !== 0 ? (Math.abs(diff) / Math.abs(prev)) * 100 : 100
-    const pctLabel = pct >= 1000 ? '>999%' : `${pct.toFixed(0)}%`
     return (
         <span
-            className={`ml-1.5 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold align-middle ${up ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}
-            title="vs bulan lalu"
+            className={`ml-2 text-[10px] font-medium tabular-nums ${up ? "text-[#006300] dark:text-[#0ca30c]" : "text-[#d03b3b]"}`}
+            title="Dibanding bulan lalu"
         >
-            {up ? '▲' : '▼'} {pctLabel}
+            {up ? "▲" : "▼"} {pct >= 1000 ? ">999" : pct.toFixed(0)}%
         </span>
     )
 }
 
-const CollapsibleSection = ({ 
-    title, 
-    accounts, 
-    total, 
-    fmt, 
-    colorClass,
-    bgClass,
+/** A collapsible account group: header line + indented account rows. */
+function Section({
+    title,
+    accounts,
+    total,
+    fmt,
     defaultOpen = false,
     isNegative = false,
-    onAccountClick
+    onAccountClick,
 }: {
-    title: string,
-    accounts: any[],
-    total: number,
-    fmt: any,
-    colorClass: string,
-    bgClass: string,
-    defaultOpen?: boolean,
-    isNegative?: boolean,
+    title: string
+    accounts: any[]
+    total: number
+    fmt: (v: number) => string
+    defaultOpen?: boolean
+    isNegative?: boolean
     onAccountClick?: (account: any) => void
-}) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+}) {
+    const [isOpen, setIsOpen] = useState(defaultOpen)
+    const signed = isNegative ? -Math.abs(total) : total
 
     return (
-        <>
-            <TableRow 
-                className={`${bgClass} cursor-pointer transition-colors duration-200 border-none group`}
+        <div className="border-t border-border/60 first:border-t-0">
+            <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-baseline justify-between gap-4 px-4 md:px-6 py-2.5 text-left hover:bg-muted/40 transition-colors"
             >
-                <TableCell colSpan={2} className={`font-bold py-2.5 px-4 ${colorClass}`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs">
-                            {isOpen ? <ChevronDown className="h-4 w-4 opacity-70" /> : <ChevronRight className="h-4 w-4 opacity-70" />}
-                            <span className="uppercase tracking-wider font-extrabold">{title}</span>
-                        </div>
-                        <div className="text-right text-xs font-black tabular-nums tracking-tight">
-                            {isNegative ? `(${fmt(Math.abs(total))})` : fmt(total)}
-                        </div>
-                    </div>
-                </TableCell>
-            </TableRow>
-            <AnimatePresence>
-                {isOpen && accounts.map((account: any, idx: number) => (
-                    <motion.tr
-                        key={account.code}
-                        initial={{ opacity: 0, height: 0, y: -5 }}
-                        animate={{ opacity: 1, height: 'auto', y: 0 }}
-                        exit={{ opacity: 0, height: 0, y: -5 }}
-                        transition={{ duration: 0.2, delay: idx * 0.02 }}
-                        onClick={() => onAccountClick?.(account)}
-                        className={`bg-transparent border-b border-slate-100/50 dark:border-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group/acc ${onAccountClick ? 'cursor-pointer' : ''}`}
-                    >
-                        <TableCell className="pl-10 py-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                            <span className="inline-flex items-center gap-1.5">
-                                {account.name}
-                                {onAccountClick && <Search className="h-3 w-3 opacity-0 group-hover/acc:opacity-60 transition-opacity" />}
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground">
+                    {isOpen
+                        ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                    {title}
+                </span>
+                <span className="text-[13px] font-semibold tabular-nums text-foreground shrink-0">
+                    {paren(signed, fmt)}
+                </span>
+            </button>
+
+            {isOpen && accounts.length > 0 && (
+                <div className="pb-1">
+                    {accounts.map((account: any) => (
+                        <div
+                            key={account.code}
+                            onClick={() => onAccountClick?.(account)}
+                            className={`group flex items-baseline justify-between gap-4 pl-11 pr-4 md:pr-6 py-1.5 text-[13px] hover:bg-muted/40 transition-colors ${onAccountClick ? "cursor-pointer" : ""}`}
+                        >
+                            <span className="text-muted-foreground inline-flex items-center gap-1.5 min-w-0">
+                                <span className="truncate">{account.name}</span>
+                                {onAccountClick && (
+                                    <Search className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                )}
                             </span>
-                        </TableCell>
-                        <TableCell className="text-right py-1.5 pr-4 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
-                            {isNegative || account.amount < 0 ? `(${fmt(Math.abs(account.amount))})` : fmt(account.amount)}
-                        </TableCell>
-                    </motion.tr>
-                ))}
-            </AnimatePresence>
-        </>
+                            <span className="tabular-nums text-foreground/80 shrink-0">
+                                {paren(isNegative ? -Math.abs(account.amount) : account.amount, fmt)}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** Subtotal line: a single rule above, per accounting convention. */
+function Subtotal({
+    label,
+    value,
+    fmt,
+    comparison,
+    emphasis = false,
+}: {
+    label: string
+    value: number
+    fmt: (v: number) => string
+    comparison?: number | null
+    emphasis?: boolean
+}) {
+    return (
+        <div className={`flex items-baseline justify-between gap-4 px-4 md:px-6 border-t border-foreground/20 ${emphasis ? "py-3 bg-muted/40" : "py-2.5"}`}>
+            <span className={`text-[11px] uppercase tracking-wide ${emphasis ? "font-bold text-foreground" : "font-semibold text-foreground/90"}`}>
+                {label}
+            </span>
+            <span className={`tabular-nums shrink-0 ${emphasis ? "text-[15px] font-bold" : "text-[13px] font-semibold"} text-foreground`}>
+                {paren(value, fmt)}
+                <Delta current={value} prev={comparison} />
+            </span>
+        </div>
     )
 }
 
 export function IncomeStatementReport({ data, comparison, fmt, isLoading }: IncomeStatementReportProps) {
-    const [drill, setDrill] = useState<{ code: string; name: string } | null>(null);
-    const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name });
+    const [drill, setDrill] = useState<{ code: string; name: string } | null>(null)
+    const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name })
 
-    // Opex chart data — computed before any early return so the hook order stays
-    // stable across loading/loaded renders (React requires hooks to run unconditionally).
-    const opexChartData = useMemo(() => {
-        const opexSecs = ((data?.sections ?? []) as any[]).filter((s: any) => s.name.startsWith('Beban') && s.name !== 'Beban Pajak');
-        const flatAccounts = opexSecs.flatMap((s: any) => s.accounts);
-        const sorted = flatAccounts.sort((a: any, b: any) => b.amount - a.amount);
-        const top5 = sorted.slice(0, 5);
-        const others = sorted.slice(5);
-
-        const chartData = top5.map((acc: any) => ({
-            name: acc.name.replace('Beban ', ''),
-            value: acc.amount
-        }));
-
-        if (others.length > 0) {
-            const othersTotal = others.reduce((sum: number, acc: any) => sum + acc.amount, 0);
-            chartData.push({ name: 'Lainnya', value: othersTotal });
+    // Opex breakdown — computed before any early return so the hook order stays stable
+    // across loading/loaded renders (React requires hooks to run unconditionally).
+    const opexBars = useMemo(() => {
+        const opexSecs = ((data?.sections ?? []) as any[]).filter(
+            (s: any) => s.name.startsWith("Beban") && s.name !== "Beban Pajak"
+        )
+        const flat = opexSecs.flatMap((s: any) => s.accounts)
+        const sorted = [...flat].sort((a: any, b: any) => b.amount - a.amount)
+        const top = sorted.slice(0, 5)
+        const rest = sorted.slice(5)
+        const rows = top.map((acc: any) => ({ name: acc.name.replace("Beban ", ""), value: acc.amount }))
+        if (rest.length > 0) {
+            rows.push({ name: "Lainnya", value: rest.reduce((s: number, a: any) => s + a.amount, 0) })
         }
-
-        return chartData.filter((d: any) => d.value > 0);
-    }, [data]);
+        return rows.filter((r) => r.value > 0)
+    }, [data])
 
     if (isLoading) {
         return (
-            <Card className="border-none shadow-2xl bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-                        <TrendingUp className="h-6 w-6 text-indigo-500 animate-pulse" />
-                        Laporan Laba Rugi
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center py-20 space-y-5">
-                        <div className="relative">
-                            <div className="h-12 w-12 rounded-full border-4 border-indigo-100 dark:border-indigo-900/50"></div>
-                            <div className="absolute top-0 left-0 h-12 w-12 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
-                        </div>
-                        <div className="text-slate-500 font-medium animate-pulse">Menghitung matriks keuangan...</div>
-                    </div>
-                </CardContent>
+            <Card className="border-border shadow-none">
+                <div className="px-6 py-5 border-b border-border">
+                    <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+                </div>
+                <div className="p-6 space-y-3">
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-4 w-full rounded bg-muted/60 animate-pulse" />
+                    ))}
+                </div>
             </Card>
         )
     }
 
     if (!data) {
         return (
-            <Card className="border-none shadow-md bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl">
-                <CardContent>
-                    <div className="text-center py-10 text-slate-500">Gagal memuat data</div>
-                </CardContent>
+            <Card className="border-border shadow-none">
+                <div className="py-16 text-center text-sm text-muted-foreground">Gagal memuat data</div>
             </Card>
         )
     }
@@ -176,344 +195,258 @@ export function IncomeStatementReport({ data, comparison, fmt, isLoading }: Inco
         opex = 0,
         incomeBeforeTax = 0,
         tax = 0,
-        period
+        period,
     } = data
 
-    const revenueSection = sections.find((s: any) => s.name === 'PENDAPATAN')
-    const cogsSection = sections.find((s: any) => s.name === 'HARGA POKOK PENJUALAN')
-    const opexSections = sections.filter((s: any) => s.name.startsWith('Beban') && s.name !== 'Beban Pajak')
-    const otherSection = sections.find((s: any) => s.name === 'PENDAPATAN DAN BEBAN LAINNYA')
+    const revenueSection = sections.find((s: any) => s.name === "PENDAPATAN")
+    const cogsSection = sections.find((s: any) => s.name === "HARGA POKOK PENJUALAN")
+    const opexSections = sections.filter((s: any) => s.name.startsWith("Beban") && s.name !== "Beban Pajak")
+    const otherSection = sections.find((s: any) => s.name === "PENDAPATAN DAN BEBAN LAINNYA")
 
-    const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100) : 0
-    const netMargin = revenue > 0 ? ((netIncome / revenue) * 100) : 0
-    const opexRatio = revenue > 0 ? ((opex / revenue) * 100) : 0
-    const cogsRatio = revenue > 0 ? ((cogs / revenue) * 100) : 0
+    const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0
+    const netMargin = revenue > 0 ? (netIncome / revenue) * 100 : 0
+    const opexRatio = revenue > 0 ? (opex / revenue) * 100 : 0
+    const cogsRatio = revenue > 0 ? (cogs / revenue) * 100 : 0
 
-    const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#64748b'];
+    const totalRev = revenue > 0 ? revenue : 1
+    const cogsPct = Math.min((cogs / totalRev) * 100, 100)
+    const opexPct = Math.min((opex / totalRev) * 100, 100)
+    const profitPct = netIncome > 0 ? (netIncome / totalRev) * 100 : 0
 
-    // Waterfall Progress
-    const totalRev = revenue > 0 ? revenue : 1; 
-    const cogsPct = Math.min((cogs / totalRev) * 100, 100);
-    const opexPct = Math.min((opex / totalRev) * 100, 100);
-    const netIncomePct = netIncome > 0 ? ((netIncome / totalRev) * 100) : 0;
+    const opexMax = opexBars.length > 0 ? Math.max(...opexBars.map((b) => b.value)) : 0
 
-    const getSuggestions = () => {
-        const list = []
-        if (netMargin > 15) {
-            list.push({
-                type: "success",
-                icon: <CheckCircle className="h-4 w-4 text-emerald-500" />,
-                title: "Efisiensi Super",
-                desc: "Margin bersih >15%. Bisnis Anda mencetak profit yang sangat sehat."
-            })
-        } else if (netMargin > 0 && netMargin < 5) {
-            list.push({
-                type: "warning",
-                icon: <AlertTriangle className="h-4 w-4 text-amber-500" />,
-                title: "Margin Menipis",
-                desc: "Profitabilitas di bawah 5%. Anda mungkin perlu meninjau HPP atau memangkas Opex."
-            })
-        } else if (netIncome < 0) {
-            list.push({
-                type: "danger",
-                icon: <XCircle className="h-4 w-4 text-rose-500" />,
-                title: "Terjadi Defisit",
-                desc: "Perusahaan merugi bulan ini. Segera evaluasi strategi penjualan dan pengeluaran."
-            })
-        }
+    const periodLabel = period
+        ? new Date(period.year, period.month - 1, 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" })
+        : "—"
 
-        if (opexRatio > 35) {
-            list.push({
-                type: "warning",
-                icon: <Activity className="h-4 w-4 text-amber-500" />,
-                title: "Beban Operasional Tinggi",
-                desc: "Lebih dari 35% omzet Anda habis untuk operasional harian. Periksa grafik Opex."
-            })
-        }
-        return list
+    // Notes — status colour always ships with an icon + label, never colour alone.
+    const notes: { icon: React.ReactNode; text: string }[] = []
+    if (netIncome < 0) {
+        notes.push({
+            icon: <XCircle className="h-3.5 w-3.5 text-[#d03b3b] shrink-0" />,
+            text: "Periode ini mengalami defisit. Tinjau strategi penjualan dan pengeluaran.",
+        })
+    } else if (netMargin > 0 && netMargin < 5) {
+        notes.push({
+            icon: <AlertTriangle className="h-3.5 w-3.5 text-[#ec835a] shrink-0" />,
+            text: "Margin bersih di bawah 5%. Tinjau HPP atau pangkas beban operasional.",
+        })
+    } else if (netMargin > 15) {
+        notes.push({
+            icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#0ca30c] shrink-0" />,
+            text: "Margin bersih di atas 15% — profitabilitas sehat.",
+        })
     }
-    const suggestions = getSuggestions()
+    if (opexRatio > 35) {
+        notes.push({
+            icon: <AlertTriangle className="h-3.5 w-3.5 text-[#ec835a] shrink-0" />,
+            text: `Beban operasional menyerap ${opexRatio.toFixed(0)}% omzet.`,
+        })
+    }
+
+    const ratios = [
+        { label: "Margin Kotor", value: grossMargin },
+        { label: "Margin Bersih", value: netMargin },
+        { label: "Rasio Beban", value: opexRatio },
+        { label: "Rasio HPP", value: cogsRatio },
+    ]
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-        >
-            <Card className="border border-white/20 dark:border-slate-800 shadow-2xl overflow-hidden bg-white/70 dark:bg-slate-950/70 backdrop-blur-2xl">
-                <CardHeader className="border-b border-slate-200/50 dark:border-slate-800/50 pb-4 bg-gradient-to-br from-white/50 to-slate-50/50 dark:from-slate-900/50 dark:to-slate-950/50">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <>
+            <Card className="border-border shadow-none overflow-hidden">
+                {/* Document header */}
+                <header className="px-4 md:px-6 py-5 border-b border-border">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <CardTitle className="flex items-center gap-2 text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-                                <TrendingUp className="h-6 w-6 text-indigo-500" />
-                                Laporan Laba Rugi
-                            </CardTitle>
-                            <div className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1.5 uppercase tracking-widest">
-                                Periode Terkonsolidasi: <Badge variant="secondary" className="font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 py-0.5 px-2">{period?.month}/{period?.year}</Badge>
+                            <h2 className="text-base font-semibold tracking-tight text-foreground">Laporan Laba Rugi</h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Periode {periodLabel} · dalam Rupiah
+                            </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                            {netIncome >= 0
+                                ? <CheckCircle2 className="h-3.5 w-3.5 text-[#0ca30c]" />
+                                : <XCircle className="h-3.5 w-3.5 text-[#d03b3b]" />}
+                            {netIncome >= 0 ? "Laba" : "Rugi"}
+                        </span>
+                    </div>
+                </header>
+
+                {/* Ratio strip — the numbers are the chart; proportional figures, no tabular-nums. */}
+                <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-border border-b border-border">
+                    {ratios.map((r) => (
+                        <div key={r.label} className="px-4 md:px-6 py-4">
+                            <div className="text-[11px] text-muted-foreground">{r.label}</div>
+                            <div className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+                                {r.value.toFixed(1)}<span className="text-sm font-normal text-muted-foreground">%</span>
                             </div>
                         </div>
-                        <Badge variant={netIncome >= 0 ? "default" : "destructive"} className={`gap-1.5 px-3 py-1 shadow-sm text-xs font-bold border ${netIncome >= 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'}`}>
-                            {netIncome >= 0 ? (
-                                <>
-                                    <CheckCircle className="h-4 w-4" />
-                                    Profitabilitas Surplus
-                                </>
-                            ) : (
-                                <>
-                                    <XCircle className="h-4 w-4" />
-                                    Defisit Operasional
-                                </>
-                            )}
-                        </Badge>
-                    </div>
-                </CardHeader>
-                
-                <CardContent className="p-0 relative space-y-0">
-                    {/* TOP SECTION: KPI Cards + Chart */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
-                        {/* LEFT: KPIs */}
-                        <div className="lg:col-span-2 space-y-6">
-                            {/* The Profit Waterfall (Progress Bar) */}
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-end">
-                                    <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Distribusi Omzet (Profit Waterfall)</span>
-                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{fmt(revenue)}<DeltaBadge current={revenue} prev={comparison?.revenue} /></span>
-                                </div>
-                                <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex shadow-inner">
-                                    {/* COGS Segment */}
-                                    <motion.div 
-                                        initial={{ width: 0 }} 
-                                        animate={{ width: `${cogsPct}%` }} 
-                                        transition={{ duration: 1, ease: "easeOut" }}
-                                        className="h-full bg-rose-400 dark:bg-rose-500 relative group"
-                                        title={`COGS: ${cogsPct.toFixed(1)}%`}
-                                    />
-                                    {/* OPEX Segment */}
-                                    <motion.div 
-                                        initial={{ width: 0 }} 
-                                        animate={{ width: `${opexPct}%` }} 
-                                        transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                                        className="h-full bg-amber-400 dark:bg-amber-500 relative group"
-                                        title={`Opex: ${opexPct.toFixed(1)}%`}
-                                    />
-                                    {/* Net Income Segment */}
-                                    {netIncomePct > 0 && (
-                                        <motion.div 
-                                            initial={{ width: 0 }} 
-                                            animate={{ width: `${netIncomePct}%` }} 
-                                            transition={{ duration: 1, ease: "easeOut", delay: 0.4 }}
-                                            className="h-full bg-emerald-400 dark:bg-emerald-500 relative group"
-                                            title={`Profit: ${netIncomePct.toFixed(1)}%`}
-                                        />
-                                    )}
-                                </div>
-                                <div className="flex justify-between text-[10px] font-semibold text-slate-500 pt-1">
-                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400"></div> HPP ({cogsPct.toFixed(1)}%)</div>
-                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400"></div> Opex ({opexPct.toFixed(1)}%)</div>
-                                    {netIncomePct > 0 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400"></div> Laba Bersih ({netIncomePct.toFixed(1)}%)</div>}
-                                </div>
-                            </div>
+                    ))}
+                </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {[
-                                    { label: 'Gross Margin', value: grossMargin.toFixed(1) + '%', color: 'text-indigo-600 dark:text-indigo-400' },
-                                    { label: 'Net Margin', value: netMargin.toFixed(1) + '%', color: netMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600' },
-                                    { label: 'Opex Ratio', value: opexRatio.toFixed(1) + '%', color: opexRatio > 35 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300' },
-                                    { label: 'COGS Ratio', value: cogsRatio.toFixed(1) + '%', color: 'text-rose-500' }
-                                ].map((kpi, i) => (
-                                    <motion.div 
-                                        key={i}
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        className="p-4 rounded-xl border border-white/40 dark:border-slate-800/60 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow"
-                                    >
-                                        <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{kpi.label}</span>
-                                        <div className={`text-xl font-black mt-1 tracking-tight ${kpi.color}`}>{kpi.value}</div>
-                                    </motion.div>
+                {/* Composition + opex breakdown */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8 px-4 md:px-6 py-6 border-b border-border">
+                    <section>
+                        <div className="flex items-baseline justify-between gap-4">
+                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Distribusi Omzet
+                            </h3>
+                            <span className="text-[13px] font-semibold tabular-nums text-foreground">
+                                {fmt(revenue)}
+                                <Delta current={revenue} prev={comparison?.revenue} />
+                            </span>
+                        </div>
+
+                        {/* 2px surface gaps between segments — no borders around marks. */}
+                        <div className="mt-3 flex h-2 w-full gap-[2px] overflow-hidden rounded-full bg-muted">
+                            {cogsPct > 0 && <div className={`h-full ${SEG.cogs}`} style={{ width: `${cogsPct}%` }} />}
+                            {opexPct > 0 && <div className={`h-full ${SEG.opex}`} style={{ width: `${opexPct}%` }} />}
+                            {profitPct > 0 && <div className={`h-full ${SEG.profit}`} style={{ width: `${profitPct}%` }} />}
+                        </div>
+
+                        {/* Direct labels — required relief for the sub-3:1 green on the light surface. */}
+                        <dl className="mt-3 space-y-1.5">
+                            {[
+                                { cls: SEG.cogs, label: "Harga Pokok Penjualan", pct: cogsPct, val: cogs },
+                                { cls: SEG.opex, label: "Beban Operasional", pct: opexPct, val: opex },
+                                { cls: SEG.profit, label: "Laba Bersih", pct: profitPct, val: netIncome },
+                            ].map((s) => (
+                                <div key={s.label} className="flex items-baseline justify-between gap-3 text-xs">
+                                    <dt className="flex items-center gap-2 text-muted-foreground min-w-0">
+                                        <span className={`h-2 w-2 rounded-full shrink-0 ${s.cls}`} />
+                                        <span className="truncate">{s.label}</span>
+                                    </dt>
+                                    <dd className="shrink-0 tabular-nums text-foreground/80">
+                                        {s.pct.toFixed(1)}% · {fmt(Math.abs(s.val))}
+                                    </dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+
+                    {opexBars.length > 0 && (
+                        <section>
+                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Rincian Beban Operasional
+                            </h3>
+                            {/* One series → one hue for every bar; sorted, direct-labelled. */}
+                            <ul className="mt-3 space-y-2.5">
+                                {opexBars.map((b) => (
+                                    <li key={b.name}>
+                                        <div className="flex items-baseline justify-between gap-3 text-xs">
+                                            <span className="truncate text-muted-foreground">{b.name}</span>
+                                            <span className="shrink-0 tabular-nums text-foreground/80">{fmt(b.value)}</span>
+                                        </div>
+                                        <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full ${SEG.cogs}`}
+                                                style={{ width: `${opexMax > 0 ? (b.value / opexMax) * 100 : 0}%` }}
+                                            />
+                                        </div>
+                                    </li>
                                 ))}
+                            </ul>
+                        </section>
+                    )}
+                </div>
+
+                {/* The statement itself */}
+                <div>
+                    <div className="flex items-baseline justify-between gap-4 px-4 md:px-6 py-2 bg-muted/40 border-b border-border">
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Akun</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Jumlah</span>
+                    </div>
+
+                    {revenueSection && (
+                        <Section
+                            title={revenueSection.name}
+                            accounts={revenueSection.accounts}
+                            total={revenueSection.total}
+                            fmt={fmt}
+                            onAccountClick={handleDrill}
+                            defaultOpen
+                        />
+                    )}
+
+                    {cogsSection && (
+                        <Section
+                            title={cogsSection.name}
+                            accounts={cogsSection.accounts}
+                            total={cogsSection.total}
+                            fmt={fmt}
+                            onAccountClick={handleDrill}
+                            isNegative
+                        />
+                    )}
+
+                    <Subtotal label="Laba Kotor" value={grossProfit} fmt={fmt} comparison={comparison?.grossProfit} />
+
+                    {opexSections.length > 0 && (
+                        <Section
+                            title="Beban Operasional"
+                            accounts={opexSections.flatMap((s: any) => s.accounts)}
+                            total={opex}
+                            fmt={fmt}
+                            onAccountClick={handleDrill}
+                            isNegative
+                        />
+                    )}
+
+                    {otherSection && otherSection.accounts.length > 0 && (
+                        <Section
+                            title={otherSection.name}
+                            accounts={otherSection.accounts}
+                            total={otherSection.total}
+                            fmt={fmt}
+                            onAccountClick={handleDrill}
+                        />
+                    )}
+
+                    <Subtotal
+                        label="Laba Operasional"
+                        value={operatingIncome}
+                        fmt={fmt}
+                        comparison={comparison?.operatingIncome}
+                    />
+
+                    {tax > 0 && (
+                        <>
+                            <div className="flex items-baseline justify-between gap-4 px-4 md:px-6 py-2 border-t border-border/60">
+                                <span className="text-[13px] text-muted-foreground">Laba Sebelum Pajak</span>
+                                <span className="text-[13px] tabular-nums text-foreground/80">{paren(incomeBeforeTax, fmt)}</span>
                             </div>
+                            <div className="flex items-baseline justify-between gap-4 px-4 md:px-6 py-2 border-t border-border/60">
+                                <span className="text-[13px] text-muted-foreground">Beban Pajak</span>
+                                <span className="text-[13px] tabular-nums text-foreground/80">{paren(-Math.abs(tax), fmt)}</span>
+                            </div>
+                        </>
+                    )}
 
-                            {/* Suggestions */}
-                            {suggestions.length > 0 && (
-                                <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 bg-indigo-50/30 dark:bg-indigo-900/10 backdrop-blur-md text-xs">
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-                                        <PieChartIcon className="w-3.5 h-3.5 text-indigo-500" />
-                                        Insight AI Finansial
-                                    </h4>
-                                    <div className="space-y-2">
-                                        {suggestions.map((s, idx) => (
-                                            <motion.div 
-                                                initial={{ x: -10, opacity: 0 }}
-                                                animate={{ x: 0, opacity: 1 }}
-                                                transition={{ delay: 0.3 + (idx * 0.1) }}
-                                                key={idx} 
-                                                className="flex items-start gap-2 bg-white/60 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/50 shadow-sm"
-                                            >
-                                                <div className="mt-0.5">{s.icon}</div>
-                                                <div>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200">{s.title}:</span> <span className="text-slate-600 dark:text-slate-400 font-medium">{s.desc}</span>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                    {/* Grand total: double rule, the accounting convention for a final figure. */}
+                    <div className="border-t-[3px] border-double border-foreground/70">
+                        <div className="flex items-baseline justify-between gap-4 px-4 md:px-6 py-4">
+                            <span className="text-xs font-bold uppercase tracking-wide text-foreground">Laba Bersih</span>
+                            <span className="text-lg font-bold tabular-nums text-foreground">
+                                {paren(netIncome, fmt)}
+                                <Delta current={netIncome} prev={comparison?.netIncome} />
+                            </span>
                         </div>
-
-                        {/* RIGHT: OPEX Donut Chart */}
-                        {opexChartData.length > 0 && (
-                            <motion.div 
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.5 }}
-                                className="h-[280px] lg:h-full min-h-[250px] p-4 rounded-xl border border-white/40 dark:border-slate-800/60 bg-white/30 dark:bg-slate-900/20 backdrop-blur-md shadow-sm flex flex-col"
-                            >
-                                <span className="text-[11px] text-slate-500 uppercase font-black tracking-widest text-center">Distribusi Beban Operasional</span>
-                                <div className="flex-1 w-full min-h-0 mt-2">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={opexChartData}
-                                                cx="50%"
-                                                cy="45%"
-                                                innerRadius={50}
-                                                outerRadius={75}
-                                                paddingAngle={3}
-                                                dataKey="value"
-                                                stroke="none"
-                                            >
-                                                {opexChartData.map((_entry: any, index: number) => (
-                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <RechartsTooltip 
-                                                formatter={(value: any) => fmt(Number(value))}
-                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(8px)' }}
-                                                itemStyle={{ fontWeight: 700, fontSize: '13px' }}
-                                            />
-                                            <Legend 
-                                                verticalAlign="bottom" 
-                                                height={36} 
-                                                iconType="circle"
-                                                wrapperStyle={{ fontSize: '10px', fontWeight: 600, color: '#64748b' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </motion.div>
-                        )}
                     </div>
+                </div>
 
-                    {/* MAIN TABLE SECTION */}
-                    <div className="border-t border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-card">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent bg-slate-50/50 dark:bg-slate-900/30">
-                                    <TableHead className="w-[65%] font-black text-slate-400 uppercase text-[10px] tracking-widest py-3 px-5">Rekening Akuntansi</TableHead>
-                                    <TableHead className="text-right font-black text-slate-400 uppercase text-[10px] tracking-widest py-3 px-5">Nilai Moneter (IDR)</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {/* PENDAPATAN */}
-                                {revenueSection && (
-                                    <CollapsibleSection 
-                                        title={revenueSection.name}
-                                        accounts={revenueSection.accounts}
-                                        total={revenueSection.total}
-                                        fmt={fmt}
-                                        onAccountClick={handleDrill}
-                                        colorClass="text-slate-800 dark:text-slate-100"
-                                        bgClass="bg-indigo-50/30 hover:bg-indigo-50/80 dark:bg-indigo-950/20 dark:hover:bg-indigo-900/30"
-                                        defaultOpen={true}
-                                    />
-                                )}
-
-                                {/* HARGA POKOK PENJUALAN */}
-                                {cogsSection && (
-                                    <CollapsibleSection 
-                                        title={cogsSection.name}
-                                        accounts={cogsSection.accounts}
-                                        total={cogsSection.total}
-                                        fmt={fmt}
-                                        onAccountClick={handleDrill}
-                                        colorClass="text-rose-700 dark:text-rose-400"
-                                        bgClass="bg-rose-50/30 hover:bg-rose-50/80 dark:bg-rose-950/10 dark:hover:bg-rose-900/20"
-                                        isNegative={true}
-                                    />
-                                )}
-
-                                {/* LABA KOTOR */}
-                                <TableRow className="bg-slate-100/80 dark:bg-slate-900/80 border-l-4 border-indigo-500 shadow-sm">
-                                    <TableCell className="font-black text-slate-900 dark:text-slate-100 py-3.5 pl-4 text-xs tracking-wide">
-                                        LABA KOTOR (GROSS PROFIT)
-                                    </TableCell>
-                                    <TableCell className="text-right font-black text-sm text-indigo-700 dark:text-indigo-400 py-3.5 pr-5 tabular-nums">
-                                        {fmt(grossProfit)}<DeltaBadge current={grossProfit} prev={comparison?.grossProfit} />
-                                    </TableCell>
-                                </TableRow>
-
-                                {/* BEBAN OPERASIONAL */}
-                                {opexSections.length > 0 && (
-                                    <CollapsibleSection 
-                                        title="TOTAL BEBAN OPERASIONAL"
-                                        accounts={opexSections.flatMap((s: any) => s.accounts)}
-                                        total={opex}
-                                        fmt={fmt}
-                                        onAccountClick={handleDrill}
-                                        colorClass="text-amber-700 dark:text-amber-400"
-                                        bgClass="bg-amber-50/30 hover:bg-amber-50/80 dark:bg-amber-950/10 dark:hover:bg-amber-900/20"
-                                        isNegative={true}
-                                    />
-                                )}
-
-                                {/* PENDAPATAN/BEBAN LAINNYA */}
-                                {otherSection && otherSection.accounts.length > 0 && (
-                                    <CollapsibleSection 
-                                        title={otherSection.name}
-                                        accounts={otherSection.accounts}
-                                        total={otherSection.total}
-                                        fmt={fmt}
-                                        onAccountClick={handleDrill}
-                                        colorClass="text-slate-700 dark:text-slate-300"
-                                        bgClass="bg-slate-50/50 hover:bg-slate-100/80 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
-                                    />
-                                )}
-
-                                {/* LABA OPERASIONAL */}
-                                <TableRow className="bg-slate-50 dark:bg-slate-900/40">
-                                    <TableCell className="font-bold text-slate-700 dark:text-slate-300 py-3 text-xs pl-5">
-                                        LABA OPERASIONAL
-                                    </TableCell>
-                                    <TableCell className="text-right font-black text-xs text-slate-700 dark:text-slate-300 py-3 pr-5 tabular-nums">
-                                        {fmt(operatingIncome)}<DeltaBadge current={operatingIncome} prev={comparison?.operatingIncome} />
-                                    </TableCell>
-                                </TableRow>
-
-                                {/* LABA SEBELUM PAJAK */}
-                                {tax > 0 && (
-                                    <TableRow className="bg-slate-100/40 dark:bg-slate-900/20">
-                                        <TableCell className="font-semibold text-slate-600 dark:text-slate-400 py-3 text-xs pl-5">Laba Sebelum Pajak</TableCell>
-                                        <TableCell className="text-right font-bold text-xs text-slate-600 dark:text-slate-400 py-3 pr-5 tabular-nums">
-                                            {fmt(incomeBeforeTax)}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-
-                                {/* LABA BERSIH */}
-                                <TableRow className="bg-slate-800 dark:bg-slate-950 border-none">
-                                    <TableCell className="font-black text-white py-4 pl-5 rounded-bl-xl text-sm tracking-widest">
-                                        LABA BERSIH (NET INCOME)
-                                    </TableCell>
-                                    <TableCell className={`text-right font-black text-lg py-4 pr-5 rounded-br-xl tabular-nums ${netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {fmt(netIncome)}<DeltaBadge current={netIncome} prev={comparison?.netIncome} />
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+                {notes.length > 0 && (
+                    <div className="border-t border-border px-4 md:px-6 py-4 space-y-2">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Catatan</h3>
+                        {notes.map((n, i) => (
+                            <p key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <span className="mt-0.5">{n.icon}</span>
+                                {n.text}
+                            </p>
+                        ))}
                     </div>
-                </CardContent>
+                )}
             </Card>
+
             {drill && period && (
                 <DrillDownModal
                     accountCode={drill.code}
@@ -524,6 +457,6 @@ export function IncomeStatementReport({ data, comparison, fmt, isLoading }: Inco
                     onClose={() => setDrill(null)}
                 />
             )}
-        </motion.div>
+        </>
     )
 }
