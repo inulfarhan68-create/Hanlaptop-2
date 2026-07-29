@@ -69,6 +69,14 @@ export default function ReportsClient() {
     { keepPreviousData: true }
   )
 
+  // Previous month's income statement → month-over-month comparison badges.
+  const prevDate = new Date(selectedYear, selectedMonth - 2, 1)
+  const prevPeriodQuery = `year=${prevDate.getFullYear()}&month=${prevDate.getMonth() + 1}`
+  const { data: incomeStatementPrev } = useSWR(
+    activeTab === "labarugi" ? apiUrl + `/api/accounting/income-statement?${prevPeriodQuery}` : null,
+    { keepPreviousData: true }
+  )
+
   const { data: balanceSheet } = useSWR(
     activeTab === "neraca" ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
     { keepPreviousData: true }
@@ -243,7 +251,7 @@ export default function ReportsClient() {
       {/* Scrollable Body Content - Simplified tabs */}
       <div className="flex-1 overflow-x-hidden space-y-2 print:p-0 print:m-0 print:space-y-2">
         {activeTab === "labarugi" && (
-          <IncomeStatementReport data={incomeStatement} fmt={fmt} isLoading={!incomeStatement} />
+          <IncomeStatementReport data={incomeStatement} comparison={incomeStatementPrev} fmt={fmt} isLoading={!incomeStatement} />
         )}
         {activeTab === "neraca" && (
           <>

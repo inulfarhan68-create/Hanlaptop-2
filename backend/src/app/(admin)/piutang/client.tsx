@@ -11,9 +11,29 @@ import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
 import { apiFetch } from "@/lib/api"
 
+// Receivables aging buckets by days past due.
+const AGING_BUCKETS = [
+  { key: 'current', label: 'Belum Tempo', cls: 'emerald' },
+  { key: 'd1_30', label: '1–30 hari', cls: 'amber' },
+  { key: 'd31_60', label: '31–60 hari', cls: 'orange' },
+  { key: 'd60plus', label: '> 60 hari', cls: 'rose' },
+] as const
+
+function agingBucketOf(t: any): string {
+  if (!t.dueDate) return 'current'
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const due = new Date(t.dueDate); due.setHours(0, 0, 0, 0)
+  const days = Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
+  if (days <= 0) return 'current'
+  if (days <= 30) return 'd1_30'
+  if (days <= 60) return 'd31_60'
+  return 'd60plus'
+}
+
 export default function PiutangClient() {
   const { isOwner } = useUserRole()
   const [searchQuery, setSearchQuery] = useState("")
+  const [bucketFilter, setBucketFilter] = useState<string | null>(null)
   const { data: allTransactions, error: piutangError, mutate, isLoading } = useSWR('/api/transactions')
 
   const piutangList = (Array.isArray(allTransactions) ? allTransactions : []).filter((t: any) =>
@@ -21,11 +41,23 @@ export default function PiutangClient() {
     (t.paymentStatus === 'Belum Lunas' || t.paymentMethod === 'Tempo')
   ).sort((a: any, b: any) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime()) // sort by oldest first
 
-  const filteredList = piutangList.filter((t: any) =>
-    !searchQuery ||
-    (t.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (t.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredList = piutangList.filter((t: any) => {
+    const matchesSearch = !searchQuery ||
+      (t.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesBucket = !bucketFilter || agingBucketOf(t) === bucketFilter
+    return matchesSearch && matchesBucket
+  })
+
+  // Aging summary: total sisa tagihan + count per age bucket.
+  const agingSummary = piutangList.reduce((acc: Record<string, { total: number; count: number }>, t: any) => {
+    const b = agingBucketOf(t)
+    const sisa = (t.amount || 0) - (t.dpAmount || 0)
+    if (!acc[b]) acc[b] = { total: 0, count: 0 }
+    acc[b].total += sisa
+    acc[b].count += 1
+    return acc
+  }, {})
 
   const totalPiutang = piutangList.reduce((acc: number, curr: any) => {
     // Sisa tagihan = amount - dpAmount
@@ -130,8 +162,40 @@ export default function PiutangClient() {
           </Card>
         </div>
 
+        {/* Aging buckets — total sisa per umur tunggakan; klik untuk memfilter daftar */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+          {AGING_BUCKETS.map((b) => {
+            const s = agingSummary[b.key] || { total: 0, count: 0 }
+            const active = bucketFilter === b.key
+            const clsMap: Record<string, string> = {
+              emerald: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5',
+              amber: 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5',
+              orange: 'text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/5',
+              rose: 'text-rose-600 dark:text-rose-400 border-rose-500/30 bg-rose-500/5',
+            }
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setBucketFilter(active ? null : b.key)}
+                className={`text-left rounded-xl border p-3 transition-all ${clsMap[b.cls]} ${active ? 'ring-2 ring-current' : 'hover:brightness-110'}`}
+                title={active ? 'Klik untuk hapus filter' : `Filter: ${b.label}`}
+              >
+                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{b.label}</div>
+                <div className="text-sm md:text-lg font-extrabold mt-0.5">{formatCurrency(s.total)}</div>
+                <div className="text-[10px] opacity-70">{s.count} transaksi</div>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Filter */}
         <div className="flex items-center gap-2">
+          {bucketFilter && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => setBucketFilter(null)}>
+              Hapus filter umur
+            </Button>
+          )}
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

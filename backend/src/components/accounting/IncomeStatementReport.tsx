@@ -11,8 +11,33 @@ import { DrillDownModal } from "./DrillDownModal"
 
 interface IncomeStatementReportProps {
     data: any
+    comparison?: any
     fmt: (v: number) => string
     isLoading: boolean
+}
+
+/**
+ * Month-over-month delta badge. Green when the figure grew vs last month, red when
+ * it shrank — used only on "up is good" metrics (revenue & profit lines).
+ */
+function DeltaBadge({ current, prev }: { current: number; prev: number | undefined | null }) {
+    if (prev === undefined || prev === null) return null
+    const diff = current - prev
+    const base = Math.max(Math.abs(prev), Math.abs(current), 1)
+    if (Math.abs(diff) < base * 0.001) {
+        return <span className="ml-1.5 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold align-middle bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" title="Sama dengan bulan lalu">— 0%</span>
+    }
+    const up = diff > 0
+    const pct = prev !== 0 ? (Math.abs(diff) / Math.abs(prev)) * 100 : 100
+    const pctLabel = pct >= 1000 ? '>999%' : `${pct.toFixed(0)}%`
+    return (
+        <span
+            className={`ml-1.5 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold align-middle ${up ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}
+            title="vs bulan lalu"
+        >
+            {up ? '▲' : '▼'} {pctLabel}
+        </span>
+    )
 }
 
 const CollapsibleSection = ({ 
@@ -83,7 +108,7 @@ const CollapsibleSection = ({
     )
 }
 
-export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementReportProps) {
+export function IncomeStatementReport({ data, comparison, fmt, isLoading }: IncomeStatementReportProps) {
     const [drill, setDrill] = useState<{ code: string; name: string } | null>(null);
     const handleDrill = (account: any) => setDrill({ code: account.code, name: account.name });
     if (isLoading) {
@@ -249,7 +274,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                             <div className="space-y-2">
                                 <div className="flex justify-between items-end">
                                     <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Distribusi Omzet (Profit Waterfall)</span>
-                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{fmt(revenue)}</span>
+                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{fmt(revenue)}<DeltaBadge current={revenue} prev={comparison?.revenue} /></span>
                                 </div>
                                 <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex shadow-inner">
                                     {/* COGS Segment */}
@@ -421,7 +446,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         LABA KOTOR (GROSS PROFIT)
                                     </TableCell>
                                     <TableCell className="text-right font-black text-sm text-indigo-700 dark:text-indigo-400 py-3.5 pr-5 tabular-nums">
-                                        {fmt(grossProfit)}
+                                        {fmt(grossProfit)}<DeltaBadge current={grossProfit} prev={comparison?.grossProfit} />
                                     </TableCell>
                                 </TableRow>
 
@@ -458,7 +483,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         LABA OPERASIONAL
                                     </TableCell>
                                     <TableCell className="text-right font-black text-xs text-slate-700 dark:text-slate-300 py-3 pr-5 tabular-nums">
-                                        {fmt(operatingIncome)}
+                                        {fmt(operatingIncome)}<DeltaBadge current={operatingIncome} prev={comparison?.operatingIncome} />
                                     </TableCell>
                                 </TableRow>
 
@@ -478,7 +503,7 @@ export function IncomeStatementReport({ data, fmt, isLoading }: IncomeStatementR
                                         LABA BERSIH (NET INCOME)
                                     </TableCell>
                                     <TableCell className={`text-right font-black text-lg py-4 pr-5 rounded-br-xl tabular-nums ${netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {fmt(netIncome)}
+                                        {fmt(netIncome)}<DeltaBadge current={netIncome} prev={comparison?.netIncome} />
                                     </TableCell>
                                 </TableRow>
                             </TableBody>
