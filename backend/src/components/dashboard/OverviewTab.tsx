@@ -5,6 +5,7 @@ import { FinanceSummary } from "./FinanceSummary";
 import { InventorySummary } from "./InventorySummary";
 import { RecentTransactions } from "./RecentTransactions";
 import { DemoBanner } from "./DemoBanner";
+import { ActionCenter } from "./ActionCenter";
 
 export function OverviewTab({ isOwner }: { isOwner: boolean }) {
   return (
@@ -16,6 +17,10 @@ export function OverviewTab({ isOwner }: { isOwner: boolean }) {
 
       <div className="order-1 lg:order-2">
         <FinanceSummary isOwner={isOwner} />
+      </div>
+
+      <div className="order-2 lg:order-3">
+        <ActionCenter />
       </div>
 
       <div className="order-4">

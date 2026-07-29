@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { inventory, transactions, serviceOrders, stores } from "@/db/schema";
-import { and, eq, inArray, lte } from "drizzle-orm";
+import { inventory, transactions, serviceOrders, stores, devicePassports } from "@/db/schema";
+import { and, eq, inArray, lte, gte, isNotNull } from "drizzle-orm";
 import { requireAuth, storeScope } from "@/lib/auth-guard";
 import { withActiveTransactions } from "@/db/query-helpers";
 
@@ -26,6 +26,7 @@ export async function GET() {
         const alerts: Array<{
             id: string;
             type: "warning" | "danger" | "info";
+            category: "stok" | "piutang" | "hutang" | "servis" | "garansi";
             title: string;
             message: string;
             link: string;
@@ -50,6 +51,7 @@ export async function GET() {
             alerts.push({
                 id: `low-stock-${item.id}`,
                 type: "warning",
+                category: "stok",
                 title: "Stok Menipis",
                 message: `${storePrefix}${item.itemName} tersisa ${item.quantity} unit.`,
                 link: "/inventory",
@@ -82,6 +84,7 @@ export async function GET() {
                 alerts.push({
                     id: `overdue-piutang-${tx.id}`,
                     type: "danger",
+                    category: "piutang",
                     title: isOverdue ? "Piutang Menunggak" : "Piutang Jatuh Tempo",
                     message: `${storePrefix}Nota ${tx.invoiceNumber} (${tx.customerName || "Umum"}) senilai ${formatCurrency(sisa)} ${isOverdue ? "telah melewati tanggal jatuh tempo" : "jatuh tempo hari ini"}.`,
                     link: "/piutang",
@@ -114,6 +117,7 @@ export async function GET() {
                 alerts.push({
                     id: `overdue-hutang-${tx.id}`,
                     type: "danger",
+                    category: "hutang",
                     title: isOverdue ? "Hutang Menunggak" : "Hutang Jatuh Tempo",
                     message: `${storePrefix}Hutang ke ${supplierName} senilai ${formatCurrency(sisa)} ${isOverdue ? "telah melewati jatuh tempo" : "jatuh tempo hari ini"}.`,
                     link: "/hutang",
@@ -144,12 +148,56 @@ export async function GET() {
                 alerts.push({
                     id: `stalled-service-${order.id}`,
                     type: "info",
+                    category: "servis",
                     title: "Servis Menggantung",
                     message: `${storePrefix}Unit ${order.deviceName} (${order.customerName}) sudah ${diffDays} hari berstatus "${order.status}".`,
                     link: "/services",
                     createdAt: order.receivedDate
                 });
             }
+        });
+
+        // 4. Warranty Expiring Soon (SOLD units whose warranty ends within 30 days)
+        const in30Days = new Date();
+        in30Days.setDate(in30Days.getDate() + 30);
+        in30Days.setHours(23, 59, 59, 999);
+
+        const passScope = storeScope(authResult, devicePassports.storeId);
+        let warrantyConditions = [
+            eq(devicePassports.status, "SOLD"),
+            isNotNull(devicePassports.warrantyEndDate),
+            gte(devicePassports.warrantyEndDate, today),
+            lte(devicePassports.warrantyEndDate, in30Days),
+        ];
+        if (passScope) warrantyConditions.push(passScope);
+
+        const expiringWarranties = await db
+            .select({
+                id: devicePassports.id,
+                storeId: devicePassports.storeId,
+                serialNumber: devicePassports.serialNumber,
+                warrantyEndDate: devicePassports.warrantyEndDate,
+                itemName: inventory.itemName,
+            })
+            .from(devicePassports)
+            .leftJoin(inventory, eq(devicePassports.inventoryId, inventory.id))
+            .where(and(...warrantyConditions));
+
+        expiringWarranties.forEach((p) => {
+            if (!p.warrantyEndDate) return;
+            const end = new Date(p.warrantyEndDate);
+            const diffDays = Math.max(0, Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+            const storePrefix = isMultiStore ? `[${storeMap.get(p.storeId) || "Cabang"}] ` : "";
+            const label = p.itemName || "Unit";
+            alerts.push({
+                id: `warranty-expiring-${p.id}`,
+                type: "info",
+                category: "garansi",
+                title: "Garansi Segera Berakhir",
+                message: `${storePrefix}Garansi ${label} (SN ${p.serialNumber}) berakhir dalam ${diffDays} hari.`,
+                link: "/passports",
+                createdAt: p.warrantyEndDate,
+            });
         });
 
         // Sort alerts by type importance (danger, then warning, then info) and date descending
