@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("accounting");
+    const featureCheck = await requireFeature("accounting", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("accounting");
+    const featureCheck = await requireFeature("accounting", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -122,7 +122,7 @@ export async function PUT(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("accounting");
+    const featureCheck = await requireFeature("accounting", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -190,7 +190,7 @@ export async function DELETE(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("accounting");
+    const featureCheck = await requireFeature("accounting", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {

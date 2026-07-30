@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const authResult = await requireOwner();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("fixedAssets");
+    const featureCheck = await requireFeature("fixedAssets", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {

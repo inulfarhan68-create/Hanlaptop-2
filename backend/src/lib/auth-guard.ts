@@ -15,6 +15,21 @@ export async function getOrgStoreIds(organizationId: string): Promise<string[]> 
     return rows.map((r) => r.id);
 }
 
+/**
+ * One query for the org's demo flag + its active plan. Based on organizations
+ * (left-joined to subscriptions/plans) so a tenant without a subscription still
+ * resolves isDemo — and we never pay a second roundtrip for it.
+ */
+async function loadOrgPlanRow(organizationId: string) {
+    const [row] = await db.select({ plan: plans, isDemo: organizations.isDemo })
+        .from(organizations)
+        .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
+        .leftJoin(plans, eq(subscriptions.planKey, plans.key))
+        .where(eq(organizations.id, organizationId))
+        .limit(1);
+    return row;
+}
+
 /** The session object Better-Auth returns for an authenticated request. */
 export type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
@@ -83,9 +98,41 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
 
         const requestedStoreId = headersList.get("x-store-id");
 
-        // Lookup user's accessible stores
-        const accessibleStores = await db.select().from(userStoreAccess)
-            .where(eq(userStoreAccess.userId, session.user.id));
+        // ── Tenant identity (no DB work: session field + cookie) ──
+        const authUser = session.user as AuthUser;
+        const isPlatformAdmin = authUser.role === "platform_admin";
+
+        // Phase 6 Impersonation: Intercept and override if cookie exists
+        let isImpersonating = false;
+        let impersonatedOrgId: string | null = null;
+        if (isPlatformAdmin) {
+            const cookieStore = await cookies();
+            const impCookie = cookieStore.get("x-impersonate-org-id");
+            if (impCookie?.value) {
+                isImpersonating = true;
+                impersonatedOrgId = impCookie.value;
+            }
+        }
+
+        // Prefer the persisted user.organizationId; fall back below to the org of the
+        // user's first accessible store (keeps pre-backfill / stale sessions working).
+        let organizationId: string | null = isImpersonating
+            ? impersonatedOrgId
+            : ((authUser as { organizationId?: string | null }).organizationId ?? null);
+
+        const wantsOrgStoreIds = (authUser.role === "owner" || isImpersonating);
+
+        // The store grants, the tenant's plan/demo flag and the tenant's store-id
+        // boundary are independent reads. Resolving them sequentially cost three
+        // round-trips on every authenticated request; fire them together instead.
+        // (When organizationId isn't on the session we need the store grants first,
+        // so the org-dependent reads fall back to a second phase below.)
+        const [accessibleStores, firstOrgRow, firstOrgStoreIds] = await Promise.all([
+            db.select().from(userStoreAccess)
+                .where(eq(userStoreAccess.userId, session.user.id)),
+            organizationId ? loadOrgPlanRow(organizationId) : Promise.resolve(undefined),
+            organizationId && wantsOrgStoreIds ? getOrgStoreIds(organizationId) : Promise.resolve(undefined),
+        ]);
 
         if (session.user.role !== "owner" && session.user.role !== "platform_admin" && accessibleStores.length === 0) {
             return NextResponse.json(
@@ -126,39 +173,31 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         }
 
         // ── Tenant resolution (Phase 2 isolation core) ──
-        const authUser = session.user as AuthUser;
-        const isPlatformAdmin = authUser.role === "platform_admin";
-        
-        // Phase 6 Impersonation: Intercept and override if cookie exists
-        let isImpersonating = false;
-        let impersonatedOrgId: string | null = null;
-        if (isPlatformAdmin) {
-            const cookieStore = await cookies();
-            const impCookie = cookieStore.get("x-impersonate-org-id");
-            if (impCookie?.value) {
-                isImpersonating = true;
-                impersonatedOrgId = impCookie.value;
-            }
-        }
-
-        // Prefer the persisted user.organizationId; fall back to the org of the user's
-        // first accessible store (keeps pre-backfill / stale sessions working).
-        let organizationId: string | null = isImpersonating 
-            ? impersonatedOrgId 
-            : ((authUser as { organizationId?: string | null }).organizationId ?? null);
+        // Identity and organizationId were resolved above; only the fallback path
+        // (no organizationId on the session) still needs to hit the database here.
+        let orgRow = firstOrgRow;
+        let orgStoreIds = firstOrgStoreIds;
 
         if (!organizationId && !isPlatformAdmin && accessibleStores.length > 0) {
             const [row] = await db.select({ orgId: stores.organizationId })
                 .from(stores).where(eq(stores.id, accessibleStores[0].storeId)).limit(1);
             organizationId = row?.orgId ?? null;
+
+            // Late organizationId → fetch what the parallel batch above had to skip.
+            if (organizationId) {
+                [orgRow, orgStoreIds] = await Promise.all([
+                    loadOrgPlanRow(organizationId),
+                    wantsOrgStoreIds ? getOrgStoreIds(organizationId) : Promise.resolve(undefined),
+                ]);
+            }
         }
-        
+
         // Store-id boundary for the `storeId === "all"` path (see storeScope):
         let accessibleStoreIds: string[] | null;
         if (isPlatformAdmin && !isImpersonating) {
             accessibleStoreIds = null; // unrestricted — global operator
-        } else if ((authUser.role === "owner" || isImpersonating) && organizationId) {
-            accessibleStoreIds = await getOrgStoreIds(organizationId); // every store in the tenant
+        } else if (wantsOrgStoreIds && organizationId) {
+            accessibleStoreIds = orgStoreIds ?? await getOrgStoreIds(organizationId); // every store in the tenant
         } else {
             accessibleStoreIds = accessibleStores.map((s) => s.storeId);
         }
@@ -178,19 +217,9 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
         let plan: typeof plans.$inferSelect | null = null;
         let isReadOnly = false;
         if (organizationId) {
-            // One query: the org's demo flag + its active plan. Base on organizations
-            // (left-joined to subscriptions/plans) so a tenant without a subscription
-            // still resolves isDemo — and we never pay a second roundtrip for it.
-            const [row] = await db.select({ plan: plans, isDemo: organizations.isDemo })
-                .from(organizations)
-                .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
-                .leftJoin(plans, eq(subscriptions.planKey, plans.key))
-                .where(eq(organizations.id, organizationId))
-                .limit(1);
-
-            if (row?.plan) plan = row.plan;
+            if (orgRow?.plan) plan = orgRow.plan;
             // platform_admin (incl. while impersonating) is never demo-locked.
-            if (!isPlatformAdmin) isReadOnly = row?.isDemo ?? false;
+            if (!isPlatformAdmin) isReadOnly = orgRow?.isDemo ?? false;
         }
 
         return {
@@ -394,8 +423,17 @@ export function storeScope(authResult: Pick<AuthContext, "accessibleStoreIds">, 
  * Feature Flag Guard: Checks if the user's organization has a specific feature.
  * Must be called in route handlers to enforce plan limits on the backend.
  */
-export async function requireFeature(feature: FeatureKey): Promise<AuthContext | NextResponse> {
-    const authResult = await requireAuth();
+export async function requireFeature(
+    feature: FeatureKey,
+    /**
+     * An already-resolved context from an earlier guard in the same handler.
+     * Pass it to avoid re-running the whole auth chain (session lookup + store
+     * grants + plan) a second time — routes that call `requirePermission` /
+     * `requireReportAccess` and then `requireFeature` were paying for it twice.
+     */
+    preAuth?: AuthContext
+): Promise<AuthContext | NextResponse> {
+    const authResult = preAuth ?? await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
     if (authResult.isPlatformAdmin) return authResult;
