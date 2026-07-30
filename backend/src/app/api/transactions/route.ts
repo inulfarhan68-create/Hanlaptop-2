@@ -63,11 +63,19 @@ export async function GET(request: Request) {
             });
         }
 
-        // Fetch all stores and store settings to attach store info to each transaction
-        const allStores = await db.select().from(stores);
-        const storesMap = new Map(allStores.map(s => [s.id, s]));
+        // Store info for the transactions in this response only. Reading the whole
+        // stores/store_settings tables cost two unbounded scans per request (and
+        // crossed the tenant boundary); `data` is already store-scoped, so its own
+        // store ids are the exact set needed.
+        const txStoreIds = Array.from(new Set(data.map(tx => tx.storeId).filter(Boolean)));
+        const [allStores, allSettings] = txStoreIds.length === 0
+            ? [[], []]
+            : await Promise.all([
+                db.select().from(stores).where(inArray(stores.id, txStoreIds)),
+                db.select().from(storeSettings).where(inArray(storeSettings.storeId, txStoreIds)),
+            ]);
 
-        const allSettings = await db.select().from(storeSettings);
+        const storesMap = new Map(allStores.map(s => [s.id, s]));
         const settingsMap = new Map(allSettings.map(s => [s.storeId, s]));
 
         const dataWithCreatorAndStore = data.map(tx => {

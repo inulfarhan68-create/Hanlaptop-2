@@ -15,10 +15,6 @@ export async function GET() {
         const storeId = authResult.storeId;
         const isMultiStore = storeId === "all";
 
-        // Fetch stores to map store ID to store name (helpful for "All Branches" view)
-        const allStores = await db.select().from(stores);
-        const storeMap = new Map(allStores.map(s => [s.id, s.name]));
-
         const formatCurrency = (val: number) => {
             return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(val);
         };
@@ -37,15 +33,80 @@ export async function GET() {
         const invScope = storeScope(authResult, inventory.storeId);
         const txScope = storeScope(authResult, transactions.storeId);
         const svcScope = storeScope(authResult, serviceOrders.storeId);
+        const passScope = storeScope(authResult, devicePassports.storeId);
 
-        // 1. Low Stock Alerts (quantity <= 2)
-        let invConditions = [lte(inventory.quantity, 2)];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        const in30Days = new Date();
+        in30Days.setDate(in30Days.getDate() + 30);
+        in30Days.setHours(23, 59, 59, 999);
+
+        // Low stock (quantity <= 2)
+        const invConditions = [lte(inventory.quantity, 2)];
         if (invScope) invConditions.push(invScope);
 
-        const lowStockItems = await db.select()
-            .from(inventory)
-            .where(and(...invConditions));
+        // Everything unpaid — receivables and payables both come out of this set.
+        const txConditions = [eq(transactions.paymentStatus, "Belum Lunas")];
+        if (txScope) txConditions.push(txScope);
 
+        // Services still open
+        const svcConditions = [
+            inArray(serviceOrders.status, ["Diterima", "Dikerjakan", "Menunggu Part"])
+        ];
+        if (svcScope) svcConditions.push(svcScope);
+
+        // SOLD units whose warranty ends within 30 days
+        const warrantyConditions = [
+            eq(devicePassports.status, "SOLD"),
+            isNotNull(devicePassports.warrantyEndDate),
+            gte(devicePassports.warrantyEndDate, today),
+            lte(devicePassports.warrantyEndDate, in30Days),
+        ];
+        if (passScope) warrantyConditions.push(passScope);
+
+        // Store names for the "All Branches" prefix — scoped to the caller's stores
+        // (platform_admin is unrestricted) and to id+name only.
+        const storeScopeIds = authResult.accessibleStoreIds;
+
+        // This endpoint is polled every 30s by the sidebar bell and the dashboard
+        // action panel, and each slice below reads a different table — so they all
+        // resolve in one batch instead of six sequential round-trips.
+        const [allStores, lowStockItems, unpaidTransactions, activeServices, expiringWarranties] = await Promise.all([
+            storeScopeIds !== null && storeScopeIds.length === 0
+                ? Promise.resolve([])
+                : db.select({ id: stores.id, name: stores.name })
+                    .from(stores)
+                    .where(storeScopeIds === null ? undefined : inArray(stores.id, storeScopeIds)),
+
+            db.select().from(inventory).where(and(...invConditions)),
+
+            db.select().from(transactions).where(withActiveTransactions(and(...txConditions))),
+
+            db.select().from(serviceOrders).where(and(...svcConditions)),
+
+            db.select({
+                id: devicePassports.id,
+                storeId: devicePassports.storeId,
+                serialNumber: devicePassports.serialNumber,
+                warrantyEndDate: devicePassports.warrantyEndDate,
+                itemName: inventory.itemName,
+            })
+            .from(devicePassports)
+            .leftJoin(inventory, eq(devicePassports.inventoryId, inventory.id))
+            .where(and(...warrantyConditions)),
+        ]);
+
+        const storeMap = new Map(allStores.map(s => [s.id, s.name]));
+
+        // Payables are the stock-purchase subset of the unpaid rows already fetched
+        // above (same predicate plus transactionType), so no second query is needed.
+        const unpaidPurchases = unpaidTransactions.filter(tx => tx.transactionType === "Pembelian Stok");
+
+        // 1. Low Stock Alerts
         lowStockItems.forEach(item => {
             const storePrefix = isMultiStore ? `[${storeMap.get(item.storeId) || "Cabang"}] ` : "";
             alerts.push({
@@ -60,18 +121,6 @@ export async function GET() {
         });
 
         // 2. Overdue Receivables Alerts
-        let txConditions = [
-            eq(transactions.paymentStatus, "Belum Lunas")
-        ];
-        if (txScope) txConditions.push(txScope);
-
-        const unpaidTransactions = await db.select()
-            .from(transactions)
-            .where(withActiveTransactions(and(...txConditions)));
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
         unpaidTransactions.forEach(tx => {
             if (!tx.dueDate) return;
             const due = new Date(tx.dueDate);
@@ -94,16 +143,6 @@ export async function GET() {
         });
 
         // 2.5 Overdue Payables (Hutang) Alerts
-        let payConditions = [
-            eq(transactions.transactionType, "Pembelian Stok"),
-            eq(transactions.paymentStatus, "Belum Lunas")
-        ];
-        if (txScope) payConditions.push(txScope);
-
-        const unpaidPurchases = await db.select()
-            .from(transactions)
-            .where(withActiveTransactions(and(...payConditions)));
-
         unpaidPurchases.forEach(tx => {
             if (!tx.dueDate) return;
             const due = new Date(tx.dueDate);
@@ -127,18 +166,6 @@ export async function GET() {
         });
 
         // 3. Stalled Services Alerts (stuck in active status for > 3 days)
-        let svcConditions = [
-            inArray(serviceOrders.status, ["Diterima", "Dikerjakan", "Menunggu Part"])
-        ];
-        if (svcScope) svcConditions.push(svcScope);
-
-        const activeServices = await db.select()
-            .from(serviceOrders)
-            .where(and(...svcConditions));
-
-        const threeDaysAgo = new Date();
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
         activeServices.forEach(order => {
             const receivedDate = new Date(order.receivedDate);
             if (receivedDate < threeDaysAgo) {
@@ -157,32 +184,7 @@ export async function GET() {
             }
         });
 
-        // 4. Warranty Expiring Soon (SOLD units whose warranty ends within 30 days)
-        const in30Days = new Date();
-        in30Days.setDate(in30Days.getDate() + 30);
-        in30Days.setHours(23, 59, 59, 999);
-
-        const passScope = storeScope(authResult, devicePassports.storeId);
-        let warrantyConditions = [
-            eq(devicePassports.status, "SOLD"),
-            isNotNull(devicePassports.warrantyEndDate),
-            gte(devicePassports.warrantyEndDate, today),
-            lte(devicePassports.warrantyEndDate, in30Days),
-        ];
-        if (passScope) warrantyConditions.push(passScope);
-
-        const expiringWarranties = await db
-            .select({
-                id: devicePassports.id,
-                storeId: devicePassports.storeId,
-                serialNumber: devicePassports.serialNumber,
-                warrantyEndDate: devicePassports.warrantyEndDate,
-                itemName: inventory.itemName,
-            })
-            .from(devicePassports)
-            .leftJoin(inventory, eq(devicePassports.inventoryId, inventory.id))
-            .where(and(...warrantyConditions));
-
+        // 4. Warranty Expiring Soon
         expiringWarranties.forEach((p) => {
             if (!p.warrantyEndDate) return;
             const end = new Date(p.warrantyEndDate);
