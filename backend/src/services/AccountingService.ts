@@ -915,11 +915,72 @@ export async function getCashFlow(
 
     // Cash accounts for opening/closing calculation
     const cashAccounts = CASH_EQUIVALENTS; // Kas, Bank, QRIS
+    const inception = new Date(2000, 0, 1);
+    const beforeStart = new Date(start.getTime() - 1);
+
+    // Every figure below reads a disjoint slice of the ledger, so they all resolve
+    // in parallel: the opening-cash balances come from one grouped aggregate
+    // instead of a per-account round-trip, and the in/out flows share a single
+    // scan (they differ only in which column they sum).
+    const [cashCoaRows, openingActivity, flows, assetPurchases, loans] = await Promise.all([
+        db.select({
+            code: chartOfAccounts.code,
+            normalBalance: chartOfAccounts.normalBalance,
+            openingBalance: chartOfAccounts.openingBalance
+        })
+        .from(chartOfAccounts)
+        .where(and(
+            eq(chartOfAccounts.storeId, storeId),
+            inArray(chartOfAccounts.code, cashAccounts)
+        )),
+
+        getAccountActivityMap(storeId, inception, beforeStart),
+
+        db.select({
+            inflow: sql<number>`SUM(${journalEntries.debit})`,
+            outflow: sql<number>`SUM(${journalEntries.credit})`
+        })
+        .from(journalEntries)
+        .where(and(
+            eq(journalEntries.storeId, storeId),
+            inArray(journalEntries.accountCode, cashAccounts),
+            eq(journalEntries.isVoided, false),
+            gte(journalEntries.createdAt, start),
+            lte(journalEntries.createdAt, end)
+        )),
+
+        db.select({
+            total: sql<number>`SUM(${journalEntries.debit})`
+        })
+        .from(journalEntries)
+        .innerJoin(chartOfAccounts, eq(journalEntries.accountCode, chartOfAccounts.code))
+        .where(and(
+            eq(journalEntries.storeId, storeId),
+            eq(chartOfAccounts.subType, 'Fixed'),
+            eq(journalEntries.isVoided, false),
+            gte(journalEntries.createdAt, start),
+            lte(journalEntries.createdAt, end)
+        )),
+
+        db.select({
+            total: sql<number>`SUM(${journalEntries.credit} - ${journalEntries.debit})`
+        })
+        .from(journalEntries)
+        .where(and(
+            eq(journalEntries.storeId, storeId),
+            eq(journalEntries.accountCode, '2210'), // Hutang Bank
+            eq(journalEntries.isVoided, false),
+            gte(journalEntries.createdAt, start),
+            lte(journalEntries.createdAt, end)
+        ))
+    ]);
 
     // Calculate opening cash (before period start)
     let openingCash = 0;
     for (const code of cashAccounts) {
-        openingCash += await calculateAccountPeriodBalance(storeId, code, new Date(2000, 0, 1), new Date(start.getTime() - 1));
+        const account = cashCoaRows.find(a => a.code === code);
+        if (!account) continue; // unknown account contributes nothing, as before
+        openingCash += balanceFromActivity(account, openingActivity);
     }
 
     // Operating activities (from cash-related journal entries)
@@ -927,35 +988,11 @@ export async function getCashFlow(
     let operatingTotal = 0;
 
     // Uang Masuk (Cash Inflows) -> Debit on Cash Accounts
-    const cashInflows = await db.select({
-        total: sql<number>`SUM(${journalEntries.debit})`
-    })
-    .from(journalEntries)
-    .where(and(
-        eq(journalEntries.storeId, storeId),
-        inArray(journalEntries.accountCode, cashAccounts),
-        eq(journalEntries.isVoided, false),
-        gte(journalEntries.createdAt, start),
-        lte(journalEntries.createdAt, end)
-    ));
-
-    operatingTotal = Number(cashInflows[0]?.total) || 0;
+    operatingTotal = Number(flows[0]?.inflow) || 0;
     operatingItems.push({ description: 'Penerimaan dari Pelanggan', amount: operatingTotal });
 
     // Uang Keluar (Cash Outflows) -> Credit on Cash Accounts
-    const cashOutflows = await db.select({
-        total: sql<number>`SUM(${journalEntries.credit})`
-    })
-    .from(journalEntries)
-    .where(and(
-        eq(journalEntries.storeId, storeId),
-        inArray(journalEntries.accountCode, cashAccounts),
-        eq(journalEntries.isVoided, false),
-        gte(journalEntries.createdAt, start),
-        lte(journalEntries.createdAt, end)
-    ));
-
-    const cashPaid = Number(cashOutflows[0]?.total) || 0;
+    const cashPaid = Number(flows[0]?.outflow) || 0;
     if (cashPaid > 0) {
         operatingItems.push({ description: 'Pembayaran ke Pemasok & Karyawan', amount: -cashPaid });
         operatingTotal -= cashPaid;
@@ -964,19 +1001,6 @@ export async function getCashFlow(
     // Investing activities (fixed asset purchases)
     const investingItems: { description: string; amount: number }[] = [];
     let investingTotal = 0;
-
-    const assetPurchases = await db.select({
-        total: sql<number>`SUM(${journalEntries.debit})`
-    })
-    .from(journalEntries)
-    .innerJoin(chartOfAccounts, eq(journalEntries.accountCode, chartOfAccounts.code))
-    .where(and(
-        eq(journalEntries.storeId, storeId),
-        eq(chartOfAccounts.subType, 'Fixed'),
-        eq(journalEntries.isVoided, false),
-        gte(journalEntries.createdAt, start),
-        lte(journalEntries.createdAt, end)
-    ));
 
     const assetPurchasesTotal = Number(assetPurchases[0]?.total) || 0;
     if (assetPurchasesTotal > 0) {
@@ -987,18 +1011,6 @@ export async function getCashFlow(
     // Financing activities (loans, owner contributions)
     const financingItems: { description: string; amount: number }[] = [];
     let financingTotal = 0;
-
-    const loans = await db.select({
-        total: sql<number>`SUM(${journalEntries.credit} - ${journalEntries.debit})`
-    })
-    .from(journalEntries)
-    .where(and(
-        eq(journalEntries.storeId, storeId),
-        eq(journalEntries.accountCode, '2210'), // Hutang Bank
-        eq(journalEntries.isVoided, false),
-        gte(journalEntries.createdAt, start),
-        lte(journalEntries.createdAt, end)
-    ));
 
     const loanChange = Number(loans[0]?.total) || 0;
     if (loanChange !== 0) {
@@ -1035,31 +1047,52 @@ export async function getEquityChanges(
 ): Promise<EquityChangesData> {
     const { start, end } = getPeriodDates(year, month);
 
+    // This endpoint is fetched on every visit to the reports page, so it resolves
+    // its four independent reads in parallel and takes the opening balances of
+    // Modal Pemilik (3100) / Laba Ditahan (3200) from one grouped aggregate.
+    const inception = new Date(2000, 0, 1);
+    const beforeStart = new Date(start.getTime() - 1);
+    const EQUITY_CODES = ['3100', '3200'];
+
+    const [equityCoaRows, openingActivity, incomeStmt, prive] = await Promise.all([
+        db.select({
+            code: chartOfAccounts.code,
+            normalBalance: chartOfAccounts.normalBalance,
+            openingBalance: chartOfAccounts.openingBalance
+        })
+        .from(chartOfAccounts)
+        .where(and(
+            eq(chartOfAccounts.storeId, storeId),
+            inArray(chartOfAccounts.code, EQUITY_CODES)
+        )),
+
+        getAccountActivityMap(storeId, inception, beforeStart),
+
+        getIncomeStatement(storeId, year, month),
+
+        // Contributions and withdrawals (Prive)
+        db.select({
+            total: sql<number>`SUM(${journalEntries.debit})`
+        })
+        .from(journalEntries)
+        .where(and(
+            eq(journalEntries.storeId, storeId),
+            eq(journalEntries.accountCode, '3200'), // Laba Ditahan / Prive
+            eq(journalEntries.isVoided, false),
+            gte(journalEntries.createdAt, start),
+            lte(journalEntries.createdAt, end)
+        ))
+    ]);
+
     // Calculate opening equity (beginning of period)
     let openingEquity = 0;
+    for (const code of EQUITY_CODES) {
+        const account = equityCoaRows.find(a => a.code === code);
+        if (!account) continue; // unknown account contributes nothing, as before
+        openingEquity += balanceFromActivity(account, openingActivity);
+    }
 
-    // Modal Pemilik (3100)
-    openingEquity += await calculateAccountPeriodBalance(storeId, '3100', new Date(2000, 0, 1), new Date(start.getTime() - 1));
-
-    // Laba Ditahan (3200)
-    openingEquity += await calculateAccountPeriodBalance(storeId, '3200', new Date(2000, 0, 1), new Date(start.getTime() - 1));
-
-    // Get net income from current period
-    const incomeStmt = await getIncomeStatement(storeId, year, month);
     const netIncome = incomeStmt.netIncome;
-
-    // Calculate contributions and withdrawals (Prive)
-    const prive = await db.select({
-        total: sql<number>`SUM(${journalEntries.debit})`
-    })
-    .from(journalEntries)
-    .where(and(
-        eq(journalEntries.storeId, storeId),
-        eq(journalEntries.accountCode, '3200'), // Laba Ditahan / Prive
-        eq(journalEntries.isVoided, false),
-        gte(journalEntries.createdAt, start),
-        lte(journalEntries.createdAt, end)
-    ));
 
     const withdrawals = Number(prive[0]?.total) || 0;
 
