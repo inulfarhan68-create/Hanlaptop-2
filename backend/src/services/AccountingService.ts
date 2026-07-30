@@ -330,37 +330,23 @@ export async function getTrialBalance(
 
     const trialBalanceRows: TrialBalanceRow[] = [];
 
+    // One grouped aggregate for the whole chart instead of a SUM per account.
+    const activityMap = await getAccountActivityMap(storeId, start, end);
+
     for (const account of accounts) {
-        // Get period activity
-        const activity = await db.select({
-            totalDebit: sql<number>`SUM(${journalEntries.debit})`,
-            totalCredit: sql<number>`SUM(${journalEntries.credit})`
-        })
-        .from(journalEntries)
-        .where(and(
-            eq(journalEntries.storeId, storeId),
-            eq(journalEntries.accountCode, account.code),
-            eq(journalEntries.isVoided, false),
-            gte(journalEntries.createdAt, start),
-            lte(journalEntries.createdAt, end)
-        ));
+        const balance = balanceFromActivity(account, activityMap);
 
-        const periodDebit = Number(activity[0]?.totalDebit) || 0;
-        const periodCredit = Number(activity[0]?.totalCredit) || 0;
-
-        // Calculate balance
+        // A negative balance lands on the opposite column of its normal side.
         let debit = 0;
         let credit = 0;
 
         if (account.normalBalance === 'Debit') {
-            const balance = (account.openingBalance || 0) + periodDebit - periodCredit;
             if (balance >= 0) {
                 debit = balance;
             } else {
                 credit = Math.abs(balance);
             }
         } else {
-            const balance = (account.openingBalance || 0) + periodCredit - periodDebit;
             if (balance >= 0) {
                 credit = balance;
             } else {
@@ -434,6 +420,69 @@ export async function calculateAccountPeriodBalance(
 }
 
 /**
+ * Journal activity for one account within a window.
+ */
+type AccountActivity = { debit: number; credit: number };
+
+/**
+ * Sum every account's journal activity for a window in ONE grouped query.
+ *
+ * The report builders used to call `calculateAccountPeriodBalance` per account,
+ * and each call costs two sequential round-trips (a COA lookup + a SUM). Against
+ * a pooled remote Postgres that is ~250ms apiece, so a 60-account chart spent
+ * ~30s in latency alone — the balance sheet compounded it by also awaiting a
+ * full income statement. One GROUP BY answers all of it.
+ */
+async function getAccountActivityMap(
+    storeId: string,
+    start: Date,
+    end: Date
+): Promise<Map<string, AccountActivity>> {
+    const rows = await db.select({
+        accountCode: journalEntries.accountCode,
+        totalDebit: sql<number>`SUM(${journalEntries.debit})`,
+        totalCredit: sql<number>`SUM(${journalEntries.credit})`
+    })
+    .from(journalEntries)
+    .where(and(
+        eq(journalEntries.storeId, storeId),
+        eq(journalEntries.isVoided, false),
+        gte(journalEntries.createdAt, start),
+        lte(journalEntries.createdAt, end)
+    ))
+    .groupBy(journalEntries.accountCode);
+
+    const map = new Map<string, AccountActivity>();
+    for (const row of rows) {
+        if (!row.accountCode) continue;
+        map.set(row.accountCode, {
+            debit: Number(row.totalDebit) || 0,
+            credit: Number(row.totalCredit) || 0
+        });
+    }
+    return map;
+}
+
+/**
+ * Balance of one account from a prefetched activity map. Mirrors
+ * `calculateAccountPeriodBalance` exactly (opening balance + normal-balance
+ * direction), minus the round-trips.
+ */
+function balanceFromActivity(
+    account: { code: string; normalBalance: string | null; openingBalance: number | null },
+    activity: Map<string, AccountActivity>
+): number {
+    const a = activity.get(account.code);
+    const periodDebit = a?.debit ?? 0;
+    const periodCredit = a?.credit ?? 0;
+    const opening = account.openingBalance || 0;
+
+    return account.normalBalance === 'Debit'
+        ? opening + periodDebit - periodCredit
+        : opening + periodCredit - periodDebit;
+}
+
+/**
  * Section name mapping for expense subTypes
  */
 const EXPENSE_SECTION_NAMES: Record<string, string> = {
@@ -471,19 +520,24 @@ export async function getIncomeStatement(
         total: 0
     };
 
-    // Get all revenue accounts (type = Revenue, code 4xxx or 6xxx)
-    const revenueAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.isActive, true),
-            or(
-                eq(chartOfAccounts.type, 'Revenue'),
-                sql`${chartOfAccounts.code} LIKE '4%'`,
-                sql`${chartOfAccounts.code} LIKE '6%'`
-            )
-        ),
-        orderBy: chartOfAccounts.code
-    });
+    // One COA fetch plus one grouped activity aggregate powers every section
+    // below; the per-section account lists are derived in memory using the same
+    // predicates the individual queries used.
+    const [allAccounts, activityMap] = await Promise.all([
+        db.query.chartOfAccounts.findMany({
+            where: and(
+                eq(chartOfAccounts.storeId, storeId),
+                eq(chartOfAccounts.isActive, true)
+            ),
+            orderBy: chartOfAccounts.code
+        }),
+        getAccountActivityMap(storeId, start, end)
+    ]);
+
+    // type = Revenue, or code 4xxx / 6xxx
+    const revenueAccounts = allAccounts.filter(a =>
+        a.type === 'Revenue' || a.code.startsWith('4') || a.code.startsWith('6')
+    );
 
     let totalRevenue = 0;
 
@@ -491,7 +545,7 @@ export async function getIncomeStatement(
         // Skip header accounts
         if (account.subType === 'Header') continue;
 
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        const balance = balanceFromActivity(account, activityMap);
 
         // Revenue accounts normally have credit balance (positive = income)
         // But retur/diskon have debit normal balance
@@ -533,23 +587,13 @@ export async function getIncomeStatement(
         total: 0
     };
 
-    // Get COGS accounts (51xxx)
-    const cogsAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.isActive, true),
-            or(
-                eq(chartOfAccounts.subType, 'COGS'),
-                sql`${chartOfAccounts.code} LIKE '51%'`
-            )
-        ),
-        orderBy: chartOfAccounts.code
-    });
+    // COGS accounts (subType COGS, or code 51xxx)
+    const cogsAccounts = allAccounts.filter(a => a.subType === 'COGS' || a.code.startsWith('51'));
 
     let totalCogs = 0;
     for (const account of cogsAccounts) {
         if (account.subType === 'Header') continue;
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        const balance = balanceFromActivity(account, activityMap);
         if (balance !== 0) {
             cogsSection.accounts.push({ code: account.code, name: account.name, amount: Math.abs(balance) });
             totalCogs += Math.abs(balance);
@@ -571,14 +615,7 @@ export async function getIncomeStatement(
     };
 
     // Get expense accounts (5xxx, 7xxx)
-    const expenseAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.type, 'Expense'),
-            eq(chartOfAccounts.isActive, true)
-        ),
-        orderBy: chartOfAccounts.code
-    });
+    const expenseAccounts = allAccounts.filter(a => a.type === 'Expense');
 
     // Group expenses by subType
     const expenseBySubType: Record<string, { code: string; name: string; amount: number }[]> = {};
@@ -587,7 +624,7 @@ export async function getIncomeStatement(
         if (account.subType === 'Header') continue;
         if (account.code.startsWith('51')) continue; // Already in COGS
 
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        const balance = balanceFromActivity(account, activityMap);
         if (balance !== 0) {
             const subType = account.subType || 'Other';
             if (!expenseBySubType[subType]) {
@@ -626,22 +663,13 @@ export async function getIncomeStatement(
         total: 0
     };
 
-    // Find other income/expense accounts
-    const otherIncomeAccounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.isActive, true)
-        ),
-        orderBy: chartOfAccounts.code
-    });
-
     let totalOtherIncome = 0;
     let totalOtherExpense = 0;
 
-    for (const account of otherIncomeAccounts) {
+    for (const account of allAccounts) {
         // Other revenue (6xxx) - non-operating income
         if (account.code.startsWith('6') && account.type === 'Revenue' && account.subType !== 'Header') {
-            const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+            const balance = balanceFromActivity(account, activityMap);
             if (balance !== 0) {
                 otherIncomeSection.accounts.push({ code: account.code, name: account.name, amount: balance });
                 totalOtherIncome += balance;
@@ -649,7 +677,7 @@ export async function getIncomeStatement(
         }
         // Other expense (7xxx)
         if (account.code.startsWith('7') && account.type === 'Expense' && account.subType !== 'Header') {
-            const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+            const balance = balanceFromActivity(account, activityMap);
             if (balance !== 0) {
                 otherIncomeSection.accounts.push({ code: account.code, name: account.name, amount: -Math.abs(balance) });
                 totalOtherExpense -= Math.abs(balance);
@@ -669,7 +697,7 @@ export async function getIncomeStatement(
     const taxAccounts = expenseAccounts.filter(a => a.subType === 'Tax');
     for (const account of taxAccounts) {
         if (account.subType === 'Header') continue;
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, start, end);
+        const balance = balanceFromActivity(account, activityMap);
         if (balance !== 0) {
             totalTax += Math.abs(balance);
         }
@@ -735,14 +763,20 @@ export async function getBalanceSheet(
     const { start, end } = getPeriodDates(year, month);
     const asOfDate = end;
 
-    // Get all active accounts
-    const accounts = await db.query.chartOfAccounts.findMany({
-        where: and(
-            eq(chartOfAccounts.storeId, storeId),
-            eq(chartOfAccounts.isActive, true)
-        ),
-        orderBy: chartOfAccounts.code
-    });
+    // Inception-to-date activity: one grouped aggregate covering every account,
+    // fetched alongside the chart of accounts and the income statement.
+    const inception = new Date(2000, 0, 1);
+    const [accounts, activityMap, incomeStmt] = await Promise.all([
+        db.query.chartOfAccounts.findMany({
+            where: and(
+                eq(chartOfAccounts.storeId, storeId),
+                eq(chartOfAccounts.isActive, true)
+            ),
+            orderBy: chartOfAccounts.code
+        }),
+        getAccountActivityMap(storeId, inception, asOfDate),
+        getIncomeStatement(storeId, year, month)
+    ]);
 
     // === ASET LANCAR ===
     const currentAssets: { code: string; name: string; amount: number }[] = [];
@@ -761,10 +795,15 @@ export async function getBalanceSheet(
     let totalLongTermLiabilities = 0;
     let totalEquity = 0;
 
+    // Accumulated depreciation is a contra account applied to every fixed asset —
+    // resolve its balance once instead of re-querying it inside the loop.
+    const accDeprAccount = accounts.find(a => a.code === '1230');
+    const accDeprBalance = accDeprAccount ? balanceFromActivity(accDeprAccount, activityMap) : 0;
+
     for (const account of accounts) {
         if (account.subType === 'Header') continue;
 
-        const balance = await calculateAccountPeriodBalance(storeId, account.code, new Date(2000, 0, 1), asOfDate);
+        const balance = balanceFromActivity(account, activityMap);
 
         if (account.type === 'Asset') {
             // Skip accumulated depreciation as it's a contra account
@@ -772,12 +811,9 @@ export async function getBalanceSheet(
 
             if (account.subType === 'Fixed' || account.code.startsWith('12')) {
                 // Fixed Asset - show net value
-                // Check for accumulated depreciation
-                const accDepr = accounts.find(a => a.code === '1230');
                 let netValue = balance;
 
-                if (accDepr) {
-                    const accDeprBalance = await calculateAccountPeriodBalance(storeId, '1230', new Date(2000, 0, 1), asOfDate);
+                if (accDeprAccount) {
                     netValue = balance - Math.abs(accDeprBalance); // Accumulated depreciation reduces asset value
                 }
 
@@ -812,9 +848,7 @@ export async function getBalanceSheet(
         }
     }
 
-    // If equity accounts are empty or zero, calculate from A - L
-    // But since we are doing proper accounting, we should append Net Income
-    const incomeStmt = await getIncomeStatement(storeId, year, month);
+    // Current-period earnings belong in equity (fetched above, in parallel).
     const netIncome = incomeStmt.netIncome;
     
     if (netIncome !== 0) {
