@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -9,9 +9,12 @@ import { Search, CheckCircle2, MessageCircle, AlertCircle, Clock, FileText } fro
 import { toast } from "sonner"
 import useSWR from "swr"
 import { useUserRole } from "@/hooks/useUserRole"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, fetcher } from "@/lib/api"
 
-// Receivables aging buckets by days past due.
+const PAGE_SIZE = 25
+
+// Receivables aging buckets by days past due. The bucketing itself now happens in
+// SQL (see services/ReceivablesService) — this is just the display order + styling.
 const AGING_BUCKETS = [
   { key: 'current', label: 'Belum Tempo', cls: 'emerald' },
   { key: 'd1_30', label: '1–30 hari', cls: 'amber' },
@@ -19,51 +22,46 @@ const AGING_BUCKETS = [
   { key: 'd60plus', label: '> 60 hari', cls: 'rose' },
 ] as const
 
-function agingBucketOf(t: any): string {
-  if (!t.dueDate) return 'current'
-  const now = new Date(); now.setHours(0, 0, 0, 0)
-  const due = new Date(t.dueDate); due.setHours(0, 0, 0, 0)
-  const days = Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
-  if (days <= 0) return 'current'
-  if (days <= 30) return 'd1_30'
-  if (days <= 60) return 'd31_60'
-  return 'd60plus'
+const EMPTY_SUMMARY = {
+  total: 0,
+  count: 0,
+  buckets: {} as Record<string, { total: number; count: number }>,
 }
 
 export default function PiutangClient() {
   const { isOwner } = useUserRole()
+  const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [bucketFilter, setBucketFilter] = useState<string | null>(null)
-  const { data: allTransactions, error: piutangError, mutate, isLoading } = useSWR('/api/transactions')
+  const [page, setPage] = useState(1)
 
-  const piutangList = (Array.isArray(allTransactions) ? allTransactions : []).filter((t: any) =>
-    (t.transactionType === 'Penjualan' || t.transactionType === 'Jasa Servis') &&
-    (t.paymentStatus === 'Belum Lunas' || t.paymentMethod === 'Tempo')
-  ).sort((a: any, b: any) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime()) // sort by oldest first
+  // Debounce typing so each keystroke doesn't become a request.
+  useEffect(() => {
+    const id = setTimeout(() => setSearchQuery(searchInput), 350)
+    return () => clearTimeout(id)
+  }, [searchInput])
 
-  const filteredList = piutangList.filter((t: any) => {
-    const matchesSearch = !searchQuery ||
-      (t.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesBucket = !bucketFilter || agingBucketOf(t) === bucketFilter
-    return matchesSearch && matchesBucket
-  })
+  // Narrowing the list must not leave us stranded on a page that no longer exists.
+  useEffect(() => { setPage(1) }, [searchQuery, bucketFilter])
 
-  // Aging summary: total sisa tagihan + count per age bucket.
-  const agingSummary = piutangList.reduce((acc: Record<string, { total: number; count: number }>, t: any) => {
-    const b = agingBucketOf(t)
-    const sisa = (t.amount || 0) - (t.dpAmount || 0)
-    if (!acc[b]) acc[b] = { total: 0, count: 0 }
-    acc[b].total += sisa
-    acc[b].count += 1
-    return acc
-  }, {})
+  const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) })
+  if (searchQuery) params.set('search', searchQuery)
+  if (bucketFilter) params.set('bucket', bucketFilter)
 
-  const totalPiutang = piutangList.reduce((acc: number, curr: any) => {
-    // Sisa tagihan = amount - dpAmount
-    const sisa = (curr.amount || 0) - (curr.dpAmount || 0)
-    return acc + sisa
-  }, 0)
+  // The server filters, buckets and totals. Previously this page pulled every
+  // transaction and reduced over it here, which is why it could never be paginated
+  // without under-reporting what the shop is owed.
+  const { data, error: piutangError, mutate, isLoading } = useSWR(
+    `/api/receivables?${params.toString()}`,
+    fetcher,
+    { keepPreviousData: true }
+  )
+
+  const filteredList: any[] = Array.isArray(data?.items) ? data.items : []
+  const agingSummary = data?.summary?.buckets ?? EMPTY_SUMMARY.buckets
+  const totalPiutang = data?.summary?.total ?? 0
+  const totalCount = data?.summary?.count ?? 0
+  const pagination = data?.pagination ?? { page: 1, totalPages: 1, totalItems: 0 }
 
   const handlePayOff = async (id: string) => {
     if (!isOwner) {
@@ -157,7 +155,7 @@ export default function PiutangClient() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
-              <div className="text-base md:text-2xl font-bold text-destructive">{piutangList.length} Transaksi</div>
+              <div className="text-base md:text-2xl font-bold text-destructive">{totalCount} Transaksi</div>
             </CardContent>
           </Card>
         </div>
@@ -202,8 +200,8 @@ export default function PiutangClient() {
               type="search"
               placeholder="Cari nama pelanggan atau nota..."
               className="pl-8 bg-card"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
         </div>
@@ -329,6 +327,34 @@ export default function PiutangClient() {
                 </>
               )}
             </div>
+
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between gap-3 border-t px-3 py-2.5">
+                <span className="text-xs text-muted-foreground">
+                  Halaman {pagination.page} dari {pagination.totalPages} · {pagination.totalItems} tagihan
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={page <= 1 || isLoading}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={page >= pagination.totalPages || isLoading}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Berikutnya
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
