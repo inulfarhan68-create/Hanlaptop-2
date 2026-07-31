@@ -98,7 +98,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
       template += "\n\nLihat Nota Online: {link}";
     }
     
-    const storeName = trx.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop";
+    const storeName = trx.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "";
     const totalAmount = formatCurrency(trx.amount || trx.displayAmount || 0);
     const txId = trx.originalId || trx.id || '';
     const invoiceLink = `${window.location.origin}/nota/${txId}`;
@@ -862,9 +862,9 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
                 </Button>
               )}
               <Button variant="secondary" className="flex-1 sm:flex-none px-2 sm:px-4" onClick={() => {
-                  const storeName = viewDetailTrx.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop";
-                  const storeAddress = viewDetailTrx.store?.address || storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123";
-                  const storePhone = viewDetailTrx.store?.phone || storeSettings?.storePhone || localStorage.getItem("storePhone") || "0812-3456-7890";
+                  const storeName = viewDetailTrx.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "";
+                  const storeAddress = viewDetailTrx.store?.address || storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "";
+                  const storePhone = viewDetailTrx.store?.phone || storeSettings?.storePhone || localStorage.getItem("storePhone") || "";
                   const storeLogo = viewDetailTrx.store?.logo || storeSettings?.storeLogo || localStorage.getItem("storeLogo") || undefined;
                   const rawFooter = viewDetailTrx.store?.footer || storeSettings?.storeFooter || localStorage.getItem("storeFooter") || undefined;
                   const storeFooter = rawFooter ? rawFooter.split("|||")[0] : undefined;

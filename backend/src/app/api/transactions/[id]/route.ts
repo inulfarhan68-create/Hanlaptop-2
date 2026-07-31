@@ -115,9 +115,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             items: sanitizedItems,
             creatorName: log?.userName || "Kasir",
             store: {
-                name: txSettings?.storeName || txStore?.name || "HanLaptop",
-                address: txSettings?.storeAddress || txStore?.address || "Jl. Cibiru Tonggoh, Kp. Babakan Biru 002/008, Cibiru Wetan, Cileunyi, Kab. Bandung",
-                phone: txSettings?.storePhone || txStore?.phone || "085161870922",
+                // No invented fallbacks — see the list route: these print on a
+                // customer-facing nota.
+                name: txSettings?.storeName || txStore?.name || "",
+                address: txSettings?.storeAddress || txStore?.address || "",
+                phone: txSettings?.storePhone || txStore?.phone || "",
                 logo: txSettings?.storeLogo || null,
                 signature: txSettings?.storeSignature || null,
                 footer: txSettings?.storeFooter || "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan.",

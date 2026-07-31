@@ -109,9 +109,13 @@ export async function GET(request: Request) {
                 items: sanitizedItems,
                 creatorName: creatorMap.get(tx.id) || "Kasir",
                 store: {
-                    name: txSettings?.storeName || txStore?.name || "HanLaptop",
-                    address: txSettings?.storeAddress || txStore?.address || "Jl. Cibiru Tonggoh, Kp. Babakan Biru 002/008, Cibiru Wetan, Cileunyi, Kab. Bandung",
-                    phone: txSettings?.storePhone || txStore?.phone || "085161870922",
+                    // No invented fallbacks: this is printed on customer-facing notas.
+                    // These used to fall back to the flagship tenant's real address and
+                    // phone number, so any other shop that hadn't filled in its details
+                    // handed its customers Han Laptop's contact details.
+                    name: txSettings?.storeName || txStore?.name || "",
+                    address: txSettings?.storeAddress || txStore?.address || "",
+                    phone: txSettings?.storePhone || txStore?.phone || "",
                     logo: txSettings?.storeLogo || null,
                     signature: txSettings?.storeSignature || null,
                     footer: txSettings?.storeFooter || "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan.",

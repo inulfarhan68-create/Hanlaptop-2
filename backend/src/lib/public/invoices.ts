@@ -81,9 +81,12 @@ export const getPublicInvoice = cache(async (id: string): Promise<
             storeBanks: parsedBanks,
           }
         : {
-            storeName: storeInfo?.name || "HanLaptop",
-            storeAddress: storeInfo?.address || "Jl. Komputer Raya No.123",
-            storePhone: storeInfo?.phone || "0812-3456-7890",
+            // This feeds the public, customer-facing nota. A shop that hasn't
+            // filled in its details shows nothing rather than a placeholder
+            // address and phone number that belong to nobody.
+            storeName: storeInfo?.name || "",
+            storeAddress: storeInfo?.address || "",
+            storePhone: storeInfo?.phone || "",
             storeLogo: null,
             storeFooter:
               "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan.",

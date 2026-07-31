@@ -26,11 +26,11 @@ import { toast } from "sonner"
 export function StoreSettingsTab() {
   const { isOwner } = useUserRole()
   const [applyToAllBranches, setApplyToAllBranches] = useState(false)
-  const [storeName, setStoreName] = useState("HanLaptop")
+  const [storeName, setStoreName] = useState("")
   const [storeLogo, setStoreLogo] = useState("")
   const [storeSignature, setStoreSignature] = useState("")
-  const [address, setAddress] = useState("Jl. Komputer Raya No.123")
-  const [phone, setPhone] = useState("0812-3456-7890")
+  const [address, setAddress] = useState("")
+  const [phone, setPhone] = useState("")
   const [storeFooter, setStoreFooter] = useState("")
   const [storeInstagram, setStoreInstagram] = useState("hanlaptop")
   const [waTemplatePiutang, setWaTemplatePiutang] = useState("Halo Kak {nama}, sekadar mengingatkan bahwa ada tagihan dari *{toko}* untuk nota *{nota}* senilai *{sisa}* yang jatuh tempo pada *{tempo}*. Terima kasih.")
@@ -67,7 +67,7 @@ export function StoreSettingsTab() {
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setStoreName(data.storeName || "HanLaptop")
+          setStoreName(data.storeName || "")
           setStoreLogo(data.storeLogo || "")
           setStoreSignature(data.storeSignature || "")
           setAddress(data.storeAddress || "")
@@ -88,11 +88,11 @@ export function StoreSettingsTab() {
           setRequireInboundQc(data.requireInboundQc === true)
           setServiceWarrantyDays(typeof data.serviceWarrantyDays === "number" ? data.serviceWarrantyDays : 30)
 
-          localStorage.setItem("storeName", data.storeName || "HanLaptop")
+          localStorage.setItem("storeName", data.storeName || "")
           localStorage.setItem("storeLogo", data.storeLogo || "")
           localStorage.setItem("storeSignature", data.storeSignature || "")
-          localStorage.setItem("storeAddress", data.storeAddress || "Jl. Komputer Raya No.123")
-          localStorage.setItem("storePhone", data.storePhone || "0812-3456-7890")
+          localStorage.setItem("storeAddress", data.storeAddress || "")
+          localStorage.setItem("storePhone", data.storePhone || "")
           localStorage.setItem("storeFooter", rawFooter)
           localStorage.setItem("storeInstagram", parsedInstagram)
           localStorage.setItem("enableCashierShift", data.enableCashierShift !== false ? "true" : "false")
@@ -397,7 +397,7 @@ export function StoreSettingsTab() {
 
     let replaced = text
       .replace(/{nama}/g, "Budi Santoso")
-      .replace(/{toko}/g, storeName || "HanLaptop")
+      .replace(/{toko}/g, storeName || "")
       .replace(/{nota}/g, "TRX-20260624001")
       .replace(/{total}/g, "Rp 1.450.000")
       .replace(/{biaya}/g, "Rp 350.000")

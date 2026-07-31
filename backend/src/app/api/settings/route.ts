@@ -60,9 +60,13 @@ export async function GET() {
             }
 
             return NextResponse.json({
-                storeName: storeInfo?.name || "HanLaptop",
-                storeAddress: storeInfo?.address || "Jl. Cibiru Tonggoh, Kp. Babakan Biru 002/008, Cibiru Wetan, Cileunyi, Kab. Bandung",
-                storePhone: storeInfo?.phone || "085161870922",
+                // Defaults for a store with no settings row yet. They must not be the
+                // flagship tenant's real address and phone: this response feeds notas,
+                // flyers and printed reports, so another shop would hand its customers
+                // Han Laptop's contact details.
+                storeName: storeInfo?.name || "",
+                storeAddress: storeInfo?.address || "",
+                storePhone: storeInfo?.phone || "",
                 storeLogo: null,
                 storeFooter: "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dilembalikan.",
                 storeBanks: [],
