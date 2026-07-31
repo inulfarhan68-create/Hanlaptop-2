@@ -1,106 +1,42 @@
 /**
  * Multi-Tenant Isolation Verification Tests
  *
- * These tests verify that Store A cannot access Store B's data.
- * Critical for SaaS security.
+ * Two real tenants, each with a real signed-in owner: tenant A must never reach
+ * tenant B's data. This is the gate that catches a cross-tenant leak — the kind
+ * where an endpoint forgets its store filter and starts answering for every org.
  *
  * Run: npx playwright test tests/e2e/multi-tenant.spec.ts
  */
 
 import { test, expect } from '@playwright/test';
 import { db } from '../../src/db';
-import { organizations, stores, userStoreAccess } from '../../src/db/schema';
-import { subscriptions } from '../../src/db/schema/saas';
-import { user, session } from '../../src/db/schema/users';
 import { transactions, inventory, customers, serviceOrders } from '../../src/db/schema';
-import { seedPlans } from '../../src/db/seed-plans';
 import { eq } from 'drizzle-orm';
-import crypto from 'crypto';
+import { createTestTenant, cleanupTestTenant, asTenant, type TestTenant } from '../helpers/auth';
 
-// Configuration
 const API_URL = '/api';
 
-// TODO(e2e): `.fixme` is TEMPORARY, not a permanent skip. These tests inject a raw
-// session token, but Better-Auth v1.6 signs the session cookie, so every request 401s
-// — the tenant-isolation feature itself is fine (covered by tests/unit/tenant-isolation.test.ts
-// + storeScope). Restore end-to-end coverage by authenticating for real (signUp → signIn →
-// use the real signed cookie) via a shared tests/helpers/auth.ts (loginAsOwner /
-// createTestTenant), then remove `.fixme`. Tracked as a post-release task.
-test.describe.fixme('Multi-Tenant Isolation', () => {
-  let orgAId: string;
-  let orgBId: string;
-  let storeAId: string;
-  let storeBId: string;
-  let storeAToken: string;
-  let storeBToken: string;
-  let userAId: string;
-  let userBId: string;
+test.describe('Multi-Tenant Isolation', () => {
+  let tenantA: TestTenant;
+  let tenantB: TestTenant;
 
   let txBId: string;
   let invBId: string;
   let custBId: string;
   let svcBId: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ request }) => {
+    // Real sign-up + sign-in per tenant; see tests/helpers/auth.ts for why the
+    // previous hand-rolled session rows could never work.
+    tenantA = await createTestTenant(request, 'a');
+    tenantB = await createTestTenant(request, 'b');
+
     const ts = Date.now();
 
-    // 1. Setup: Create two organizations (tenant boundary)
-    orgAId = `org-a-${ts}`;
-    orgBId = `org-b-${ts}`;
-    await db.insert(organizations).values([
-      { id: orgAId, name: 'Org A Test' },
-      { id: orgBId, name: 'Org B Test' },
-    ]);
-
-    // Both tenants need an active subscription, otherwise the SaaS feature gates
-    // (requireFeature) return 402 before the isolation check runs — e.g. the
-    // /api/services/[id] test would see 402 instead of the expected 404. Seed the
-    // base plans first (CI's test DB is schema-only), then subscribe both orgs to
-    // the internal (all-features) plan.
-    await seedPlans();
-    const subNow = new Date();
-    const subEnd = new Date(subNow.getFullYear() + 100, 0, 1);
-    await db.insert(subscriptions).values([
-      { organizationId: orgAId, planKey: 'internal', status: 'active', currentPeriodStart: subNow, currentPeriodEnd: subEnd },
-      { organizationId: orgBId, planKey: 'internal', status: 'active', currentPeriodStart: subNow, currentPeriodEnd: subEnd },
-    ]);
-
-    // 2. Setup: Create two stores (one per org)
-    storeAId = `store-a-${ts}`;
-    storeBId = `store-b-${ts}`;
-    await db.insert(stores).values([
-      { id: storeAId, organizationId: orgAId, name: 'Toko A Test', address: 'Alamat A', phone: '123' },
-      { id: storeBId, organizationId: orgBId, name: 'Toko B Test', address: 'Alamat B', phone: '456' },
-    ]);
-
-    // 3. Setup: Create two users
-    userAId = `user-a-${ts}`;
-    userBId = `user-b-${ts}`;
-    await db.insert(user).values([
-      { id: userAId, email: `a-${ts}@test.com`, name: 'User A', role: 'owner', organizationId: orgAId, emailVerified: true, createdAt: new Date(), updatedAt: new Date() },
-      { id: userBId, email: `b-${ts}@test.com`, name: 'User B', role: 'owner', organizationId: orgBId, emailVerified: true, createdAt: new Date(), updatedAt: new Date() },
-    ]);
-
-    // 4. Setup: Grant store access
-    await db.insert(userStoreAccess).values([
-      { userId: userAId, storeId: storeAId, role: 'owner' },
-      { userId: userBId, storeId: storeBId, role: 'owner' },
-    ]);
-
-    // 5. Setup: Create sessions for both users (Simulate login)
-    storeAToken = crypto.randomBytes(32).toString('hex');
-    storeBToken = crypto.randomBytes(32).toString('hex');
-
-    await db.insert(session).values([
-      { id: storeAToken, userId: userAId, token: storeAToken, expiresAt: new Date(Date.now() + 1000000), ipAddress: '127.0.0.1', userAgent: 'test', createdAt: new Date(), updatedAt: new Date() },
-      { id: storeBToken, userId: userBId, token: storeBToken, expiresAt: new Date(Date.now() + 1000000), ipAddress: '127.0.0.1', userAgent: 'test', createdAt: new Date(), updatedAt: new Date() },
-    ]);
-
-    // 6. Setup: Create data in Store B
     txBId = `tx-b-${ts}`;
     await db.insert(transactions).values({
       id: txBId,
-      storeId: storeBId,
+      storeId: tenantB.storeId,
       transactionType: 'Penjualan',
       invoiceNumber: `INV-B-${ts}`,
       amount: 1000,
@@ -112,7 +48,7 @@ test.describe.fixme('Multi-Tenant Isolation', () => {
     invBId = `inv-b-${ts}`;
     await db.insert(inventory).values({
       id: invBId,
-      storeId: storeBId,
+      storeId: tenantB.storeId,
       barcode: `ITEM-B-${ts}`,
       itemName: 'Laptop B',
       category: 'Laptop',
@@ -125,7 +61,7 @@ test.describe.fixme('Multi-Tenant Isolation', () => {
     custBId = `cust-b-${ts}`;
     await db.insert(customers).values({
       id: custBId,
-      storeId: storeBId,
+      storeId: tenantB.storeId,
       name: 'Customer B',
       phone: '081234567890',
     });
@@ -133,101 +69,92 @@ test.describe.fixme('Multi-Tenant Isolation', () => {
     svcBId = `svc-b-${ts}`;
     await db.insert(serviceOrders).values({
       id: svcBId,
-      storeId: storeBId,
+      storeId: tenantB.storeId,
       customerId: custBId,
       customerName: 'Customer B',
       deviceName: 'Device B',
       issue: 'Mati Total',
       status: 'Diterima',
     });
-
   });
 
   test.afterAll(async () => {
-    // Cleanup in reverse-dependency order
     await db.delete(serviceOrders).where(eq(serviceOrders.id, svcBId)).catch(() => {});
     await db.delete(customers).where(eq(customers.id, custBId)).catch(() => {});
     await db.delete(inventory).where(eq(inventory.id, invBId)).catch(() => {});
     await db.delete(transactions).where(eq(transactions.id, txBId)).catch(() => {});
-    await db.delete(session).where(eq(session.id, storeAToken)).catch(() => {});
-    await db.delete(session).where(eq(session.id, storeBToken)).catch(() => {});
-    await db.delete(userStoreAccess).where(eq(userStoreAccess.userId, userAId)).catch(() => {});
-    await db.delete(userStoreAccess).where(eq(userStoreAccess.userId, userBId)).catch(() => {});
-    await db.delete(user).where(eq(user.id, userAId)).catch(() => {});
-    await db.delete(user).where(eq(user.id, userBId)).catch(() => {});
-    // Cascading delete: deleting org cascades to stores
-    await db.delete(organizations).where(eq(organizations.id, orgAId)).catch(() => {});
-    await db.delete(organizations).where(eq(organizations.id, orgBId)).catch(() => {});
+    await cleanupTestTenant(tenantA);
+    await cleanupTestTenant(tenantB);
   });
 
-  test.describe('Store A should NOT access Store B data', () => {
-    test('GET /api/transactions/[id] - Store A cannot fetch Store B transaction', async ({ request }) => {
-      const storeAAccess = await request.get(`${API_URL}/transactions/${txBId}`, {
-        headers: {
-          'x-store-id': storeAId,
-          'Cookie': `better-auth.session_token=${storeAToken}`,
-        },
-      });
-      // 404 because storeScope filters out Store B's transaction
-      expect(storeAAccess.status()).toBe(404);
+  test('the signed-in owner is actually authenticated', async ({ request }) => {
+    // Guards the guard: if login silently broke, every isolation assertion below
+    // would "pass" on 401s instead of on real tenant scoping.
+    const response = await request.get(`${API_URL}/transactions`, { headers: asTenant(tenantA) });
+    expect(response.status()).toBe(200);
+  });
+
+  test.describe('Tenant A should NOT access Tenant B data', () => {
+    test('GET /api/transactions/[id] - cannot fetch the other tenant transaction', async ({ request }) => {
+      const res = await request.get(`${API_URL}/transactions/${txBId}`, { headers: asTenant(tenantA) });
+      // 404 because storeScope filters Tenant B's row out of the query entirely
+      expect(res.status()).toBe(404);
     });
 
-    test('GET /api/inventory/[id] - Store A cannot fetch Store B inventory', async ({ request }) => {
-      const storeAAccess = await request.get(`${API_URL}/inventory/${invBId}`, {
-        headers: {
-          'x-store-id': storeAId,
-          'Cookie': `better-auth.session_token=${storeAToken}`,
-        },
-      });
-      expect(storeAAccess.status()).toBe(404);
+    test('GET /api/inventory/[id] - cannot fetch the other tenant inventory', async ({ request }) => {
+      const res = await request.get(`${API_URL}/inventory/${invBId}`, { headers: asTenant(tenantA) });
+      expect(res.status()).toBe(404);
     });
 
-    test('GET /api/customers/[id] - Store A cannot fetch Store B customer', async ({ request }) => {
-      const storeAAccess = await request.get(`${API_URL}/customers/${custBId}`, {
-        headers: {
-          'x-store-id': storeAId,
-          'Cookie': `better-auth.session_token=${storeAToken}`,
-        },
-      });
-      expect(storeAAccess.status()).toBe(404);
+    test('GET /api/customers/[id] - cannot fetch the other tenant customer', async ({ request }) => {
+      const res = await request.get(`${API_URL}/customers/${custBId}`, { headers: asTenant(tenantA) });
+      expect(res.status()).toBe(404);
     });
 
-    test('GET /api/services/[id] - Store A cannot fetch Store B service order', async ({ request }) => {
-      const storeAAccess = await request.get(`${API_URL}/services/${svcBId}`, {
-        headers: {
-          'x-store-id': storeAId,
-          'Cookie': `better-auth.session_token=${storeAToken}`,
-        },
+    test('GET /api/services/[id] - cannot fetch the other tenant service order', async ({ request }) => {
+      const res = await request.get(`${API_URL}/services/${svcBId}`, { headers: asTenant(tenantA) });
+      expect(res.status()).toBe(404);
+    });
+
+    test('spoofing x-store-id with the other tenant store must not widen access', async ({ request }) => {
+      // requireAuth falls back to "all" for a store id outside the caller's set, and
+      // storeScope then bounds "all" to the caller's own org.
+      const res = await request.get(`${API_URL}/transactions`, {
+        headers: asTenant(tenantA, tenantB.storeId),
       });
-      expect(storeAAccess.status()).toBe(404);
+      expect(res.status()).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.find((t: any) => t.id === txBId)).toBeUndefined();
     });
   });
 
-  test.describe('Store should only see their own data', () => {
-    test('GET /api/transactions - Store A only gets Store A transactions (Empty)', async ({ request }) => {
-      const response = await request.get(`${API_URL}/transactions`, {
-        headers: {
-          'x-store-id': storeAId,
-          'Cookie': `better-auth.session_token=${storeAToken}`,
-        },
-      });
+  test.describe('Each tenant sees only its own data', () => {
+    test('GET /api/transactions - Tenant A gets none', async ({ request }) => {
+      const response = await request.get(`${API_URL}/transactions`, { headers: asTenant(tenantA) });
       expect(response.status()).toBe(200);
       const data = await response.json();
-      expect(data.length).toBe(0); // Store A has no transactions
+      expect(data.length).toBe(0);
     });
 
-    test('GET /api/transactions - Store B only gets Store B transactions (1 item)', async ({ request }) => {
-      const response = await request.get(`${API_URL}/transactions`, {
-        headers: {
-          'x-store-id': storeBId,
-          'Cookie': `better-auth.session_token=${storeBToken}`,
-        },
-      });
+    test('GET /api/transactions - Tenant B gets its own row', async ({ request }) => {
+      const response = await request.get(`${API_URL}/transactions`, { headers: asTenant(tenantB) });
       expect(response.status()).toBe(200);
       const data = await response.json();
       expect(data.length).toBe(1);
       expect(data[0].id).toBe(txBId);
-      expect(data[0].storeId).toBe(storeBId);
+      expect(data[0].storeId).toBe(tenantB.storeId);
+    });
+
+    test('GET /api/user/stores - the switcher lists only the tenant own stores', async ({ request }) => {
+      // Regression guard: this endpoint returned every store in the database for any
+      // owner, leaking other tenants' names and addresses.
+      const response = await request.get(`${API_URL}/user/stores`, { headers: asTenant(tenantA) });
+      expect(response.status()).toBe(200);
+      const data = await response.json();
+      const ids = data.map((s: any) => s.id);
+      expect(ids).toContain(tenantA.storeId);
+      expect(ids).not.toContain(tenantB.storeId);
     });
   });
 });
