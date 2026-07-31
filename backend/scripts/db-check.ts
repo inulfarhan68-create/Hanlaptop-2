@@ -1,5 +1,5 @@
-import { db } from "./src/db";
-import { user } from "./src/db/schema";
+import { db } from "../src/db";
+import { user } from "../src/db/schema";
 
 async function check() {
     const users = await db.select().from(user);

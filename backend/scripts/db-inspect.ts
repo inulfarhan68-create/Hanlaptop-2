@@ -2,8 +2,8 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 
 async function inspect() {
-    const { db } = await import("./src/db");
-    const { user, userStoreAccess, stores } = await import("./src/db/schema");
+    const { db } = await import("../src/db");
+    const { user, userStoreAccess, stores } = await import("../src/db/schema");
 
     console.log("=== USERS ===");
     const allUsers = await db.select().from(user);
