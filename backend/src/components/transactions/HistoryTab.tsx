@@ -58,8 +58,24 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [historyFilter, setHistoryFilter] = useState("")
   const [historyType, setHistoryType] = useState("")
+  const [page, setPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState("")
 
-  // SWR query params
+  const PAGE_SIZE = 25
+
+  // Debounce typing so each keystroke doesn't become a request.
+  useEffect(() => {
+    const id = setTimeout(() => setSearchQuery(historyFilter), 350)
+    return () => clearTimeout(id)
+  }, [historyFilter])
+
+  // Narrowing the list must not strand us on a page that no longer exists.
+  useEffect(() => { setPage(1) }, [searchQuery, historyType, historyPeriod])
+
+  // SWR query params. Period, search and type are all applied server-side now —
+  // the page used to pull every matching transaction and filter/total it here,
+  // which is what made paging unsafe: a capped page would have shrunk the
+  // income/expense figures below.
   const historyQuery = useMemo(() => {
     const params = new URLSearchParams()
     const now = new Date()
@@ -72,14 +88,21 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
     } else if (historyPeriod === "Tahun Ini") {
       const startOfYear = new Date(now.getFullYear(), 0, 1)
       params.append('from', startOfYear.toISOString())
-    } else {
-      params.append('limit', '500')
     }
+    if (searchQuery) params.append('search', searchQuery)
+    if (historyType) params.append('type', historyType)
+    params.append('page', String(page))
+    params.append('limit', String(PAGE_SIZE))
     return params.toString()
-  }, [historyPeriod])
+  }, [historyPeriod, searchQuery, historyType, page])
 
-  const { data: allTransactionsData, mutate: mutateTransactions, isLoading: historyLoading } = useSWR('/api/transactions?' + historyQuery)
-  const allTransactions = Array.isArray(allTransactionsData) ? allTransactionsData : []
+  const { data: historyData, mutate: mutateTransactions, isLoading: historyLoading } = useSWR(
+    '/api/transactions?' + historyQuery,
+    { keepPreviousData: true }
+  )
+  const allTransactions: any[] = Array.isArray(historyData?.items) ? historyData.items : []
+  const historySummary = historyData?.summary ?? { totalIncome: 0, totalOut: 0, modalIn: 0, modalOut: 0, mutasiModal: 0 }
+  const historyPagination = historyData?.pagination ?? { page: 1, totalPages: 1, totalItems: 0 }
 
   // Detail / Return States
   const [viewDetailTrx, setViewDetailTrx] = useState<any>(null)
@@ -169,31 +192,6 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
     } catch (e) {
       console.error("Failed to load transaction details:", e)
     }
-  }
-
-  const filterTransaction = (t: any) => {
-    const searchRaw = (historyFilter || "").toLowerCase()
-    const matchText = !historyFilter || 
-      (t.customerName || '').toLowerCase().includes(searchRaw) || 
-      (t.description || '').toLowerCase().includes(searchRaw) ||
-      (t.transactionType || '').toLowerCase().includes(searchRaw) ||
-      (t.paymentStatus || '').toLowerCase().includes(searchRaw) ||
-      (t.paymentMethod || '').toLowerCase().includes(searchRaw)
-    const matchType = !historyType || t.transactionType === historyType
-    
-    let matchPeriod = true
-    if (historyPeriod !== "Semua Waktu") {
-      const txDate = new Date(t.transactionDate)
-      const now = new Date()
-      if (historyPeriod === "Hari Ini") {
-        matchPeriod = txDate.getDate() === now.getDate() && txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear()
-      } else if (historyPeriod === "Bulan Ini") {
-        matchPeriod = txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear()
-      } else if (historyPeriod === "Tahun Ini") {
-        matchPeriod = txDate.getFullYear() === now.getFullYear()
-      }
-    }
-    return matchText && matchType && matchPeriod
   }
 
   const handlePayOff = async (id: string) => {
@@ -410,13 +408,16 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
     }
   }
 
-  const filtered = allTransactions.filter(filterTransaction);
-  
-  const totalIncome = filtered.filter((t: any) => ["Penjualan","Jasa Servis"].includes(t.transactionType)).reduce((s: any,t: any)=>s+t.amount,0)
-  const totalOut = filtered.filter((t: any) => ["Operasional","Pembelian Stok","Retur Penjualan"].includes(t.transactionType)).reduce((s: any,t: any)=>s+t.amount,0)
-  const modalIn = filtered.filter((t: any) => t.transactionType === "Modal Baru").reduce((s: any,t: any)=>s+t.amount,0)
-  const modalOut = filtered.filter((t: any) => t.transactionType === "Prive").reduce((s: any,t: any)=>s+t.amount,0)
-  const mutasiModal = modalIn - modalOut
+  // The server already applied period, search and type — this page is the result.
+  const filtered = allTransactions;
+
+  // Totals come from the server, computed over every matching row rather than the
+  // rows on screen, so they stay correct as you page through.
+  const totalIncome = historySummary.totalIncome
+  const totalOut = historySummary.totalOut
+  const modalIn = historySummary.modalIn
+  const modalOut = historySummary.modalOut
+  const mutasiModal = historySummary.mutasiModal
 
   return (
     <div className="space-y-3 text-left">
@@ -570,7 +571,7 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
               </div>
               <div className="flex-1 min-w-[50px] rounded-md border bg-primary/10 px-1.5 py-1 text-center">
                 <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Total Trx</p>
-                <p className="font-bold text-[10px] md:text-xs text-primary truncate">{filtered.length}</p>
+                <p className="font-bold text-[10px] md:text-xs text-primary truncate">{historyPagination.totalItems}</p>
               </div>
             </div>
 
@@ -712,6 +713,34 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
                     })}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {historyPagination.totalPages > 1 && (
+              <div className="flex items-center justify-between gap-3 border-t px-3 py-2.5">
+                <span className="text-[10px] md:text-xs text-muted-foreground">
+                  Halaman {historyPagination.page} dari {historyPagination.totalPages} · {historyPagination.totalItems} transaksi
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px] md:text-xs"
+                    disabled={page <= 1 || historyLoading}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px] md:text-xs"
+                    disabled={page >= historyPagination.totalPages || historyLoading}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Berikutnya
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

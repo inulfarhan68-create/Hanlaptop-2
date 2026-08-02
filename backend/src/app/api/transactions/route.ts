@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, journalEntries, inventory, activityLogs, customers, stores, storeSettings, cashierShifts, consignmentPayables } from "@/db/schema";
-import { desc, eq, count, gte, lte, and, like, inArray, sql } from "drizzle-orm";
+import { desc, eq, count, gte, lte, and, or, like, ilike, inArray, sql } from "drizzle-orm";
 import { withActiveTransactions } from "@/db/query-helpers";
 import crypto from "crypto";
 import { requireAuth, requireWriteAccess, requirePermission, storeScope } from "@/lib/auth-guard";
@@ -22,17 +22,43 @@ export async function GET(request: Request) {
         const from = searchParams.get('from');
         const to = searchParams.get('to');
         const limitParam = searchParams.get('limit');
-        
+        const search = searchParams.get('search');
+        const type = searchParams.get('type');
+        const pageParam = searchParams.get('page');
+
+        // Paged mode is opt-in: with `page` the response becomes
+        // { items, summary, pagination }; without it the plain array other callers
+        // (and the e2e isolation tests) already rely on is unchanged.
+        const paged = pageParam !== null;
+        const page = Math.max(1, Number(pageParam) || 1);
+        const pageSize = Math.min(200, Math.max(1, Number(limitParam) || 25));
+
         let conditions = [];
         const scope = storeScope(authResult, transactions.storeId);
         if (scope) conditions.push(scope);
         if (from) conditions.push(gte(transactions.transactionDate, new Date(from)));
         if (to) conditions.push(lte(transactions.transactionDate, new Date(to)));
+        if (type) conditions.push(eq(transactions.transactionType, type));
+        if (search) {
+            const q = `%${search}%`;
+            const textMatch = or(
+                ilike(transactions.customerName, q),
+                ilike(transactions.description, q),
+                ilike(transactions.transactionType, q),
+                ilike(transactions.paymentStatus, q),
+                ilike(transactions.paymentMethod, q),
+                ilike(transactions.invoiceNumber, q)
+            );
+            if (textMatch) conditions.push(textMatch);
+        }
+
+        const whereClause = withActiveTransactions(conditions.length > 0 ? and(...conditions) : undefined);
 
         const data = await db.query.transactions.findMany({
-            where: withActiveTransactions(conditions.length > 0 ? and(...conditions) : undefined),
+            where: whereClause,
             orderBy: [desc(transactions.transactionDate)],
-            limit: limitParam ? parseInt(limitParam) : undefined,
+            limit: paged ? pageSize : (limitParam ? parseInt(limitParam) : undefined),
+            offset: paged ? (page - 1) * pageSize : undefined,
             with: {
                 items: {
                     with: {
@@ -125,7 +151,50 @@ export async function GET(request: Request) {
             };
         });
 
-        return NextResponse.json(dataWithCreatorAndStore);
+        if (!paged) {
+            return NextResponse.json(dataWithCreatorAndStore);
+        }
+
+        // The history page's income/expense/capital figures used to be reduced in the
+        // browser over every matching transaction, which is what made paging unsafe —
+        // a capped page would have quietly shrunk the totals. They're aggregated here
+        // over the whole filtered set instead, so the summary is independent of which
+        // page is being shown.
+        const INCOME_TYPES = ["Penjualan", "Jasa Servis"];
+        const OUTFLOW_TYPES = ["Operasional", "Pembelian Stok", "Retur Penjualan"];
+        const sumOf = (types: string[]) =>
+            sql<number>`COALESCE(SUM(${transactions.amount}) FILTER (WHERE ${inArray(transactions.transactionType, types)}), 0)`;
+
+        const [[totals], [totalRow]] = await Promise.all([
+            db.select({
+                totalIncome: sumOf(INCOME_TYPES),
+                totalOut: sumOf(OUTFLOW_TYPES),
+                modalIn: sumOf(["Modal Baru"]),
+                modalOut: sumOf(["Prive"]),
+            }).from(transactions).where(whereClause),
+
+            db.select({ value: count() }).from(transactions).where(whereClause),
+        ]);
+
+        const n = (v: unknown) => Number(v) || 0;
+        const totalItems = n(totalRow?.value);
+
+        return NextResponse.json({
+            items: dataWithCreatorAndStore,
+            summary: {
+                totalIncome: n(totals?.totalIncome),
+                totalOut: n(totals?.totalOut),
+                modalIn: n(totals?.modalIn),
+                modalOut: n(totals?.modalOut),
+                mutasiModal: n(totals?.modalIn) - n(totals?.modalOut),
+            },
+            pagination: {
+                page,
+                limit: pageSize,
+                totalItems,
+                totalPages: Math.max(1, Math.ceil(totalItems / pageSize)),
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch transactions:", error);
         return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 });
