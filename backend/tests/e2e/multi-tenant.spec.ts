@@ -152,6 +152,26 @@ test.describe('Multi-Tenant Isolation', () => {
       expect(data[0].storeId).toBe(tenantB.storeId);
     });
 
+    test('GET /api/suggestions - autocomplete excludes the other tenant catalogue', async ({ request }) => {
+      // Regression guard: this endpoint sat behind requireAuth but queried inventory
+      // and service orders with no store filter, so the autocomplete on the
+      // transaction and service forms offered every signed-in user every other
+      // tenant's item and device names.
+      const forA = await request.get(`${API_URL}/suggestions`, { headers: asTenant(tenantA) });
+      expect(forA.status()).toBe(200);
+      const a = await forA.json();
+      expect(a.inventoryItems).not.toContain('Laptop B');
+      expect(a.laptopModels).not.toContain('Device B');
+
+      // Tenant B must still see its own, otherwise the assertions above would pass
+      // just as happily against an endpoint that returns nothing to anyone.
+      const forB = await request.get(`${API_URL}/suggestions`, { headers: asTenant(tenantB) });
+      expect(forB.status()).toBe(200);
+      const b = await forB.json();
+      expect(b.inventoryItems).toContain('Laptop B');
+      expect(b.laptopModels).toContain('Device B');
+    });
+
     test('GET /api/user/stores - the switcher lists only the tenant own stores', async ({ request }) => {
       // Regression guard: this endpoint returned every store in the database for any
       // owner, leaking other tenants' names and addresses.
