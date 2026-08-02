@@ -1146,9 +1146,19 @@ export async function calculateAccumulatedDepreciation(
 /**
  * Get fixed assets with current depreciation status
  */
-export async function getFixedAssetsWithDepreciation(storeId: string) {
+/**
+ * Fixed assets with their depreciation.
+ *
+ * Takes the caller's store ids rather than a single id: an owner's store selector
+ * defaults to the "all" sentinel, and the previous `eq(storeId, "all")` matched no
+ * row, so the asset register simply looked empty for them. `null` means
+ * unrestricted (platform_admin).
+ */
+export async function getFixedAssetsWithDepreciation(storeIds: string[] | null) {
+    if (storeIds !== null && storeIds.length === 0) return [];
+
     const assets = await db.query.fixedAssets.findMany({
-        where: eq(fixedAssets.storeId, storeId),
+        where: storeIds === null ? undefined : inArray(fixedAssets.storeId, storeIds),
         orderBy: fixedAssets.code
     });
 
@@ -1156,7 +1166,9 @@ export async function getFixedAssetsWithDepreciation(storeId: string) {
     const assetsWithDepreciation = [];
 
     for (const asset of assets) {
-        const accumulatedDepreciation = await calculateAccumulatedDepreciation(storeId, asset.id, now);
+        // The storeId argument is vestigial — the query filters on fixedAssetId —
+        // but pass the asset's own store so it stays honest if that ever changes.
+        const accumulatedDepreciation = await calculateAccumulatedDepreciation(asset.storeId, asset.id, now);
         const monthlyDepreciation = calculateMonthlyDepreciation(
             asset.purchasePrice,
             asset.salvageValue,

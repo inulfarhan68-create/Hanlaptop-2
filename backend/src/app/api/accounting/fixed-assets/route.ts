@@ -16,7 +16,11 @@ export async function GET(request: Request) {
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
-        const assets = await getFixedAssetsWithDepreciation(authResult.storeId);
+        // "all" is a sentinel, not a store id — resolve it to the caller's stores.
+        const scopeIds = authResult.storeId === "all"
+            ? authResult.accessibleStoreIds
+            : [authResult.storeId];
+        const assets = await getFixedAssetsWithDepreciation(scopeIds);
         return NextResponse.json(assets);
     } catch (error: any) {
         console.error("Failed to fetch fixed assets:", error);
