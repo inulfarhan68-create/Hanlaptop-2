@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { db } from '../../src/db';
 import { user, stores, organizations } from '../../src/db/schema';
+import { session, account } from '../../src/db/schema/users';
 import { subscriptions } from '../../src/db/schema/saas';
 import { chartOfAccounts } from '../../src/db/schema/accounting';
 import { eq } from 'drizzle-orm';
@@ -15,9 +16,16 @@ test.describe('Tenant Onboarding Flow', () => {
       where: (u, { eq }) => eq(u.email, testEmail)
     });
     
-    if (testUser && testUser.organizationId) {
-      // Cascades to store, subscriptions, COA
-      await db.delete(organizations).where(eq(organizations.id, testUser.organizationId));
+    if (testUser) {
+      // Better-Auth creates session + account (credential) rows that FK to user
+      // without ON DELETE CASCADE — delete them first to avoid constraint errors.
+      await db.delete(session).where(eq(session.userId, testUser.id)).catch(() => {});
+      await db.delete(account).where(eq(account.userId, testUser.id)).catch(() => {});
+
+      if (testUser.organizationId) {
+        // Cascades to store, subscriptions, COA
+        await db.delete(organizations).where(eq(organizations.id, testUser.organizationId));
+      }
       await db.delete(user).where(eq(user.id, testUser.id));
     }
   });
