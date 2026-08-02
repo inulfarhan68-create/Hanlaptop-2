@@ -1,5 +1,5 @@
-import { db } from "./src/db/index.js";
-import { inventory, transactions, transactionItems, journalEntries } from "./src/db/schema.js";
+import { db } from "../src/db/index.js";
+import { inventory, transactions, transactionItems, journalEntries } from "../src/db/schema.js";
 import crypto from "crypto";
 
 async function main() {

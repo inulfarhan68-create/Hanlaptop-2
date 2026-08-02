@@ -3,12 +3,12 @@ import * as dotenv from 'dotenv';
 import crypto from 'crypto';
 
 // Load env
-const envPath = path.join(__dirname, '.env');
+const envPath = path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 async function main() {
-    const { db } = await import('./src/db');
-    const { user, stores, userStoreAccess } = await import('./src/db/schema');
+    const { db } = await import('../src/db');
+    const { user, stores, userStoreAccess } = await import('../src/db/schema');
     const { eq } = await import('drizzle-orm');
 
     try {

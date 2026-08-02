@@ -2,7 +2,7 @@ import * as path from "path";
 import * as dotenv from "dotenv";
 
 // Explicitly load .env from the backend directory to support running from either project root or backend folder
-const envPath = path.join(__dirname, ".env");
+const envPath = path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 async function main() {
@@ -21,7 +21,7 @@ async function main() {
 
     console.log(`Attempting to create admin user: ${adminEmail}`);
 
-    const { auth } = await import("./src/lib/auth");
+    const { auth } = await import("../src/lib/auth");
     try {
         const result = await auth.api.signUpEmail({
             body: {

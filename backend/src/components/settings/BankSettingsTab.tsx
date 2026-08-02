@@ -13,9 +13,9 @@ import { useUserRole } from "@/hooks/useUserRole"
 export function BankSettingsTab() {
   const { isOwner } = useUserRole()
   const [applyToAllBranches, setApplyToAllBranches] = useState(false)
-  const [storeName, setStoreName] = useState("HanLaptop")
-  const [address, setAddress] = useState("Jl. Komputer Raya No.123")
-  const [phone, setPhone] = useState("0812-3456-7890")
+  const [storeName, setStoreName] = useState("")
+  const [address, setAddress] = useState("")
+  const [phone, setPhone] = useState("")
   const [storeLogo, setStoreLogo] = useState("")
   const [storeFooter, setStoreFooter] = useState("")
   
@@ -30,7 +30,7 @@ export function BankSettingsTab() {
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setStoreName(data.storeName || "HanLaptop")
+          setStoreName(data.storeName || "")
           setAddress(data.storeAddress || "")
           setPhone(data.storePhone || "")
           setStoreLogo(data.storeLogo || "")

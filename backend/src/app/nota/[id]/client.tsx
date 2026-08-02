@@ -86,9 +86,15 @@ export default function NotaClient({ data }: { data: PublicInvoiceData }) {
                 )}
               </div>
               <div className="flex flex-col pt-2">
-                <h1 className="text-[22px] font-black tracking-tight text-slate-900 uppercase">{storeSettings.storeName || "HanLaptop"}</h1>
-                <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">{storeSettings.storeAddress || "Jl. Komputer Raya No.123"}</p>
-                <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {storeSettings.storePhone || "0812-3456-7890"}</p>
+                {/* Placeholder address/phone must never print on a real invoice — a
+                    shop that hasn't filled these in gets nothing, not someone else's. */}
+                <h1 className="text-[22px] font-black tracking-tight text-slate-900 uppercase">{storeSettings.storeName}</h1>
+                {storeSettings.storeAddress && (
+                  <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">{storeSettings.storeAddress}</p>
+                )}
+                {storeSettings.storePhone && (
+                  <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {storeSettings.storePhone}</p>
+                )}
               </div>
             </div>
             <div className="text-right">

@@ -1,14 +1,14 @@
 import * as dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 async function testReset() {
     console.log("Testing reset database in a rollback transaction (with dotenv configured before import)...");
     console.log("DATABASE_URL is:", process.env.DATABASE_URL);
 
     // Dynamically import db and schema to avoid hoisting issues
-    const { db } = await import("./src/db");
-    const schema = await import("./src/db/schema");
+    const { db } = await import("../src/db");
+    const schema = await import("../src/db/schema");
 
     try {
         await db.transaction(async (tx) => {

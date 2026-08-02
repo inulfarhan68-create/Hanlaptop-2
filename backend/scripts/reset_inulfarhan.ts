@@ -2,14 +2,14 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Load env
-const envPath = path.join(__dirname, '.env');
+const envPath = path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 async function main() {
-    const { db } = await import('./src/db');
-    const { user, session, account, userStoreAccess } = await import('./src/db/schema');
+    const { db } = await import('../src/db');
+    const { user, session, account, userStoreAccess } = await import('../src/db/schema');
     const { eq } = await import('drizzle-orm');
-    const { auth } = await import('./src/lib/auth');
+    const { auth } = await import('../src/lib/auth');
 
     try {
         const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD;

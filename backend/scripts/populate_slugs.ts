@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Load env
-const envPath = path.join(__dirname, '.env');
+const envPath = path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 function slugify(text: string) {
@@ -17,8 +17,8 @@ function slugify(text: string) {
 }
 
 async function main() {
-    const { db } = await import('./src/db');
-    const { stores } = await import('./src/db/schema');
+    const { db } = await import('../src/db');
+    const { stores } = await import('../src/db/schema');
     const { eq } = await import('drizzle-orm');
 
     try {

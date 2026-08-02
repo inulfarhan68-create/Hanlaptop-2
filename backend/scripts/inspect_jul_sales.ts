@@ -1,5 +1,5 @@
-import { db } from "./src/db";
-import { journalEntries, transactions, transactionItems } from "./src/db/schema";
+import { db } from "../src/db";
+import { journalEntries, transactions, transactionItems } from "../src/db/schema";
 import { sql } from "drizzle-orm";
 
 async function main() {

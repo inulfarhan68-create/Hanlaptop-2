@@ -16,17 +16,19 @@ interface PrintReportsPortalProps {
 
 export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, setPrintType, onClose, fmt }: PrintReportsPortalProps) {
   const [storeDetails, setStoreDetails] = useState({
-    name: "HanLaptop",
-    address: "Jl. Komputer Raya No.123",
-    phone: "0812-3456-7890",
+    name: "",
+    address: "",
+    phone: "",
     logo: "/logo-print.png"
   });
 
   useEffect(() => {
     setStoreDetails({
-      name: localStorage.getItem("storeName") || "HanLaptop",
-      address: localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123",
-      phone: localStorage.getItem("storePhone") || "0812-3456-7890",
+      // Printed on financial reports — show nothing rather than a placeholder
+      // address and phone that belong to no actual shop.
+      name: localStorage.getItem("storeName") || "",
+      address: localStorage.getItem("storeAddress") || "",
+      phone: localStorage.getItem("storePhone") || "",
       logo: localStorage.getItem("storeLogo") || "/logo-print.png"
     });
   }, []);
@@ -99,8 +101,12 @@ export function PrintReportsPortal({ incomeStatement, balanceSheet, printType, s
               </div>
               <div className="flex flex-col pt-1 sm:pt-2">
                 <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase leading-none mb-1">{storeDetails.name}</h1>
-                <p className="text-[12px] text-slate-600 font-medium max-w-[280px] leading-relaxed mt-1">{storeDetails.address}</p>
-                <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {storeDetails.phone}</p>
+                {storeDetails.address && (
+                  <p className="text-[12px] text-slate-600 font-medium max-w-[280px] leading-relaxed mt-1">{storeDetails.address}</p>
+                )}
+                {storeDetails.phone && (
+                  <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {storeDetails.phone}</p>
+                )}
               </div>
             </div>
             <div className="text-right flex flex-col items-end">

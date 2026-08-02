@@ -836,8 +836,8 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
     const colW = BAR_W / 3
     const barMidY = contactY + BAR_H / 2
 
-    const storePhone = storeSettings?.storePhone || "0812-3456-7890"
-    const storeAddress = storeSettings?.storeAddress || "Bandung, Jawa Barat"
+    const storePhone = storeSettings?.storePhone || ""
+    const storeAddress = storeSettings?.storeAddress || ""
 
     // Vertical dividers between columns — clean minimalist gray
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
@@ -852,6 +852,9 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
 
     // Helper: draw a contact column — redesigned
     const drawContactCol = (colIdx: number, iconDraw: (ix: number, iy: number) => void, labelText: string, valueText: string) => {
+      // A shop that hasn't set this detail gets no column at all — better an empty
+      // slot than a placeholder phone number or address that belongs to nobody.
+      if (!valueText) return
       const colStartX = BAR_X + colIdx * colW
       const iconX = colStartX + 30
       const iconR = 16

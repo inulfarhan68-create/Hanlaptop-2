@@ -2,8 +2,8 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 
 async function fix() {
-    const { db } = await import("./src/db");
-    const { userStoreAccess } = await import("./src/db/schema");
+    const { db } = await import("../src/db");
+    const { userStoreAccess } = await import("../src/db/schema");
     const { eq } = await import("drizzle-orm");
 
     await db.update(userStoreAccess)

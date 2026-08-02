@@ -1,5 +1,5 @@
-import { db } from "./src/db";
-import { transactions, transactionItems, journalEntries, inventory } from "./src/db/schema";
+import { db } from "../src/db";
+import { transactions, transactionItems, journalEntries, inventory } from "../src/db/schema";
 
 async function clearData() {
     try {

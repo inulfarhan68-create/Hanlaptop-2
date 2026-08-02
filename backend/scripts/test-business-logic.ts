@@ -1,15 +1,15 @@
 import * as dotenv from "dotenv";
 import path from "path";
 import crypto from "crypto";
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 async function runTests() {
     console.log("Starting Business Logic Verification Tests...");
     console.log("DATABASE_URL:", process.env.DATABASE_URL);
 
-    const { db } = await import("./src/db");
-    const schema = await import("./src/db/schema");
-    const { withActiveTransactions, withActiveJournalEntries } = await import("./src/db/query-helpers");
+    const { db } = await import("../src/db");
+    const schema = await import("../src/db/schema");
+    const { withActiveTransactions, withActiveJournalEntries } = await import("../src/db/query-helpers");
     const { and, eq, sum } = await import("drizzle-orm");
 
     try {
@@ -220,7 +220,7 @@ async function runTests() {
 
             // Verification for Test 6: Reset Tables Order
             console.log("\nVerifying Factory Reset table order deletes...");
-            const { OPERATIONAL_TABLES } = await import("./src/db/reset-tables");
+            const { OPERATIONAL_TABLES } = await import("../src/db/reset-tables");
             for (const table of OPERATIONAL_TABLES) {
                 await tx.delete(table);
             }

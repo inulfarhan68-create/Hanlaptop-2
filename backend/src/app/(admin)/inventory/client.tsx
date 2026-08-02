@@ -1749,14 +1749,19 @@ export function InventoryClient({ user, stores }: { user: any, stores: any[] }) 
                   )}
                   <div className="flex flex-col pt-1 sm:pt-2">
                     <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase">
-                      {storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop"}
+                      {storeSettings?.storeName || localStorage.getItem("storeName") || ""}
                     </h1>
-                    <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">
-                      {storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123"}
-                    </p>
-                    <p className="text-[12px] text-slate-600 font-medium mt-0.5">
-                      Telp: {storeSettings?.storePhone || localStorage.getItem("storePhone") || "0812-3456-7890"}
-                    </p>
+                    {/* Printed document — omit the line rather than invent an address. */}
+                    {(storeSettings?.storeAddress || localStorage.getItem("storeAddress")) && (
+                      <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">
+                        {storeSettings?.storeAddress || localStorage.getItem("storeAddress")}
+                      </p>
+                    )}
+                    {(storeSettings?.storePhone || localStorage.getItem("storePhone")) && (
+                      <p className="text-[12px] text-slate-600 font-medium mt-0.5">
+                        Telp: {storeSettings?.storePhone || localStorage.getItem("storePhone")}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">

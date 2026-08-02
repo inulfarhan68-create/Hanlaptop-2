@@ -48,6 +48,25 @@ export const auth = betterAuth({
             path: "/"
         }
     },
+    session: {
+        /**
+         * Validating the session cost two sequential queries (session, then user) on
+         * EVERY authenticated request — ~0.5s against the pooled remote Postgres, paid
+         * before a handler does any of its own work. With the cookie cache, Better-Auth
+         * verifies a signed snapshot of session+user from the `session_data` cookie
+         * instead and skips the database.
+         *
+         * Trade-off: a session revoked server-side (or a role/organizationId change)
+         * keeps being honoured until the snapshot expires, so maxAge is deliberately
+         * short. Sign-out is unaffected — `deleteSessionCookie` expires `session_data`
+         * along with the session token. The plan/demo-flag reads in `requireAuth` still
+         * hit the database every request, so billing state is never stale.
+         */
+        cookieCache: {
+            enabled: true,
+            maxAge: 60, // seconds
+        },
+    },
     secret: authSecret || "dev-only-secret-not-for-production",
     baseURL: serverBaseURL,
     emailAndPassword: {

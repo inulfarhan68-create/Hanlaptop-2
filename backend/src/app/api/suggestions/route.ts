@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, serviceOrders } from "@/db/schema";
 import { eq, not, and } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,22 +11,30 @@ export async function GET() {
     if (authResult instanceof NextResponse) return authResult;
 
     try {
-        // Query unique laptop names from inventory table
-        const dbLaptops = await db.select({ itemName: inventory.itemName })
-            .from(inventory)
-            .where(eq(inventory.category, "Laptop Bekas"))
-            .groupBy(inventory.itemName);
+        // 🔒 Tenant-safe: these feed autocomplete, and without scoping every signed-in
+        // user was offered every other tenant's item and device names.
+        const invScope = storeScope(authResult, inventory.storeId);
+        const svcScope = storeScope(authResult, serviceOrders.storeId);
 
-        // Query unique device names from service orders table
-        const dbServices = await db.select({ deviceName: serviceOrders.deviceName })
-            .from(serviceOrders)
-            .groupBy(serviceOrders.deviceName);
+        const [dbLaptops, dbServices, dbItems] = await Promise.all([
+            // Unique laptop names from inventory
+            db.select({ itemName: inventory.itemName })
+                .from(inventory)
+                .where(and(eq(inventory.category, "Laptop Bekas"), invScope))
+                .groupBy(inventory.itemName),
 
-        // Query unique non-laptop items from inventory table
-        const dbItems = await db.select({ itemName: inventory.itemName })
-            .from(inventory)
-            .where(not(eq(inventory.category, "Laptop Bekas")))
-            .groupBy(inventory.itemName);
+            // Unique device names from service orders
+            db.select({ deviceName: serviceOrders.deviceName })
+                .from(serviceOrders)
+                .where(svcScope)
+                .groupBy(serviceOrders.deviceName),
+
+            // Unique non-laptop items from inventory
+            db.select({ itemName: inventory.itemName })
+                .from(inventory)
+                .where(and(not(eq(inventory.category, "Laptop Bekas")), invScope))
+                .groupBy(inventory.itemName),
+        ]);
 
         // Merge and clean laptop names
         const laptopModels = Array.from(new Set([
