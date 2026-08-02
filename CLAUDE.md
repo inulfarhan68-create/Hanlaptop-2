@@ -140,7 +140,7 @@ npx playwright test tests/e2e            # e2e (butuh server jalan)
 | Service Order | `app/(admin)/services/`, `api/services/*` | ✅ |
 | Warranty | `api/warranty/*`, `api/warranty-claims/*` | ✅ |
 | Accounting (COA, ledger, laporan) | `app/(admin)/reports/`, `api/accounting/*`, `services/AccountingService`, `PeriodClosingService` | ✅ |
-| Piutang / Hutang | `app/(admin)/piutang/`, `app/(admin)/hutang/`, `api/consignment/*` | ✅ |
+| Piutang / Hutang | `app/(admin)/piutang/`, `app/(admin)/hutang/`, `api/receivables`, `api/payables`, `services/ReceivablesService`, `api/consignment/*` | ✅ |
 | Reconciliation (bank) | `app/(admin)/reconciliation/`, `api/financials/reconciliation/*` | ✅ |
 | CRM (customer, poin, reminder, lead) | `app/(admin)/crm/`, `app/(admin)/customers/`, `api/crm/*`, `api/customers/*` | ✅ |
 | Supplier | `app/(admin)/suppliers/`, `api/suppliers/*` | ✅ |
@@ -187,6 +187,12 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 8. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
 9. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
 10. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.
+11. **Jangan hitung saldo akun per-akun.** Laporan (`getIncomeStatement`/`getBalanceSheet`/`getTrialBalance`/`getCashFlow`/`getEquityChanges`) memakai **satu agregat `GROUP BY`** lewat `getAccountActivityMap()` + `balanceFromActivity()` di `AccountingService`. Pola lama (loop akun → `calculateAccountPeriodBalance`, 2 round-trip per akun) membuat neraca butuh **42 detik**; sekarang ~1 detik. `calculateAccountPeriodBalance` masih ada khusus untuk `PeriodClosingService` — jangan dipakai di dalam loop.
+12. **Guard cukup sekali per handler.** `requireFeature(feature, authResult)` menerima context yang sudah ada — kalau `preAuth` tak dikirim, ia menjalankan ULANG seluruh rantai auth (session + store grants + plan). Route yang memanggil `requirePermission`/`requireReportAccess` lalu `requireFeature` wajib meneruskan hasil guard pertama.
+13. **Session divalidasi lewat cookie cache Better-Auth** (`session.cookieCache`, `maxAge` 60 detik di `lib/auth.ts`) — `getSession` tak menyentuh DB di jalur normal. Konsekuensinya: **perubahan `role`/`organizationId` dan pencabutan sesi baru berlaku maksimal 60 detik.** Kalau ada laporan "sudah diubah tapi belum ngefek", cek ini dulu sebelum menduga bug. Plan/`isDemo` dan hak akses store tetap dibaca dari DB tiap request, jadi tak pernah basi.
+14. **Piutang/hutang jangan mengambil seluruh transaksi.** Halaman itu dulu fetch semua `/api/transactions` lalu menjumlahkan di browser — itu yang membuat pagination mustahil (membatasi baris = total tagihan salah). Sekarang lewat `/api/receivables` & `/api/payables`: total + 4 bucket umur dihitung di SQL atas seluruh data, daftarnya di-page. Filter search/bucket ada di server.
+15. **Jangan hard-code identitas toko** (nama/alamat/telepon) sebagai fallback. Nilai-nilai itu tercetak di nota, flyer, dan laporan pelanggan; fallback lama berisi alamat & HP asli Han Laptop sehingga muncul di dokumen tenant lain. Kalau kosong, **hilangkan barisnya**, jangan mengarang.
+16. **Skrip one-off ada di `backend/scripts/`** (bukan root), dijalankan dari direktori `backend/` — lihat `backend/scripts/README.md`. `patch-kysely.cjs` tetap di root (dipanggil `postinstall`).
 
 ---
 
