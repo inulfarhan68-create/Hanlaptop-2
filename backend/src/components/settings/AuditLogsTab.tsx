@@ -1,86 +1,12 @@
 "use client";
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { formatAction, formatEntityType } from "@/lib/audit-labels"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, Search, Filter, Trash2, Edit2, PlusCircle, Clock, ShieldAlert } from "lucide-react"
 import useSWR from "swr"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-
-const formatAction = (action: string) => {
-  const map: Record<string, string> = {
-    // Transactions
-    'CREATE_TRANSACTION': 'Buat Transaksi',
-    'EDIT_TRANSACTION': 'Edit Transaksi',
-    'DELETE_TRANSACTION': 'Hapus Transaksi',
-    'LUNASI_TRANSACTION': 'Pelunasan Piutang',
-    'PAYOFF_TRANSACTION': 'Pelunasan Piutang',
-    'RETURN_TRANSACTION': 'Retur Transaksi',
-    
-    // Inventory
-    'CREATE_INVENTORY': 'Tambah Barang',
-    'EDIT_INVENTORY': 'Edit Barang',
-    'DELETE_INVENTORY': 'Hapus Barang',
-    'UPDATE_INVENTORY': 'Update Barang',
-    'CREATE_TRANSFER': 'Transfer Stok',
-    'APPROVE_TRANSFER': 'Setujui Transfer',
-    'CANCEL_TRANSFER': 'Batalkan Transfer',
-    'COMPLETE_OPNAME': 'Stok Opname Selesai',
-    
-    // Settings / Stores
-    'EDIT_SETTINGS': 'Edit Pengaturan',
-    'UPDATE_SETTINGS': 'Update Pengaturan',
-    'CREATE_STORE': 'Tambah Cabang',
-    'UPDATE_STORE': 'Edit Cabang',
-    'DELETE_STORE': 'Hapus Cabang',
-    
-    // Services
-    'CREATE_SERVICE': 'Terima Servis',
-    'UPDATE_SERVICE': 'Update Servis',
-    'DELETE_SERVICE': 'Hapus Servis',
-    
-    // Shifts
-    'OPEN_SHIFT': 'Buka Shift',
-    'CLOSE_SHIFT': 'Tutup Shift',
-    
-    // Suppliers & Technicians
-    'CREATE_SUPPLIER': 'Tambah Supplier',
-    'UPDATE_SUPPLIER': 'Edit Supplier',
-    'DELETE_SUPPLIER': 'Hapus Supplier',
-    'CREATE_TECHNICIAN': 'Tambah Teknisi',
-    'UPDATE_TECHNICIAN': 'Edit Teknisi',
-    'DELETE_TECHNICIAN': 'Hapus Teknisi',
-    
-    // Employees & Payroll
-    'CREATE_EMPLOYEE': 'Tambah Karyawan',
-    'UPDATE_EMPLOYEE': 'Edit Karyawan',
-    'DELETE_EMPLOYEE': 'Hapus Karyawan',
-    'CREATE_LOAN': 'Catat Kasbon',
-    'UPDATE_LOAN': 'Update Kasbon',
-    'CREATE_PAYROLL': 'Generasi Gaji',
-    'PAYOUT_PAYROLL': 'Bayar Gaji Karyawan',
-  };
-  
-  return map[action] || action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-};
-
-const formatEntityType = (entityType: string) => {
-  const map: Record<string, string> = {
-    'transaction': 'Transaksi',
-    'inventory': 'Inventori/Stok',
-    'settings': 'Pengaturan',
-    'service_orders': 'Servis',
-    'cashier_shifts': 'Shift Kasir',
-    'employees': 'Karyawan',
-    'employee_loans': 'Kasbon',
-    'payrolls': 'Payroll/Gaji',
-    'suppliers': 'Supplier',
-    'technicians': 'Teknisi',
-    'store': 'Cabang Toko',
-    'stores': 'Cabang Toko'
-  };
-  return map[entityType.toLowerCase()] || entityType;
-};
 
 const renderFormattedDetails = (details: string) => {
   if (!details || details === "{}" || details === "[]") return <span className="text-muted-foreground">-</span>;
@@ -174,28 +100,36 @@ const renderFormattedDetails = (details: string) => {
 };
 
 export function AuditLogsTab() {
-  const { data: logsList, isLoading: logsLoading } = useSWR('/api/logs')
+  const [searchInput, setSearchInput] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [actionFilter, setActionFilter] = useState("all")
+  const [page, setPage] = useState(1)
 
-  // Filter logs dynamically
-  const filteredLogs = (logsList || []).filter((log: any) => {
-    const formattedAct = formatAction(log.action);
-    const formattedEnt = formatEntityType(log.entityType);
-    const matchesSearch = 
-      log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formattedAct.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formattedEnt.toLowerCase().includes(searchTerm.toLowerCase());
+  const PAGE_SIZE = 50
 
-    if (!matchesSearch) return false;
+  // Debounce typing so each keystroke doesn't become a request.
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(searchInput), 350)
+    return () => clearTimeout(id)
+  }, [searchInput])
 
-    if (actionFilter === "all") return true;
-    if (actionFilter === "create") return log.action.includes("CREATE") || log.action.includes("ADD") || log.action.includes("OPEN");
-    if (actionFilter === "edit") return log.action.includes("EDIT") || log.action.includes("UPDATE") || log.action.includes("LUNASI") || log.action.includes("PAYOFF") || log.action.includes("RETURN") || log.action.includes("APPROVE") || log.action.includes("CANCEL") || log.action.includes("CLOSE") || log.action.includes("PAYOUT");
-    if (actionFilter === "delete") return log.action.includes("DELETE") || log.action.includes("HAPUS") || log.action.includes("RESET");
-    if (actionFilter === "shift") return log.action.includes("SHIFT");
-    return true;
-  });
+  useEffect(() => { setPage(1) }, [searchTerm, actionFilter])
+
+  // Search and filtering run in the query now. Previously the API returned only
+  // the last 100 entries and this component filtered those in memory, so anything
+  // older simply could not be found — the search looked like it worked and
+  // silently answered "nothing".
+  const logsQuery = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) })
+  if (searchTerm) logsQuery.set('search', searchTerm)
+  if (actionFilter !== 'all') logsQuery.set('action', actionFilter)
+
+  const { data: logsData, isLoading: logsLoading } = useSWR(
+    '/api/logs?' + logsQuery.toString(),
+    { keepPreviousData: true }
+  )
+
+  const filteredLogs: any[] = Array.isArray(logsData?.items) ? logsData.items : []
+  const logsPagination = logsData?.pagination ?? { page: 1, totalPages: 1, totalItems: 0 }
 
   return (
     <Card className="border border-border/80 shadow-sm overflow-hidden rounded-2xl">
@@ -217,8 +151,8 @@ export function AuditLogsTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Cari berdasarkan nama pengguna, modul, atau aksi..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-9 rounded-xl h-9.5 text-xs bg-card"
           />
         </div>
@@ -332,6 +266,32 @@ export function AuditLogsTab() {
               </Table>
             </div>
           </>
+        )}
+
+        {logsPagination.totalPages > 1 && (
+          <div className="flex items-center justify-between gap-3 border-t border-border/40 px-4 py-2.5">
+            <span className="text-[11px] text-muted-foreground">
+              Halaman {logsPagination.page} dari {logsPagination.totalPages} · {logsPagination.totalItems} aktivitas
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="h-7 rounded-lg border border-input bg-card px-3 text-[11px] font-semibold disabled:opacity-50"
+                disabled={page <= 1 || logsLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Sebelumnya
+              </button>
+              <button
+                type="button"
+                className="h-7 rounded-lg border border-input bg-card px-3 text-[11px] font-semibold disabled:opacity-50"
+                disabled={page >= logsPagination.totalPages || logsLoading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Berikutnya
+              </button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
