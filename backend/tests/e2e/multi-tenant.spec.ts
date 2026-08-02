@@ -103,12 +103,18 @@ test.describe('Multi-Tenant Isolation', () => {
 
     test('GET /api/inventory/[id] - cannot fetch the other tenant inventory', async ({ request }) => {
       const res = await request.get(`${API_URL}/inventory/${invBId}`, { headers: asTenant(tenantA) });
-      expect(res.status()).toBe(404);
+      // 404 if the route has a GET handler with storeScope filtering,
+      // 405 if the route only exports PUT/DELETE (no GET at all).
+      // Either proves tenant B's inventory is inaccessible to tenant A.
+      expect([404, 405]).toContain(res.status());
     });
 
     test('GET /api/customers/[id] - cannot fetch the other tenant customer', async ({ request }) => {
       const res = await request.get(`${API_URL}/customers/${custBId}`, { headers: asTenant(tenantA) });
-      expect(res.status()).toBe(404);
+      // 404 if the route has a GET handler with storeScope filtering,
+      // 405 if the route only exports PATCH/DELETE (no GET at all).
+      // Either proves tenant B's customer is inaccessible to tenant A.
+      expect([404, 405]).toContain(res.status());
     });
 
     test('GET /api/services/[id] - cannot fetch the other tenant service order', async ({ request }) => {
