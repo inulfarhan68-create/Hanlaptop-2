@@ -6,6 +6,31 @@ import { updateUserSchema } from '@/lib/validators';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/sanitize';
 import { eq } from 'drizzle-orm';
+import type { AuthContext } from '@/lib/auth-guard';
+
+/**
+ * Resolve a target user, but only within the caller's own tenant.
+ *
+ * `requireOwnerOnly` admits any tenant owner, and these handlers then addressed
+ * the user table by raw id — so an owner of one shop could rename, demote or
+ * delete a user belonging to another shop. The sibling list route already scopes
+ * on `user.organizationId`; this applies the same bound.
+ *
+ * Returns 404 rather than 403 on a cross-tenant id so the response doesn't
+ * confirm that the account exists elsewhere.
+ */
+async function findUserInTenant(session: AuthContext, id: string) {
+    const [target] = await db
+        .select({ id: user.id, organizationId: user.organizationId })
+        .from(user)
+        .where(eq(user.id, id))
+        .limit(1);
+
+    if (!target) return null;
+    if (session.isPlatformAdmin) return target; // global operator
+    if (!session.organizationId || target.organizationId !== session.organizationId) return null;
+    return target;
+}
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const rateLimitResponse = await checkRateLimit(request);
@@ -21,6 +46,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const parsed = updateUserSchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json({ error: "Validation failed", details: parsed.error.format() }, { status: 400 });
+        }
+
+        const target = await findUserInTenant(session, id);
+        if (!target) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         await db.update(user)
@@ -47,6 +77,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         // Cannot delete oneself
         if (session.user.id === id) {
              return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
+        }
+
+        const target = await findUserInTenant(session, id);
+        if (!target) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         // Hapus data dependen terlebih dahulu di dalam transaksi untuk menghindari error foreign key constraint SQLite
