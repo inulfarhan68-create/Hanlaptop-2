@@ -32,8 +32,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Kolom karyawan, tanggal, dan status wajib diisi." }, { status: 400 });
         }
 
+        // The employee id arrives in the body, so it must be bounded to the caller's
+        // own stores — otherwise a manager could log attendance against another
+        // tenant's staff. 404 rather than 403: don't confirm the id exists elsewhere.
         const employee = await db.query.employees.findFirst({
-            where: eq(employees.id, employeeId)
+            where: and(
+                eq(employees.id, employeeId),
+                storeScope(authResult, employees.storeId)
+            )
         });
 
         if (!employee) {
@@ -48,7 +54,12 @@ export async function POST(request: Request) {
                     status,
                     notes: notes || "",
                 })
-                .where(eq(attendances.id, id))
+                // Tie the row to the employee resolved above, which is already
+                // store-scoped — an attendance id alone is not a permission.
+                .where(and(
+                    eq(attendances.id, id),
+                    eq(attendances.employeeId, employeeId)
+                ))
                 .returning();
                 
             // Log activity
@@ -128,8 +139,13 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: "ID absensi diperlukan." }, { status: 400 });
         }
 
+        // Scope the lookup: an attendance id from the query string must not reach
+        // another tenant's record.
         const existing = await db.query.attendances.findFirst({
-            where: eq(attendances.id, id),
+            where: and(
+                eq(attendances.id, id),
+                storeScope(authResult, attendances.storeId)
+            ),
             with: { employee: true }
         });
 

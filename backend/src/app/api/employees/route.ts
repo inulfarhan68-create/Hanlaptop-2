@@ -63,6 +63,17 @@ export async function POST(request: Request) {
             targetStoreId = body.storeId;
         }
 
+        // Security: the branch comes straight from the request body, so it has to be
+        // checked against the caller's own stores — otherwise an owner (whose selector
+        // defaults to "all") could create staff inside another tenant's branch.
+        // Same check the user-provisioning route already applies.
+        if (!authResult.isPlatformAdmin) {
+            const allowed = new Set(authResult.accessibleStoreIds ?? []);
+            if (!allowed.has(targetStoreId)) {
+                return NextResponse.json({ error: "Cabang di luar tenant Anda" }, { status: 403 });
+            }
+        }
+
         // Prevent duplicate mapping if userId or technicianId is provided
         if (userId) {
             const existingUser = await db.query.employees.findFirst({
