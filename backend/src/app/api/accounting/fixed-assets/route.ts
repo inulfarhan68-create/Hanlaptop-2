@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { fixedAssets, depreciationEntries, fiscalPeriods, journalEntries, chartOfAccounts } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { requireReportAccess, requireOwner, requireFeature } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwner, requireFeature, storeScope } from "@/lib/auth-guard";
 import { calculateMonthlyDepreciation, calculateAccumulatedDepreciation, getFixedAssetsWithDepreciation } from "@/services/AccountingService";
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +38,17 @@ export async function POST(request: Request) {
 
     const featureCheck = await requireFeature("fixedAssets", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
+
+    // "all" is a sentinel, not a store id, and it is an owner's default selection.
+    // Inserting with it produced a row belonging to no branch — invisible to every
+    // store view and to the asset register itself. Same guard the transaction
+    // create route uses.
+    if (authResult.storeId === "all") {
+        return NextResponse.json(
+            { error: "Pilih cabang spesifik terlebih dahulu untuk mencatat aset tetap" },
+            { status: 400 }
+        );
+    }
 
     try {
         const body = await request.json();
@@ -118,10 +129,13 @@ export async function PUT(request: Request) {
             );
         }
 
+        // storeScope keeps this working when the owner is on "all" — a raw
+        // eq against that sentinel matched nothing, so editing an asset from the
+        // all-branches view always came back "Asset not found".
         const existing = await db.query.fixedAssets.findFirst({
             where: and(
                 eq(fixedAssets.id, id),
-                eq(fixedAssets.storeId, authResult.storeId)
+                storeScope(authResult, fixedAssets.storeId)
             )
         });
 
@@ -178,7 +192,7 @@ export async function DELETE(request: Request) {
         }
 
         // Soft delete by setting status to disposed
-        await db.update(fixedAssets)
+        const disposed = await db.update(fixedAssets)
             .set({
                 status: 'disposed',
                 disposedDate: new Date().toISOString().split('T')[0],
@@ -187,8 +201,16 @@ export async function DELETE(request: Request) {
             })
             .where(and(
                 eq(fixedAssets.id, id),
-                eq(fixedAssets.storeId, authResult.storeId)
-            ));
+                storeScope(authResult, fixedAssets.storeId)
+            ))
+            .returning({ id: fixedAssets.id });
+
+        // Previously this reported success even when the WHERE matched nothing —
+        // which it always did on the "all" sentinel — so a disposal that never
+        // happened looked like it had.
+        if (disposed.length === 0) {
+            return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+        }
 
         return NextResponse.json({ success: true, message: "Asset disposed" });
     } catch (error: any) {

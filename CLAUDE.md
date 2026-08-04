@@ -140,7 +140,7 @@ npx playwright test tests/e2e            # e2e (butuh server jalan)
 | Service Order | `app/(admin)/services/`, `api/services/*` | ✅ |
 | Warranty | `api/warranty/*`, `api/warranty-claims/*` | ✅ |
 | Accounting (COA, ledger, laporan) | `app/(admin)/reports/`, `api/accounting/*`, `services/AccountingService`, `PeriodClosingService` | ✅ |
-| Piutang / Hutang | `app/(admin)/piutang/`, `app/(admin)/hutang/`, `api/consignment/*` | ✅ |
+| Piutang / Hutang | `app/(admin)/piutang/`, `app/(admin)/hutang/`, `api/receivables`, `api/payables`, `services/ReceivablesService`, `api/consignment/*` | ✅ |
 | Reconciliation (bank) | `app/(admin)/reconciliation/`, `api/financials/reconciliation/*` | ✅ |
 | CRM (customer, poin, reminder, lead) | `app/(admin)/crm/`, `app/(admin)/customers/`, `api/crm/*`, `api/customers/*` | ✅ |
 | Supplier | `app/(admin)/suppliers/`, `api/suppliers/*` | ✅ |
@@ -179,7 +179,13 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 
 1. **Semua path root-relative** (pasca-cutover `52fbc03`, 2026-07-18): `apiFetch`/`assetUrl`/`auth-client`/`upload/route.ts` tanpa prefix, `next.config.ts` tanpa `basePath`. Path lama `/_/backend/*` sekarang **404** — jangan reintroduksi prefix itu.
 2. **Pola guard route:** guard mengembalikan `NextResponse` (error) **atau** hasil auth — selalu narrow dengan `instanceof NextResponse` sebelum memakai hasilnya.
-3. **Selalu filter `storeId`** pada query data milik store (isolasi tenant/IDOR). Ada e2e test yang menjaga ini — jangan sampai bocor antar-store.
+3. **Selalu pakai `storeScope(authResult, tabel.storeId)`** pada query data milik store — **jangan** `eq(tabel.storeId, authResult.storeId)`. `"all"` itu **sentinel, bukan store id**, dan itu nilai **default bagi owner** (`BranchSelector`: `isOwner ? 'all' : …`), jadi perbandingan mentah tak cocok baris mana pun → halaman tampak kosong; sedangkan cabang `if (storeId === 'all')` yang menjalankan query **tanpa WHERE** justru membocorkan semua tenant. Empat sapuan audit menemukan 8 masalah, dan polanya jelas: **jalur baca utama sudah rapi; yang bocor adalah jalur tulis dan endpoint sekunder.** Saat menambah/mengubah handler, periksa keempat bentuk ini:
+   - tak menyebut `storeId` sama sekali (mis. dulu `api/suggestions`),
+   - `eq(…storeId, authResult.storeId)` mentah (mis. dulu `fiscal-periods`),
+   - ID dari **URL** tanpa predikat store/org (mis. dulu `users/[id]` — owner bisa menghapus pengguna tenant lain),
+   - ID dari **body** tanpa validasi (mis. dulu `POST /api/employees` memercayai `body.storeId`; bandingkan `api/users` yang memvalidasi lewat `accessibleStoreIds`).
+   
+   Untuk ID lintas-tenant balas **404, bukan 403** — jangan mengonfirmasi bahwa ID itu ada di tenant lain. Gate e2e (`tests/e2e/multi-tenant.spec.ts`) menjaga sebagian ini; tambahkan assertion saat menutup celah baru.
 4. **ACID:** operasi yang menyentuh inventory **dan** accounting harus dalam satu `db.transaction()`. Logika ini hidup di `services/`, bukan di handler.
 5. **Jurnal via nama akun standar** (dipetakan `JournalMappingService`), jangan tulis kode akun manual.
 6. **Client pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate). Untuk sesi di komponen shell pakai **`useSessionUser()`** (context dari sesi server) — better-auth `useSession()` **crash saat SSR** (`null.useRef`) di tiap halaman admin.
@@ -187,6 +193,12 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 8. **Rate limiter default LRU in-memory** — jangan andalkan untuk proteksi produksi lintas instance (lihat ROADMAP).
 9. **Route sensitif** (`reset`, `migrate-prd`) butuh `requireOwnerOnly` + flag env; cron butuh `CRON_SECRET`. Jangan longgarkan.
 10. **Field masking:** kasir tidak boleh melihat `costPrice` — pertahankan saat menambah endpoint yang mengembalikan data inventory.
+11. **Jangan hitung saldo akun per-akun.** Laporan (`getIncomeStatement`/`getBalanceSheet`/`getTrialBalance`/`getCashFlow`/`getEquityChanges`) memakai **satu agregat `GROUP BY`** lewat `getAccountActivityMap()` + `balanceFromActivity()` di `AccountingService`. Pola lama (loop akun → `calculateAccountPeriodBalance`, 2 round-trip per akun) membuat neraca butuh **42 detik**; sekarang ~1 detik. `calculateAccountPeriodBalance` masih ada khusus untuk `PeriodClosingService` — jangan dipakai di dalam loop.
+12. **Guard cukup sekali per handler.** `requireFeature(feature, authResult)` menerima context yang sudah ada — kalau `preAuth` tak dikirim, ia menjalankan ULANG seluruh rantai auth (session + store grants + plan). Route yang memanggil `requirePermission`/`requireReportAccess` lalu `requireFeature` wajib meneruskan hasil guard pertama.
+13. **Session divalidasi lewat cookie cache Better-Auth** (`session.cookieCache`, `maxAge` 60 detik di `lib/auth.ts`) — `getSession` tak menyentuh DB di jalur normal. Konsekuensinya: **perubahan `role`/`organizationId` dan pencabutan sesi baru berlaku maksimal 60 detik.** Kalau ada laporan "sudah diubah tapi belum ngefek", cek ini dulu sebelum menduga bug. Plan/`isDemo` dan hak akses store tetap dibaca dari DB tiap request, jadi tak pernah basi.
+14. **Piutang/hutang jangan mengambil seluruh transaksi.** Halaman itu dulu fetch semua `/api/transactions` lalu menjumlahkan di browser — itu yang membuat pagination mustahil (membatasi baris = total tagihan salah). Sekarang lewat `/api/receivables` & `/api/payables`: total + 4 bucket umur dihitung di SQL atas seluruh data, daftarnya di-page. Filter search/bucket ada di server.
+15. **Jangan hard-code identitas toko** (nama/alamat/telepon) sebagai fallback. Nilai-nilai itu tercetak di nota, flyer, dan laporan pelanggan; fallback lama berisi alamat & HP asli Han Laptop sehingga muncul di dokumen tenant lain. Kalau kosong, **hilangkan barisnya**, jangan mengarang.
+16. **Skrip one-off ada di `backend/scripts/`** (bukan root), dijalankan dari direktori `backend/` — lihat `backend/scripts/README.md`. `patch-kysely.cjs` tetap di root (dipanggil `postinstall`).
 
 ---
 
