@@ -6,8 +6,8 @@ import { RateLimiterAdapter, RateLimitResult } from './types';
 // shared across serverless instances, so limits hold globally. Fall back to the
 // in-memory LRU adapter (per-instance) when Upstash env vars are absent, e.g.
 // local development.
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const adapter: RateLimiterAdapter =
     redisUrl && redisToken
         ? new RedisRateLimiter(redisUrl, redisToken)

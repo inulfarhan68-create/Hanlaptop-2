@@ -68,8 +68,8 @@ export async function checkRateLimitTier(
 }
 
 // Check if Upstash Redis credentials are set
-const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const upstashUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
 // Cache for Upstash Ratelimit instances keyed by 'limit-windowMs'
 const ratelimitCache = new Map<string, Ratelimit>();
