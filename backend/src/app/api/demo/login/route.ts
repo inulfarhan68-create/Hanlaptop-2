@@ -7,11 +7,18 @@ export const dynamic = "force-dynamic";
 /**
  * Public "Coba demo" entry point. Signs the visitor into the FIXED, read-only demo
  * tenant server-side using env-configured credentials, so the demo password never
- * reaches the browser. The account is intentionally low-privilege:
- *   - role `investor` (read-only via RBAC), and
- *   - its org has `isDemo = true` (hard write-lock via requireWritable / requireWriteAccess).
- * So even with a valid session, the visitor can neither mutate data nor see any other
- * tenant (storeScope confines it to the demo store). Seed it with `seed-demo-tenant`.
+ * reaches the browser.
+ *
+ * The write-lock is `organizations.isDemo = true` on the demo org — NOT the account's
+ * role. `isDemo` resolves to `AuthContext.isReadOnly`, and `requirePermission` rejects
+ * every write-intent permission on a read-only context regardless of role (with
+ * requireWritable / requireWriteAccess covering the handlers that don't go through
+ * PBAC). That single central choke is precisely what lets the demo account carry the
+ * broad `manager` role — a full menu for the sales tour (inventory, POS, servis,
+ * laporan, payroll, …) — while still being unable to mutate anything. Do not treat the
+ * role as a second safety layer: it is chosen for demo surface area, not containment.
+ * The demo also can't see any other tenant (storeScope confines it to the demo store).
+ * Seed it with `seed-demo-tenant`, which is what pins the role.
  */
 export async function POST(req: Request) {
     // Session-creating endpoint → use the app's stricter tier (not the 60/min default).
