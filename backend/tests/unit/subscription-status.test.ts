@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { subscriptionLapsed, PAYING_STATUSES } from "@/lib/subscription-status";
+import { subscriptionLapsed, addMonths, PAYING_STATUSES } from "@/lib/subscription-status";
+import { manualSubscriptionSchema } from "@/lib/validators";
 
 // Locks the rule that decides whether a paying tenant keeps write access.
 // Getting this wrong in either direction is expensive: too strict locks a
@@ -54,5 +55,75 @@ describe("subscriptionLapsed", () => {
     it("only trialing and active are paying states", () => {
         // Guards against someone widening the allowlist without thinking it through.
         expect([...PAYING_STATUSES]).toEqual(["trialing", "active"]);
+    });
+});
+
+// Manual billing means an operator types a duration and the period is computed
+// from it, so an off-by-a-few-days bug here is a billing dispute, not a rounding
+// detail. Local dates throughout — the period boundary is what the operator sees.
+describe("addMonths", () => {
+    const at = (y: number, m: number, d: number) => new Date(y, m - 1, d);
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    it("adds whole months on an ordinary date", () => {
+        expect(iso(addMonths(at(2026, 8, 5), 1))).toBe("2026-09-05");
+        expect(iso(addMonths(at(2026, 8, 5), 6))).toBe("2027-02-05");
+        expect(iso(addMonths(at(2026, 8, 5), 12))).toBe("2027-08-05");
+    });
+
+    it("clamps instead of overflowing into the following month", () => {
+        // Plain setMonth() turns 31 Jan into 3 Mar, quietly granting extra days.
+        expect(iso(addMonths(at(2026, 1, 31), 1))).toBe("2026-02-28");
+        expect(iso(addMonths(at(2026, 3, 31), 1))).toBe("2026-04-30");
+        expect(iso(addMonths(at(2026, 5, 31), 3))).toBe("2026-08-31");
+    });
+
+    it("handles February in a leap year", () => {
+        expect(iso(addMonths(at(2028, 1, 31), 1))).toBe("2028-02-29");
+    });
+
+    it("rolls the year over", () => {
+        expect(iso(addMonths(at(2026, 12, 15), 1))).toBe("2027-01-15");
+        expect(iso(addMonths(at(2026, 11, 30), 3))).toBe("2027-02-28");
+    });
+
+    it("does not mutate the date it was given", () => {
+        const original = at(2026, 8, 5);
+        addMonths(original, 3);
+        expect(iso(original)).toBe("2026-08-05");
+    });
+
+    it("always moves the period forward", () => {
+        for (const months of [1, 3, 6, 12, 36]) {
+            const from = at(2026, 1, 31);
+            expect(addMonths(from, months).getTime()).toBeGreaterThan(from.getTime());
+        }
+    });
+});
+
+describe("manualSubscriptionSchema", () => {
+    const valid = { organizationId: "org-1", planKey: "starter", months: 12 };
+
+    it("accepts a well-formed manual activation", () => {
+        expect(manualSubscriptionSchema.safeParse(valid).success).toBe(true);
+    });
+
+    it("caps the duration an operator can grant by hand", () => {
+        // The whole point of the bound: 120 typed instead of 12 would hand out a
+        // decade of unpaid access, and nothing downstream would question it.
+        expect(manualSubscriptionSchema.safeParse({ ...valid, months: 36 }).success).toBe(true);
+        expect(manualSubscriptionSchema.safeParse({ ...valid, months: 37 }).success).toBe(false);
+        expect(manualSubscriptionSchema.safeParse({ ...valid, months: 120 }).success).toBe(false);
+    });
+
+    it("rejects zero, negative and fractional durations", () => {
+        for (const months of [0, -1, -12, 1.5]) {
+            expect(manualSubscriptionSchema.safeParse({ ...valid, months }).success).toBe(false);
+        }
+    });
+
+    it("requires an organization and a plan", () => {
+        expect(manualSubscriptionSchema.safeParse({ ...valid, organizationId: "" }).success).toBe(false);
+        expect(manualSubscriptionSchema.safeParse({ ...valid, planKey: "" }).success).toBe(false);
     });
 });

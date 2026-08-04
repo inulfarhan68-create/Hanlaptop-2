@@ -28,6 +28,23 @@ export type SubscriptionSnapshot = {
  * `currentPeriodEnd` is NOT NULL in the schema, so there is no "never expires"
  * row to mis-handle; the null branch is only defensive.
  */
+/**
+ * Add whole months, clamping the day rather than overflowing it. Plain
+ * `setMonth(m + 1)` on 31 January yields 3 March, which would silently stretch a
+ * paid period for shops that happened to sign up late in a month; this yields
+ * 28/29 February instead.
+ */
+export function addMonths(from: Date, months: number): Date {
+    const day = from.getDate();
+    const result = new Date(from);
+    // Move off the 31st first, or the setMonth below overflows before we can clamp.
+    result.setDate(1);
+    result.setMonth(result.getMonth() + months);
+    const lastDayOfTargetMonth = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+    result.setDate(Math.min(day, lastDayOfTargetMonth));
+    return result;
+}
+
 export function subscriptionLapsed(row: SubscriptionSnapshot, now: Date = new Date()): boolean {
     // No subscription row at all: not decided here. Such an org resolves no plan,
     // so requireFeature already withholds everything gated behind one.
