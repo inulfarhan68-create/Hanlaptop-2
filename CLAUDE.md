@@ -179,7 +179,13 @@ Rincian lengkap di [BUSINESS_RULES.md](BUSINESS_RULES.md). Yang paling penting:
 
 1. **Semua path root-relative** (pasca-cutover `52fbc03`, 2026-07-18): `apiFetch`/`assetUrl`/`auth-client`/`upload/route.ts` tanpa prefix, `next.config.ts` tanpa `basePath`. Path lama `/_/backend/*` sekarang **404** — jangan reintroduksi prefix itu.
 2. **Pola guard route:** guard mengembalikan `NextResponse` (error) **atau** hasil auth — selalu narrow dengan `instanceof NextResponse` sebelum memakai hasilnya.
-3. **Selalu filter `storeId`** pada query data milik store (isolasi tenant/IDOR). Ada e2e test yang menjaga ini — jangan sampai bocor antar-store.
+3. **Selalu pakai `storeScope(authResult, tabel.storeId)`** pada query data milik store — **jangan** `eq(tabel.storeId, authResult.storeId)`. `"all"` itu **sentinel, bukan store id**, dan itu nilai **default bagi owner** (`BranchSelector`: `isOwner ? 'all' : …`), jadi perbandingan mentah tak cocok baris mana pun → halaman tampak kosong; sedangkan cabang `if (storeId === 'all')` yang menjalankan query **tanpa WHERE** justru membocorkan semua tenant. Empat sapuan audit menemukan 8 masalah, dan polanya jelas: **jalur baca utama sudah rapi; yang bocor adalah jalur tulis dan endpoint sekunder.** Saat menambah/mengubah handler, periksa keempat bentuk ini:
+   - tak menyebut `storeId` sama sekali (mis. dulu `api/suggestions`),
+   - `eq(…storeId, authResult.storeId)` mentah (mis. dulu `fiscal-periods`),
+   - ID dari **URL** tanpa predikat store/org (mis. dulu `users/[id]` — owner bisa menghapus pengguna tenant lain),
+   - ID dari **body** tanpa validasi (mis. dulu `POST /api/employees` memercayai `body.storeId`; bandingkan `api/users` yang memvalidasi lewat `accessibleStoreIds`).
+   
+   Untuk ID lintas-tenant balas **404, bukan 403** — jangan mengonfirmasi bahwa ID itu ada di tenant lain. Gate e2e (`tests/e2e/multi-tenant.spec.ts`) menjaga sebagian ini; tambahkan assertion saat menutup celah baru.
 4. **ACID:** operasi yang menyentuh inventory **dan** accounting harus dalam satu `db.transaction()`. Logika ini hidup di `services/`, bukan di handler.
 5. **Jurnal via nama akun standar** (dipetakan `JournalMappingService`), jangan tulis kode akun manual.
 6. **Client pakai `apiFetch`** (bukan `fetch`) agar `x-store-id` + cookie ikut; mutasi menyiarkan event cross-tab (SWR revalidate). Untuk sesi di komponen shell pakai **`useSessionUser()`** (context dari sesi server) — better-auth `useSession()` **crash saat SSR** (`null.useRef`) di tiap halaman admin.
