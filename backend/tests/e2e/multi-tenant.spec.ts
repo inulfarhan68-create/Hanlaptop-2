@@ -187,6 +187,23 @@ test.describe('Multi-Tenant Isolation', () => {
       expect(html).not.toContain('Toko b');
     });
 
+    test('no admin page leaks another tenant store into its payload', async ({ page }) => {
+      // Server Components each run their own queries, so one fixed page proves
+      // nothing about its neighbours: /inventory had the same unscoped
+      // `select().from(stores)` and shipped it to EVERY signed-in role, not just
+      // owners, for a prop its client never even read. Sweep the pages that
+      // render a store context rather than trusting them one at a time.
+      await page.context().addCookies(tenantCookies(tenantA));
+
+      for (const path of ['/dashboard', '/inventory', '/transactions', '/customers', '/settings']) {
+        await page.goto(path);
+        const html = await page.content();
+        expect(html, `${path} leaked tenant B's store id`).not.toContain(tenantB.storeId);
+        expect(html, `${path} leaked tenant B's store name`).not.toContain('Toko b');
+        expect(html, `${path} leaked tenant B's address`).not.toContain('Alamat b');
+      }
+    });
+
     test('GET /api/user/stores - the switcher lists only the tenant own stores', async ({ request }) => {
       // Regression guard: this endpoint returned every store in the database for any
       // owner, leaking other tenants' names and addresses.
