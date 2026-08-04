@@ -1,5 +1,10 @@
 # Logs
-logs
+# Anchored on purpose: a bare `logs` matches ANY directory of that name, which
+# silently excluded backend/src/app/api/logs/ — both route files never reached the
+# repo, so /api/logs and /api/logs/audit 404'd in production and the audit trail
+# pages were dead there while working fine locally.
+/logs/
+/backend/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

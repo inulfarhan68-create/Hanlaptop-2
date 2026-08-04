@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { buybackLeads } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireAuth, storeScope } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,23 +11,17 @@ export async function GET(request: Request) {
     if (authResult instanceof NextResponse) return authResult;
 
     try {
-        let data;
-        if (authResult.storeId === 'all') {
-            data = await db.query.buybackLeads.findMany({
-                orderBy: [desc(buybackLeads.createdAt)],
-                with: {
-                    store: true
-                }
-            });
-        } else {
-            data = await db.query.buybackLeads.findMany({
-                where: eq(buybackLeads.storeId, authResult.storeId),
-                orderBy: [desc(buybackLeads.createdAt)],
-                with: {
-                    store: true
-                }
-            });
-        }
+        // 🔒 The "all stores" branch used to run with no WHERE at all, so an owner —
+        // whose store selector defaults to "all" — was served every tenant's buyback
+        // leads, customer contact details included. storeScope bounds "all" to the
+        // caller's own organisation and still handles a specific store.
+        const data = await db.query.buybackLeads.findMany({
+            where: storeScope(authResult, buybackLeads.storeId),
+            orderBy: [desc(buybackLeads.createdAt)],
+            with: {
+                store: true
+            }
+        });
 
         return NextResponse.json(data);
     } catch (error: any) {

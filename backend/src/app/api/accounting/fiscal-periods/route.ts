@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { fiscalPeriods, closingEntries, journalEntries, chartOfAccounts } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { requireReportAccess, requireOwner, requireFeature } from "@/lib/auth-guard";
+import { requireReportAccess, requireOwner, requireFeature, storeScope } from "@/lib/auth-guard";
 import { getIncomeStatement } from "@/services/AccountingService";
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,10 @@ export async function GET(request: Request) {
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
+        // `eq(storeId, "all")` matches nothing, and an owner's store selector
+        // defaults to "all" — the period list just looked empty for them.
         const periods = await db.query.fiscalPeriods.findMany({
-            where: eq(fiscalPeriods.storeId, authResult.storeId),
+            where: storeScope(authResult, fiscalPeriods.storeId),
             orderBy: [desc(fiscalPeriods.year), desc(fiscalPeriods.month)],
         });
 
