@@ -116,6 +116,25 @@ export async function createTestTenant(
     return { orgId, storeId, userId, email, cookie };
 }
 
+/**
+ * The same session as {@link asTenant}, but as browser cookies — for tests that
+ * must load an actual page rather than call the API. Server Components do their
+ * own queries, so a route can be correctly scoped while the layout rendering it
+ * is not.
+ */
+export function tenantCookies(tenant: TestTenant, baseUrl: string = BASE_URL) {
+    const { hostname } = new URL(baseUrl);
+    return tenant.cookie.split('; ').filter(Boolean).map((pair) => {
+        const eq = pair.indexOf('=');
+        return {
+            name: pair.slice(0, eq),
+            value: pair.slice(eq + 1),
+            domain: hostname,
+            path: '/',
+        };
+    });
+}
+
 /** Request headers for this tenant, addressing one of its stores. */
 export function asTenant(tenant: TestTenant, storeId?: string) {
     return {

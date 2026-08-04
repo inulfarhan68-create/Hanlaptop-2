@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
 import { db } from '../../src/db';
 import { transactions, inventory, customers, serviceOrders } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { createTestTenant, cleanupTestTenant, asTenant, type TestTenant } from '../helpers/auth';
+import { createTestTenant, cleanupTestTenant, asTenant, tenantCookies, type TestTenant } from '../helpers/auth';
 
 const API_URL = '/api';
 
@@ -170,6 +170,21 @@ test.describe('Multi-Tenant Isolation', () => {
       const b = await forB.json();
       expect(b.inventoryItems).toContain('Laptop B');
       expect(b.laptopModels).toContain('Device B');
+    });
+
+    test('the admin page itself ships only the tenant own stores to the browser', async ({ page }) => {
+      // The API twin of this is asserted below, but the (admin) layout runs its
+      // OWN query and feeds TenantProvider. That copy read `select().from(stores)`
+      // with no WHERE for any owner, so every admin page load shipped every
+      // tenant's full store row — name, address, phone — into the HTML payload.
+      // Fixing only the route would have left this untouched.
+      await page.context().addCookies(tenantCookies(tenantA));
+      await page.goto('/dashboard');
+
+      const html = await page.content();
+      expect(html).toContain(tenantA.storeId);
+      expect(html).not.toContain(tenantB.storeId);
+      expect(html).not.toContain('Toko b');
     });
 
     test('GET /api/user/stores - the switcher lists only the tenant own stores', async ({ request }) => {

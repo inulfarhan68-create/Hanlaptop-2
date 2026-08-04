@@ -5,9 +5,18 @@ import { Sidebar } from "./Sidebar";
 import { MobileHeader } from "./MobileHeader";
 import { BottomNav } from "./BottomNav";
 import { SessionUserProvider } from "@/components/SessionUserProvider";
+import { ReadOnlyBanner, type ReadOnlyReason } from "./ReadOnlyBanner";
 import { AnimatePresence, motion } from "framer-motion";
 
-export function ClientLayout({ children, user }: { children: React.ReactNode, user: any }) {
+export function ClientLayout({
+  children,
+  user,
+  readOnlyReason,
+}: {
+  children: React.ReactNode;
+  user: any;
+  readOnlyReason?: ReadOnlyReason;
+}) {
   const pathname = usePathname();
 
   return (
@@ -24,6 +33,9 @@ export function ClientLayout({ children, user }: { children: React.ReactNode, us
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative print:overflow-visible print:h-auto">
+        {/* Outside the scroll container and the page transition: it must stay put
+            while navigating, not re-animate on every route change. */}
+        {readOnlyReason && <ReadOnlyBanner reason={readOnlyReason} />}
         <div className={`flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth print:overflow-visible pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4 ${pathname === '/dashboard' || pathname === '/home' ? 'p-0' : 'p-1 sm:p-2 md:p-4'}`}>
           <AnimatePresence mode="wait">
             <motion.div

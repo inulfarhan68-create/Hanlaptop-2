@@ -3,7 +3,10 @@ import { getSession } from "@/lib/session";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { TenantProvider } from "@/components/TenantProvider";
 import { db } from "@/db";
-import { stores, userStoreAccess } from "@/db/schema";
+import { stores, userStoreAccess, organizations } from "@/db/schema";
+import { subscriptions } from "@/db/schema/saas";
+import { subscriptionLapsed } from "@/lib/subscription-status";
+import type { ReadOnlyReason } from "@/components/layout/ReadOnlyBanner";
 import { eq } from "drizzle-orm";
 
 export const metadata = {
@@ -22,24 +25,61 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   // 2. Fetch stores the user actually has access to (tenant isolation).
-  // Mirrors /api/user/stores: owner sees all stores, everyone else only the
-  // stores granted via userStoreAccess. Never ship the full stores table to
-  // the client — in multi-tenant SaaS that leaks other tenants' data.
-  const role = (session.user as { role?: string }).role;
-  const allStores =
-    role === "owner"
-      ? await db.select().from(stores)
-      : await db
-          .select({ store: stores })
-          .from(userStoreAccess)
-          .innerJoin(stores, eq(userStoreAccess.storeId, stores.id))
-          .where(eq(userStoreAccess.userId, session.user.id))
-          .then((rows) => rows.map((r) => r.store));
+  // Mirrors /api/user/stores: a tenant owner addresses every store in THEIR
+  // organization, only platform_admin is global, everyone else gets the stores
+  // granted via userStoreAccess.
+  //
+  // This branch used to read `select().from(stores)` with no WHERE for any owner,
+  // shipping every tenant's full store row — name, address, phone — into the
+  // browser via TenantProvider. /api/user/stores was bounded earlier but this
+  // copy was missed, so the leak stayed live on every admin page load.
+  const { role, organizationId } = session.user as { role?: string; organizationId?: string | null };
+  const ownStoresQuery = () =>
+    db
+      .select({ store: stores })
+      .from(userStoreAccess)
+      .innerJoin(stores, eq(userStoreAccess.storeId, stores.id))
+      .where(eq(userStoreAccess.userId, session.user.id))
+      .then((rows) => rows.map((r) => r.store));
+
+  const storesPromise =
+    role === "platform_admin"
+      ? db.select().from(stores)
+      : role === "owner" && organizationId
+        ? db.select().from(stores).where(eq(stores.organizationId, organizationId))
+        // Includes an owner with no organizationId — fail closed to explicit
+        // grants rather than falling back to every store.
+        : ownStoresQuery();
+
+  // 3. Why the app may refuse to save, resolved server-side so the banner is
+  // right on first paint. Mirrors requireAuth's rule (demo, or lapsed
+  // subscription; platform_admin is never locked) — run alongside the store
+  // query so it costs no extra latency.
+  const readOnlyPromise: Promise<ReadOnlyReason | undefined> =
+    organizationId && role !== "platform_admin"
+      ? db
+          .select({
+            isDemo: organizations.isDemo,
+            subscriptionStatus: subscriptions.status,
+            currentPeriodEnd: subscriptions.currentPeriodEnd,
+          })
+          .from(organizations)
+          .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
+          .where(eq(organizations.id, organizationId))
+          .limit(1)
+          .then(([org]) => {
+            if (!org) return undefined;
+            if (org.isDemo) return "demo" as const;
+            return subscriptionLapsed(org) ? ("subscription" as const) : undefined;
+          })
+      : Promise.resolve(undefined);
+
+  const [allStores, readOnlyReason] = await Promise.all([storesPromise, readOnlyPromise]);
   const defaultStore = allStores.length > 0 ? allStores[0] : null;
 
   return (
     <TenantProvider initialStores={allStores} defaultStore={defaultStore}>
-      <ClientLayout user={session.user}>
+      <ClientLayout user={session.user} readOnlyReason={readOnlyReason}>
         {children}
       </ClientLayout>
     </TenantProvider>

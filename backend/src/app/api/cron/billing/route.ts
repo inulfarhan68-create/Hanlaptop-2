@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptions, subscriptionEvents } from "@/db/schema/saas";
-import { eq, lt, and } from "drizzle-orm";
+import { eq, lt, and, inArray } from "drizzle-orm";
+
+export const dynamic = "force-dynamic";
 
 /**
- * Cron job endpoint to process subscription states (e.g. active -> past_due).
- * In production, this would be hit securely by Vercel Cron.
+ * Marks subscriptions whose paid period has elapsed as `past_due`.
+ *
+ * This keeps the stored status honest (it is what the billing UI and reports
+ * read). It is NOT what enforces the lock: auth-guard derives read-only from
+ * `currentPeriodEnd` directly, so access is correct even if this never runs.
+ *
+ * Two bugs kept it inert until now: it was never listed in vercel.json, and it
+ * only exported POST while Vercel Cron issues GET (405). It also swept only
+ * `active`, leaving expired trials at `trialing` forever.
  */
-export async function POST(request: Request) {
+async function handle(request: Request) {
     try {
         // SECURITY: only the platform scheduler may run billing. Vercel Cron sends
         // `Authorization: Bearer <CRON_SECRET>`. Fail-closed if the secret is unset.
@@ -18,12 +27,13 @@ export async function POST(request: Request) {
 
         const now = new Date();
 
-        // Find subscriptions that have expired (currentPeriodEnd < now) and are 'active'
+        // Any paying state whose period has elapsed — `trialing` included, which the
+        // original sweep missed entirely (an expired trial never left `trialing`).
         const expiredSubs = await db.select()
             .from(subscriptions)
             .where(
                 and(
-                    eq(subscriptions.status, 'active'),
+                    inArray(subscriptions.status, ['active', 'trialing']),
                     lt(subscriptions.currentPeriodEnd, now)
                 )
             );
@@ -37,11 +47,16 @@ export async function POST(request: Request) {
             await db.update(subscriptions)
                 .set({ status: 'past_due', updatedAt: new Date() })
                 .where(eq(subscriptions.id, sub.id));
-            
+
             await db.insert(subscriptionEvents).values({
                 organizationId: sub.organizationId,
                 type: 'past_due',
-                payload: JSON.stringify({ reason: 'billing cycle ended without renewal' })
+                payload: JSON.stringify({
+                    reason: sub.status === 'trialing'
+                        ? 'trial ended without conversion'
+                        : 'billing cycle ended without renewal',
+                    previousStatus: sub.status,
+                })
             });
         }
 
@@ -51,3 +66,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+
+// Vercel Cron issues GET. POST kept so the existing manual/webhook callers and
+// tests keep working.
+export const GET = handle;
+export const POST = handle;
