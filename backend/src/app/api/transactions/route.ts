@@ -71,35 +71,44 @@ export async function GET(request: Request) {
             }
         });
 
-        // Pull creator (cashier) name from activity logs
-        const txIds = data.map(t => t.id);
-        const creatorMap = new Map<string, string>();
-        if (txIds.length > 0) {
-            const logs = await db.select({
-                entityId: activityLogs.entityId,
-                userName: activityLogs.userName
-            })
-            .from(activityLogs)
-            .where(and(
-                eq(activityLogs.action, "CREATE_TRANSACTION"),
-                inArray(activityLogs.entityId, txIds)
-            ));
-            logs.forEach(l => {
-                if (l.entityId) creatorMap.set(l.entityId, l.userName);
-            });
-        }
-
-        // Store info for the transactions in this response only. Reading the whole
-        // stores/store_settings tables cost two unbounded scans per request (and
+        // Everything below decorates the rows already fetched: the creator names and
+        // the store info depend only on `data`, not on each other, so they go out
+        // together. They used to run one after the other — three sequential
+        // round-trips where one suffices.
+        //
+        // Store info covers just the transactions in this response: reading the whole
+        // stores/store_settings tables meant two unbounded scans per request (and
         // crossed the tenant boundary); `data` is already store-scoped, so its own
         // store ids are the exact set needed.
+        const txIds = data.map(t => t.id);
         const txStoreIds = Array.from(new Set(data.map(tx => tx.storeId).filter(Boolean)));
-        const [allStores, allSettings] = txStoreIds.length === 0
-            ? [[], []]
-            : await Promise.all([
-                db.select().from(stores).where(inArray(stores.id, txStoreIds)),
-                db.select().from(storeSettings).where(inArray(storeSettings.storeId, txStoreIds)),
-            ]);
+
+        const [logs, allStores, allSettings] = await Promise.all([
+            txIds.length === 0
+                ? Promise.resolve([])
+                : db.select({
+                    entityId: activityLogs.entityId,
+                    userName: activityLogs.userName
+                })
+                .from(activityLogs)
+                .where(and(
+                    eq(activityLogs.action, "CREATE_TRANSACTION"),
+                    inArray(activityLogs.entityId, txIds)
+                )),
+
+            txStoreIds.length === 0
+                ? Promise.resolve([])
+                : db.select().from(stores).where(inArray(stores.id, txStoreIds)),
+
+            txStoreIds.length === 0
+                ? Promise.resolve([])
+                : db.select().from(storeSettings).where(inArray(storeSettings.storeId, txStoreIds)),
+        ]);
+
+        const creatorMap = new Map<string, string>();
+        logs.forEach(l => {
+            if (l.entityId) creatorMap.set(l.entityId, l.userName);
+        });
 
         const storesMap = new Map(allStores.map(s => [s.id, s]));
         const settingsMap = new Map(allSettings.map(s => [s.storeId, s]));
