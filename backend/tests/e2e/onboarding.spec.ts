@@ -1,16 +1,26 @@
 import { test, expect } from '@playwright/test';
 import { db } from '../../src/db';
-import { user, stores, organizations } from '../../src/db/schema';
+import { user, stores, organizations, transactions } from '../../src/db/schema';
 import { session, account } from '../../src/db/schema/users';
 import { subscriptions } from '../../src/db/schema/saas';
 import { chartOfAccounts } from '../../src/db/schema/accounting';
 import { eq } from 'drizzle-orm';
+import { createTestTenant, cleanupTestTenant, type TestTenant } from '../helpers/auth';
 
 test.describe('Tenant Onboarding Flow', () => {
   const testEmail = `newtenant-${Date.now()}@example.com`;
   const testStoreName = `Toko Maju Jaya ${Date.now()}`;
 
+  // A second, unrelated shop — the one a freshly registered tenant must never see.
+  let neighbour: TestTenant | undefined;
+  let neighbourTxId: string | undefined;
+
   test.afterAll(async () => {
+    if (neighbourTxId) {
+      await db.delete(transactions).where(eq(transactions.id, neighbourTxId)).catch(() => {});
+    }
+    await cleanupTestTenant(neighbour);
+
     // Cleanup: Find the user, their org, and delete to keep DB clean
     const testUser = await db.query.user.findFirst({
       where: (u, { eq }) => eq(u.email, testEmail)
@@ -30,7 +40,7 @@ test.describe('Tenant Onboarding Flow', () => {
     }
   });
 
-  test('New user can register and get a fully provisioned tenant', async ({ page }) => {
+  test('New user can register and get a fully provisioned tenant', async ({ page, request }) => {
     // 1. Visit the registration page
     await page.goto('/register?plan=starter');
     
@@ -78,5 +88,50 @@ test.describe('Tenant Onboarding Flow', () => {
     const coaCount = await db.select().from(chartOfAccounts).where(eq(chartOfAccounts.storeId, store!.id));
     // Should have seeded the COA
     expect(coaCount.length).toBeGreaterThan(20);
+
+    // 6. The whole point of selling this to other shops: a tenant that signed up
+    // through the real form must be sealed off from every other shop. The
+    // multi-tenant suite proves isolation for tenants built by the test helper —
+    // this proves it for one that came through the actual registration path.
+    neighbour = await createTestTenant(request, 'onb-neighbour');
+    neighbourTxId = `tx-onb-${Date.now()}`;
+    await db.insert(transactions).values({
+      id: neighbourTxId,
+      storeId: neighbour.storeId,
+      transactionType: 'Penjualan',
+      invoiceNumber: `INV-ONB-${Date.now()}`,
+      amount: 999_000,
+      paymentMethod: 'Tunai',
+      paymentStatus: 'Lunas',
+      transactionDate: new Date(),
+    });
+
+    // `page` still holds the newly registered owner's session.
+    const asNewTenant = await page.request.get('/api/transactions');
+    expect(asNewTenant.status()).toBe(200);
+    const rows = await asNewTenant.json();
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.find((t: any) => t.id === neighbourTxId)).toBeUndefined();
+  });
+
+  test('cannot self-register onto a non-public plan', async ({ request }) => {
+    // register-tenant validates planKey against isPublic/priceMonthly. Without that
+    // check anyone could post planKey:"internal" and grant themselves the unlimited
+    // in-house plan for free — the kind of hole that only shows up once strangers
+    // can reach the form.
+    for (const planKey of ['internal', 'enterprise']) {
+      const res = await request.post('/api/register-tenant', {
+        headers: { 'Content-Type': 'application/json' },
+        data: {
+          name: 'Plan Probe',
+          email: `plan-probe-${planKey}-${Date.now()}@example.com`,
+          password: 'ProbePassw0rd!23',
+          storeName: 'Probe Store',
+          phone: '0800000000',
+          planKey,
+        },
+      });
+      expect(res.status(), `planKey=${planKey} must be rejected`).toBe(400);
+    }
   });
 });
