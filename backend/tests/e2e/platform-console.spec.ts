@@ -99,26 +99,28 @@ test.describe('Platform console — manual billing', () => {
         await page.context().addCookies(tenantCookies(admin));
         await page.goto('/platform');
 
-        const card = page.getByRole('group', { name: orgName });
+        // On a session with no stored branch, BranchSelector picks a default and
+        // calls window.location.reload() — so the shell can navigate out from under
+        // us after hydration. Let it settle before touching anything.
+        await page.waitForLoadState('networkidle');
 
-        // Retry until the form is actually open. The button is present in the SSR
-        // HTML before React attaches its handler, so under `next dev` a click can
-        // land pre-hydration and be silently swallowed — which looks identical to a
-        // hung click. Re-opening an already-open form is harmless.
+        const card = page.getByRole('group', { name: orgName });
+        const submit = card.getByRole('button', { name: `Catat pembayaran ${orgName}` });
+
+        // Open AND fill inside the retry. Two things can discard the work: a click
+        // landing before React hydrates (the button is in the SSR HTML first, so it
+        // is silently swallowed) and that late reload. Either way the fix is the
+        // same — start over; re-opening an already-open form is harmless.
+        //
+        // Pinning the selects also matters on its own: submitRenew bails on an empty
+        // planKey and the submit button is disabled in that state, so trusting the
+        // defaults meant a hung click with nothing explaining why.
         await expect(async () => {
             await card.getByRole('button', { name: `Perpanjang langganan ${orgName}` }).click();
-            await expect(card.getByLabel('Paket')).toBeVisible({ timeout: 2_000 });
-        }).toPass({ timeout: 30_000 });
-
-        // Pin the form's state rather than trusting its defaults. submitRenew bails
-        // on an empty planKey and the submit button is disabled in that state, so a
-        // wrong default meant a click that hung for the whole timeout with nothing
-        // saying why — which is exactly how this first failed in CI.
-        await card.getByLabel('Paket').selectOption(tenant.planKey);
-        await card.getByLabel('Durasi').selectOption('1');
-
-        const submit = card.getByRole('button', { name: `Catat pembayaran ${orgName}` });
-        await expect(submit).toBeEnabled();
+            await card.getByLabel('Paket').selectOption(tenant.planKey, { timeout: 3_000 });
+            await card.getByLabel('Durasi').selectOption('1', { timeout: 3_000 });
+            await expect(submit).toBeEnabled({ timeout: 3_000 });
+        }).toPass({ timeout: 45_000 });
 
         const [response] = await Promise.all([
             page.waitForResponse(
