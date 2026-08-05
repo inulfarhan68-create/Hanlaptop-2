@@ -32,9 +32,14 @@ export interface TestTenant {
     storeId: string;
     userId: string;
     email: string;
+    /** The plan its subscription points at — exposed so tests need not restate it. */
+    planKey: string;
     /** Ready-to-send Cookie header value for this tenant's owner. */
     cookie: string;
 }
+
+/** Plan every test tenant is provisioned on. Seeded by the e2e global setup. */
+const TENANT_PLAN_KEY = 'internal';
 
 /** Collect every cookie the server set, as one `a=1; b=2` header value. */
 function collectCookies(headers: { name: string; value: string }[]): string {
@@ -65,7 +70,7 @@ export async function createTestTenant(
     const now = new Date();
     await db.insert(subscriptions).values({
         organizationId: orgId,
-        planKey: 'internal',
+        planKey: TENANT_PLAN_KEY,
         status: 'active',
         currentPeriodStart: now,
         currentPeriodEnd: new Date(now.getFullYear() + 100, 0, 1),
@@ -113,7 +118,7 @@ export async function createTestTenant(
         throw new Error(`sign-in returned no session cookie for ${email}: "${cookie}"`);
     }
 
-    return { orgId, storeId, userId, email, cookie };
+    return { orgId, storeId, userId, email, planKey: TENANT_PLAN_KEY, cookie };
 }
 
 /**

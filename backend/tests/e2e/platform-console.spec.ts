@@ -82,21 +82,54 @@ test.describe('Platform console — manual billing', () => {
     });
 
     test('recording a payment through the form restores the shop', async ({ page, request }) => {
+        // Several round trips: page load, two selects, the POST, then a DB read and
+        // an API call. The default 30s is tight for that on a cold CI runner.
+        test.setTimeout(90_000);
+
+        // Registered before navigating: an unhandled dialog freezes the page, and
+        // the operator's confirm() fires on the very first submit. Capturing the
+        // message also separates "confirm never appeared / was dismissed" from a
+        // plain timeout — the first CI failure could not tell those apart.
+        let confirmMessage: string | null = null;
+        page.on('dialog', (dialog) => {
+            confirmMessage = dialog.message();
+            dialog.accept();
+        });
+
         await page.context().addCookies(tenantCookies(admin));
         await page.goto('/platform');
 
-        // The operator is asked to confirm before money-backed access is granted.
-        page.on('dialog', (dialog) => dialog.accept());
+        const card = page.getByRole('group', { name: orgName });
 
-        await page.getByRole('button', { name: `Perpanjang langganan ${orgName}` }).click();
+        // Retry until the form is actually open. The button is present in the SSR
+        // HTML before React attaches its handler, so under `next dev` a click can
+        // land pre-hydration and be silently swallowed — which looks identical to a
+        // hung click. Re-opening an already-open form is harmless.
+        await expect(async () => {
+            await card.getByRole('button', { name: `Perpanjang langganan ${orgName}` }).click();
+            await expect(card.getByLabel('Paket')).toBeVisible({ timeout: 2_000 });
+        }).toPass({ timeout: 30_000 });
+
+        // Pin the form's state rather than trusting its defaults. submitRenew bails
+        // on an empty planKey and the submit button is disabled in that state, so a
+        // wrong default meant a click that hung for the whole timeout with nothing
+        // saying why — which is exactly how this first failed in CI.
+        await card.getByLabel('Paket').selectOption(tenant.planKey);
+        await card.getByLabel('Durasi').selectOption('1');
+
+        const submit = card.getByRole('button', { name: `Catat pembayaran ${orgName}` });
+        await expect(submit).toBeEnabled();
 
         const [response] = await Promise.all([
             page.waitForResponse(
                 (r) => r.url().includes('/api/platform/subscriptions') && r.request().method() === 'POST'
             ),
-            page.getByRole('button', { name: `Catat pembayaran ${orgName}` }).click(),
+            submit.click(),
         ]);
         expect(response.status()).toBe(200);
+
+        // Granting paid time must never be a single stray click.
+        expect(confirmMessage, 'operator was asked to confirm first').toContain(orgName);
 
         const [row] = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, tenant.orgId));
         expect(row.status).toBe('active');

@@ -179,9 +179,12 @@ test.describe('Multi-Tenant Isolation', () => {
       // tenant's full store row — name, address, phone — into the HTML payload.
       // Fixing only the route would have left this untouched.
       await page.context().addCookies(tenantCookies(tenantA));
-      await page.goto('/dashboard');
+      // The server response, not page.content(): the claim is about what the
+      // server ships, and reading the live DOM races client-side navigation
+      // ("Unable to retrieve content because the page is navigating").
+      const res = await page.goto('/dashboard');
+      const html = (await res!.text()) ?? '';
 
-      const html = await page.content();
       expect(html).toContain(tenantA.storeId);
       expect(html).not.toContain(tenantB.storeId);
       expect(html).not.toContain('Toko b');
@@ -196,8 +199,10 @@ test.describe('Multi-Tenant Isolation', () => {
       await page.context().addCookies(tenantCookies(tenantA));
 
       for (const path of ['/dashboard', '/inventory', '/transactions', '/customers', '/settings']) {
-        await page.goto(path);
-        const html = await page.content();
+        // Assert on the server's response body rather than the live DOM — see the
+        // test above; page.content() races client-side navigation and made this flaky.
+        const res = await page.goto(path);
+        const html = (await res!.text()) ?? '';
         expect(html, `${path} leaked tenant B's store id`).not.toContain(tenantB.storeId);
         expect(html, `${path} leaked tenant B's store name`).not.toContain('Toko b');
         expect(html, `${path} leaked tenant B's address`).not.toContain('Alamat b');
