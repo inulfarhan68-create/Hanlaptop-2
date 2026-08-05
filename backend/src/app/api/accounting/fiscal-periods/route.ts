@@ -4,6 +4,7 @@ import { fiscalPeriods, closingEntries, journalEntries, chartOfAccounts } from "
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireReportAccess, requireOwner, requireFeature, storeScope } from "@/lib/auth-guard";
 import { getIncomeStatement } from "@/services/AccountingService";
+import { requireSpecificStore } from "@/lib/require-store";
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,13 @@ export async function POST(request: Request) {
 
     const featureCheck = await requireFeature("closingPeriod", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
+
+    // A fiscal period belongs to exactly one store, and "all" is a sentinel, not
+    // a store id. Writing it straight into the row hit the foreign key and
+    // answered 500. This route is requireOwner-only and an owner's selector
+    // defaults to "all", so that was every owner's first attempt.
+    const storeCheck = requireSpecificStore(authResult, "periode fiskal");
+    if (storeCheck) return storeCheck;
 
     try {
         const body = await request.json();
@@ -95,6 +103,13 @@ export async function PATCH(request: Request) {
 
     const featureCheck = await requireFeature("closingPeriod", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
+
+    // Without this, every lookup below compares storeId against "all", matches
+    // nothing, and the owner is told "Period not found" about their own period.
+    // It also silently disabled the guard that stops a period being reopened
+    // when a later one is already closed.
+    const storeCheck = requireSpecificStore(authResult, "periode fiskal");
+    if (storeCheck) return storeCheck;
 
     try {
         const body = await request.json();
