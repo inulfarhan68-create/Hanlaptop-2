@@ -6,6 +6,18 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { db } from '../../src/db';
+import { transactions, stores } from '../../src/db/schema';
+import { eq } from 'drizzle-orm';
+import {
+  createTestTenant,
+  cleanupTestTenant,
+  createTenantUser,
+  cleanupTenantUser,
+  asTenantUser,
+  type TestTenant,
+  type TestTenantUser,
+} from '../helpers/auth';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
 const API_URL = process.env.E2E_API_URL || 'http://localhost:3000/api';
@@ -72,60 +84,91 @@ test.describe('Security Regression Tests', () => {
   });
 
   test.describe('Authorization', () => {
-    let kasirToken: string;
-    let managerToken: string;
-    let storeId: string;
+    // Real signed-in users at real store roles. The previous version declared
+    // kasirToken/managerToken/storeId and never assigned them, so every request
+    // here went out as `Cookie: better-auth.session_token=undefined` and came
+    // back 401 — and each assertion allowed 401, so the whole block passed while
+    // testing nothing. TypeScript was reporting it (TS2454, "used before being
+    // assigned"); tsconfig excludes tests/, so nobody saw it.
+    let tenant: TestTenant;
+    let kasir: TestTenantUser;
+    let manager: TestTenantUser;
+    let txId: string;
 
-    test('Kasir cannot access settings', async ({ request }) => {
-      const response = await request.get(`${API_URL}/settings`, {
-        headers: {
-          'x-store-id': storeId,
-          'Cookie': `better-auth.session_token=${kasirToken}`,
-        },
+    test.beforeAll(async ({ request }) => {
+      tenant = await createTestTenant(request, 'sec');
+      kasir = await createTenantUser(request, tenant, 'kasir');
+      manager = await createTenantUser(request, tenant, 'manager');
+
+      txId = `tx-sec-${Date.now()}`;
+      await db.insert(transactions).values({
+        id: txId,
+        storeId: tenant.storeId,
+        transactionType: 'Penjualan',
+        invoiceNumber: `INV-SEC-${Date.now()}`,
+        amount: 1000,
+        paymentMethod: 'Tunai',
+        paymentStatus: 'Lunas',
+        transactionDate: new Date(),
       });
-
-      // Kasir should not have settings access (403 or redirected)
-      expect([200, 302, 401, 403]).toContain(response.status());
     });
 
-    test('Kasir cannot delete transactions', async ({ request }) => {
-      // Get a transaction ID first
-      const getTx = await request.get(`${API_URL}/transactions?limit=1`, {
-        headers: {
-          'x-store-id': storeId,
-          'Cookie': `better-auth.session_token=${managerToken}`,
-        },
-      });
-      const txs = await getTx.json();
-      const txId = txs[0]?.id;
-
-      if (!txId) {
-        test.skip();
-        return;
-      }
-
-      // Try to delete as kasir
-      const response = await request.delete(`${API_URL}/transactions/${txId}`, {
-        headers: {
-          'x-store-id': storeId,
-          'Cookie': `better-auth.session_token=${kasirToken}`,
-        },
-      });
-
-      // Should be forbidden or require approval
-      expect([200, 403]).toContain(response.status());
+    test.afterAll(async () => {
+      await db.delete(transactions).where(eq(transactions.id, txId)).catch(() => {});
+      await cleanupTenantUser(kasir);
+      await cleanupTenantUser(manager);
+      await cleanupTestTenant(tenant);
     });
 
-    test('Manager cannot delete store', async ({ request }) => {
-      // Manager trying to delete own store should fail (owner only)
-      const response = await request.delete(`${API_URL}/stores/${storeId}`, {
-        headers: {
-          'Cookie': `better-auth.session_token=${managerToken}`,
-        },
-      });
+    test('the kasir session is real', async ({ request }) => {
+      // Guards the guard. Without this, a broken login would send every test
+      // below back to 401 and they would "pass" for the wrong reason — exactly
+      // what happened before.
+      const res = await request.get(`${API_URL}/transactions`, { headers: asTenantUser(tenant, kasir) });
+      expect(res.status()).toBe(200);
+    });
 
-      // Should require owner level
-      expect([200, 401, 403]).toContain(response.status());
+    test('a kasir may read settings but may not write them', async ({ request }) => {
+      // The old test claimed "kasir cannot access settings". That is not what the
+      // code does, and asserting it would fail: GET /api/settings sits behind
+      // requireAuth on purpose, because the client reads the store name and its
+      // own role from it. The WRITE is what is restricted.
+      const read = await request.get(`${API_URL}/settings`, { headers: asTenantUser(tenant, kasir) });
+      expect(read.status()).toBe(200);
+
+      const write = await request.post(`${API_URL}/settings`, {
+        headers: asTenantUser(tenant, kasir),
+        data: { storeName: 'Diubah Kasir', storeAddress: 'Jalan', storePhone: '000' },
+      });
+      expect(write.status()).toBe(403);
+    });
+
+    test('a kasir deleting a transaction raises an approval instead of voiding it', async ({ request }) => {
+      // Not a 403: lacking TRANSACTION_VOID routes the request into the approval
+      // workflow. The old assertion accepted 200 outright, so it would have
+      // passed just as happily if the kasir had actually voided the sale.
+      const res = await request.delete(`${API_URL}/transactions/${txId}`, {
+        headers: asTenantUser(tenant, kasir),
+      });
+      expect(res.status()).toBe(200);
+      const body = await res.json();
+      expect(body.approvalRequired).toBe(true);
+      expect(body.success).toBe(false);
+
+      const [row] = await db.select().from(transactions).where(eq(transactions.id, txId));
+      expect(row, 'the transaction must survive a kasir delete').toBeDefined();
+    });
+
+    test('a manager cannot delete a store', async ({ request }) => {
+      // DELETE /api/stores/[id] is requireOwner. The old assertion accepted 200,
+      // i.e. it would have passed if the manager HAD deleted the store.
+      const res = await request.delete(`${API_URL}/stores/${tenant.storeId}`, {
+        headers: asTenantUser(tenant, manager),
+      });
+      expect(res.status()).toBe(403);
+
+      const [store] = await db.select().from(stores).where(eq(stores.id, tenant.storeId));
+      expect(store, 'the store must still exist').toBeDefined();
     });
   });
 

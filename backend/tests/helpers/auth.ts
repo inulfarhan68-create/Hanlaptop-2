@@ -209,6 +209,84 @@ export function asPlatformAdmin(admin: TestPlatformAdmin) {
     return { Cookie: admin.cookie };
 }
 
+export interface TestTenantUser {
+    userId: string;
+    email: string;
+    role: string;
+    /** Ready-to-send Cookie header value. */
+    cookie: string;
+}
+
+/**
+ * An additional signed-in user inside an existing tenant, at a given store role
+ * (kasir, manager, investor…).
+ *
+ * RBAC tests need one of these. Hand-writing `Cookie: better-auth.session_token=<raw>`
+ * does not work — Better-Auth v1.6 signs the cookie, so a raw token is simply
+ * rejected as 401. A test built that way answers 401 to everything and passes
+ * whenever its assertion happens to allow 401, which is how the authorization
+ * block in security.spec.ts ended up unable to fail.
+ */
+export async function createTenantUser(
+    request: APIRequestContext,
+    tenant: TestTenant,
+    role: 'kasir' | 'manager' | 'investor' | 'owner'
+): Promise<TestTenantUser> {
+    const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const email = `${role}-${ts}@e2e.test`;
+
+    const signUp = await request.post(`${BASE_URL}/api/auth/sign-up/email`, {
+        headers: { 'Content-Type': 'application/json', Origin: BASE_URL },
+        data: { email, password: PASSWORD, name: `User ${role} ${ts}` },
+    });
+    if (!signUp.ok()) {
+        throw new Error(`sign-up failed for ${email}: ${signUp.status()} ${await signUp.text()}`);
+    }
+
+    const [created] = await db.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1);
+    if (!created) throw new Error(`sign-up succeeded but no user row for ${email}`);
+    const userId = created.id;
+
+    // Global role and tenant come from the user row; the per-store role is what
+    // the PBAC matrix actually reads (authResult.storeRole).
+    await db.update(user)
+        .set({ role, organizationId: tenant.orgId, emailVerified: true, updatedAt: new Date() })
+        .where(eq(user.id, userId));
+    await db.insert(userStoreAccess).values({ userId, storeId: tenant.storeId, role });
+
+    const signIn = await request.post(`${BASE_URL}/api/auth/sign-in/email`, {
+        headers: { 'Content-Type': 'application/json', Origin: BASE_URL },
+        data: { email, password: PASSWORD },
+    });
+    if (!signIn.ok()) {
+        throw new Error(`sign-in failed for ${email}: ${signIn.status()} ${await signIn.text()}`);
+    }
+
+    const cookie = collectCookies(signIn.headersArray());
+    if (!cookie.includes('session_token')) {
+        throw new Error(`sign-in returned no session cookie for ${email}: "${cookie}"`);
+    }
+
+    return { userId, email, role, cookie };
+}
+
+/** Headers for an extra tenant user, addressing the tenant's store. */
+export function asTenantUser(tenant: TestTenant, member: TestTenantUser) {
+    return {
+        'x-store-id': tenant.storeId,
+        Cookie: member.cookie,
+    };
+}
+
+/** Remove an extra tenant user. Call before cleanupTestTenant. */
+export async function cleanupTenantUser(member: TestTenantUser | undefined) {
+    if (!member) return;
+    await db.delete(session).where(eq(session.userId, member.userId)).catch(() => {});
+    await db.delete(account).where(eq(account.userId, member.userId)).catch(() => {});
+    await db.delete(userStoreAccess).where(eq(userStoreAccess.userId, member.userId)).catch(() => {});
+    await db.delete(user).where(eq(user.id, member.userId)).catch(() => {});
+}
+
 /** Remove the operator account. It owns no org, so nothing cascades. */
 export async function cleanupPlatformAdmin(admin: TestPlatformAdmin | undefined) {
     if (!admin) return;
