@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { bankMutations, transactions, journalEntries } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireOwnerOrManager, requireWritable } from "@/lib/auth-guard";
+import { requireSpecificStore } from "@/lib/require-store";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
+
+    // "all" is a sentinel, not a store id; this row has a foreign key to
+    // stores.id, so persisting it means a 500. See lib/require-store.ts.
+    const storeCheck = requireSpecificStore(authResult, "rekonsiliasi");
+    if (storeCheck) return storeCheck;
 
     try {
         const body = await request.json();

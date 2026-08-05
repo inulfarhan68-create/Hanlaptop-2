@@ -17,10 +17,10 @@ export async function POST(request: Request) {
 
     try {
         // Map all unmapped entries
-        const updatedCount = await mapUnmappedJournalEntries(authResult.storeId);
+        const updatedCount = await mapUnmappedJournalEntries(authResult);
 
         // Get stats
-        const stats = await getMappingStats(authResult.storeId);
+        const stats = await getMappingStats(authResult);
 
         return NextResponse.json({
             success: true,
@@ -52,11 +52,11 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const validate = searchParams.get("validate") === "true";
 
-        const stats = await getMappingStats(authResult.storeId);
+        const stats = await getMappingStats(authResult);
 
         let validationResult = null;
         if (validate) {
-            validationResult = await validateMappings();
+            validationResult = await validateMappings(authResult);
         }
 
         return NextResponse.json({
