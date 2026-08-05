@@ -11,6 +11,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import useSWR from "swr"
 import { printThermalReceipt } from "@/lib/printThermal"
 import { useUserRole } from "@/hooks/useUserRole"
+import { TransactionEmpty, TransactionFilterEmpty, SearchEmpty } from "@/components/ui/empty-state"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value)
@@ -592,7 +593,23 @@ export function HistoryTab({ onPrint, onStartEdit, storeSettings }: HistoryTabPr
                   </TableHeader>
                   <TableBody>
                     {filtered.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-xs">Tidak ada transaksi ditemukan.</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-0">
+                          {/* Three different situations that all used to read
+                              "Tidak ada transaksi ditemukan." — which sounds like a
+                              failed search even to a shop that simply has not sold
+                              anything yet, and offers nothing to do next. The period
+                              filter defaults to "Bulan Ini", so an empty table is
+                              usually the period, not an empty ledger. */}
+                          {searchQuery ? (
+                            <SearchEmpty query={searchQuery} />
+                          ) : historyType || historyPeriod !== "Semua Waktu" ? (
+                            <TransactionFilterEmpty />
+                          ) : (
+                            <TransactionEmpty />
+                          )}
+                        </TableCell>
+                      </TableRow>
                     ) : filtered.flatMap((trx: any) => {
                       let expanded = [{...trx, _displayCategory: trx.items?.[0]?.inventoryItem?.category, originalId: trx.id, displayAmount: trx.amount}];
                       if (trx.items && trx.items.length > 1 && ["Penjualan", "Pembelian Stok", "Retur Penjualan"].includes(trx.transactionType)) {

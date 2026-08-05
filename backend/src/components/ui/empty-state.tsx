@@ -27,9 +27,16 @@ export function EmptyState({
       <h3 className="font-bold text-base mb-1">{title}</h3>
       <p className="text-sm text-muted-foreground max-w-sm mb-5">{description}</p>
       {actionLabel && (actionTo ? (
-        <Button asChild size="sm">
-          <Link href={actionTo}>{actionLabel}</Link>
-        </Button>
+        // A plain styled Link, not <Button asChild>: this Button renders a <span>
+        // rather than a Radix Slot, so only the label text would have been
+        // clickable and the padding around it dead. Never noticed because until
+        // now nothing used the actionTo branch.
+        <Link
+          href={actionTo}
+          className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          {actionLabel}
+        </Link>
       ) : onAction ? (
         <Button size="sm" onClick={onAction}>{actionLabel}</Button>
       ) : null)}
@@ -55,9 +62,22 @@ export function TransactionEmpty() {
     <EmptyState
       icon={<ShoppingCart className="h-8 w-8 text-muted-foreground" />}
       title="Belum Ada Transaksi"
-      description="Belum ada riwayat transaksi yang tercatat. Buat transaksi penjualan atau pembelian untuk memulai."
-      actionLabel="Buat Transaksi Baru"
-      actionTo="/transactions"
+      description="Belum ada riwayat transaksi yang tercatat. Catat penjualan pertama untuk memulai."
+      actionLabel="Catat Penjualan"
+      // The sales tab, not "/transactions" — this renders ON that page, so the
+      // old link pointed at the page you were already looking at.
+      actionTo="/transactions?mode=Penjualan"
+    />
+  )
+}
+
+/** No rows for the chosen period/type — different from having no transactions at all. */
+export function TransactionFilterEmpty() {
+  return (
+    <EmptyState
+      icon={<SearchX className="h-8 w-8 text-muted-foreground" />}
+      title="Tidak Ada Transaksi di Periode Ini"
+      description="Coba ubah periode ke 'Semua Waktu' atau hapus filter jenis transaksi."
     />
   )
 }
