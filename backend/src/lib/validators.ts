@@ -359,3 +359,40 @@ export const warrantyResolutionSchema = z.object({
 export const consignmentPaymentSchema = z.object({
     payableIds: z.array(z.string()).min(1, "Pilih minimal satu tagihan konsinyasi untuk dibayar"),
 });
+
+// 22. Public submissions (unauthenticated — landing page forms).
+//
+// These are the only endpoints that write to a tenant's tables with no session
+// behind them, so `storeId` is required and the handler must resolve it against
+// a real, active store. It used to default to the string "default", which no
+// store has, so a missing id became an FK violation and a 500.
+const publicStoreId = z.string().min(1, "Toko tujuan wajib dipilih");
+
+export const publicServiceBookingSchema = z.object({
+    storeId: publicStoreId,
+    customerName: z.string().min(1, "Nama pelanggan wajib diisi").max(120),
+    customerPhone: z.string().min(1, "Nomor telepon wajib diisi").max(30),
+    customerAddress: z.string().max(300).nullable().optional(),
+    deviceName: z.string().min(1, "Nama unit wajib diisi").max(160),
+    issue: z.string().min(1, "Keluhan wajib diisi").max(1000),
+    estimatedCost: z.coerce.number().nonnegative("Estimasi biaya tidak boleh negatif").max(1_000_000_000).optional().default(0),
+    notes: z.string().max(1000).nullable().optional(),
+});
+
+export const publicBuybackLeadSchema = z.object({
+    storeId: publicStoreId,
+    customerName: z.string().min(1, "Nama pelanggan wajib diisi").max(120),
+    customerPhone: z.string().min(1, "Nomor telepon wajib diisi").max(30),
+    brand: z.string().min(1, "Merek wajib diisi").max(160),
+    processor: z.string().min(1, "Prosesor wajib diisi").max(400),
+    ram: z.string().min(1, "RAM wajib diisi").max(120),
+    storage: z.string().min(1, "Penyimpanan wajib diisi").max(200),
+    condition: z.string().min(1, "Kondisi wajib diisi").max(600),
+    completeness: z.string().min(1, "Kelengkapan wajib diisi").max(300),
+    estimatedMarketPrice: z.coerce.number().nonnegative().max(10_000_000_000).optional().default(0),
+    estimatedOfferPriceMin: z.coerce.number().nonnegative().max(10_000_000_000).optional().default(0),
+    estimatedOfferPriceMax: z.coerce.number().nonnegative().max(10_000_000_000).optional().default(0),
+    type: z.string().max(40).optional().default("JUAL_LAPTOP"),
+    targetLaptopName: z.string().max(200).nullable().optional(),
+    targetLaptopPrice: z.coerce.number().nonnegative().max(10_000_000_000).nullable().optional(),
+});
