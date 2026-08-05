@@ -18,9 +18,38 @@ export const getPublicService = cache(async (id: string): Promise<
   | { data: PublicServiceData }
   | { error: string; status: number }
 > => {
+  // Public and unauthenticated, same as the sales nota — select what the service
+  // receipt prints, nothing more. `parts: true` used to include serviceParts.costPrice
+  // alongside the unitPrice charged, publishing the shop's margin on every spare
+  // part; normalizeServiceParts only ever reads inventoryId/itemName/unitPrice/quantity.
   const serviceOrder = await db.query.serviceOrders.findFirst({
     where: eq(serviceOrders.id, id),
-    with: { customer: true, parts: true },
+    columns: {
+      id: true,
+      status: true,
+      deviceName: true,
+      issue: true,
+      notes: true,
+      customerName: true,
+      customerPhone: true,
+      customerAddress: true,
+      technicianName: true,
+      estimatedCost: true,
+      finalCost: true,
+      receivedDate: true,
+      completedDate: true,
+      warrantyUntil: true,
+      rating: true,
+      ratingComment: true,
+      // Not printed — resolves the store's letterhead below.
+      storeId: true,
+    },
+    with: {
+      parts: {
+        columns: { id: true, inventoryId: true, itemName: true, quantity: true, unitPrice: true },
+      },
+      customer: { columns: { name: true, phone: true, address: true } },
+    },
   });
 
   if (!serviceOrder) {
