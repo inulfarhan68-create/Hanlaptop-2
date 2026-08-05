@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { organizations, stores } from "@/db/schema/store";
 import { subscriptions, plans } from "@/db/schema/saas";
 import { userStoreAccess } from "@/db/schema/store";
-import { user } from "@/db/schema/users";
+import { user, account, session } from "@/db/schema/users";
 import { seedStoreCoa } from "@/db/seed-coa";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
@@ -110,9 +110,25 @@ export async function POST(req: Request) {
             });
         } catch (error: any) {
             console.error("BetterAuth signUp failed:", error);
-            // Compensating transaction: delete the org (cascades to store, sub)
-            await db.delete(organizations).where(eq(organizations.id, orgId));
-            
+            // Compensating transaction: delete the org (cascades to store, sub).
+            //
+            // Deliberately NOT deleting any user row here. sign-up threw, so we have no
+            // id for whatever it may have written, and matching on the email instead
+            // would be unsafe: this endpoint is public, and two concurrent
+            // registrations of the same address race past the duplicate check above —
+            // the loser's cleanup would delete the winner's account. A rare orphaned
+            // user needing manual cleanup is far better than a path that can destroy a
+            // real one, so log it loudly instead.
+            try {
+                await db.delete(organizations).where(eq(organizations.id, orgId));
+            } catch (rollbackError: any) {
+                console.error("Registration rollback FAILED — manual cleanup needed:", {
+                    orgId,
+                    email,
+                    error: rollbackError?.message,
+                });
+            }
+
             return NextResponse.json(
                 { message: "Gagal mendaftarkan pengguna", error: error.message },
                 { status: 500 }
@@ -135,8 +151,30 @@ export async function POST(req: Request) {
         } catch (accessError: any) {
             console.error("Failed to set owner role/access:", accessError);
             // Compensate: remove the org (cascades store/sub) and the half-created user.
-            await db.delete(organizations).where(eq(organizations.id, orgId));
-            if (authRes?.user?.id) await db.delete(user).where(eq(user.id, authRes.user.id));
+            //
+            // Order matters. sign-up creates both a credential row in `account` and a
+            // `session`, and neither FK declares ON DELETE cascade — so deleting the
+            // user first throws, the rollback aborts half-done, and the email is left
+            // claimed by an account with no organisation and no store access. That
+            // person can neither sign up again nor use the app: for a self-serve
+            // signup, an unrecoverable dead end.
+            try {
+                await db.delete(organizations).where(eq(organizations.id, orgId));
+                const uid = authRes?.user?.id;
+                if (uid) {
+                    await db.delete(session).where(eq(session.userId, uid));
+                    await db.delete(account).where(eq(account.userId, uid));
+                    await db.delete(user).where(eq(user.id, uid));
+                }
+            } catch (rollbackError: any) {
+                // Surface this loudly: a failed rollback leaves an unusable email
+                // behind and needs manual cleanup.
+                console.error("Registration rollback FAILED — manual cleanup needed:", {
+                    orgId,
+                    userId: authRes?.user?.id,
+                    error: rollbackError?.message,
+                });
+            }
             return NextResponse.json({ message: "Gagal menyiapkan akun pemilik" }, { status: 500 });
         }
 
