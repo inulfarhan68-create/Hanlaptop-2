@@ -32,9 +32,14 @@ export interface TestTenant {
     storeId: string;
     userId: string;
     email: string;
+    /** The plan its subscription points at — exposed so tests need not restate it. */
+    planKey: string;
     /** Ready-to-send Cookie header value for this tenant's owner. */
     cookie: string;
 }
+
+/** Plan every test tenant is provisioned on. Seeded by the e2e global setup. */
+const TENANT_PLAN_KEY = 'internal';
 
 /** Collect every cookie the server set, as one `a=1; b=2` header value. */
 function collectCookies(headers: { name: string; value: string }[]): string {
@@ -65,7 +70,7 @@ export async function createTestTenant(
     const now = new Date();
     await db.insert(subscriptions).values({
         organizationId: orgId,
-        planKey: 'internal',
+        planKey: TENANT_PLAN_KEY,
         status: 'active',
         currentPeriodStart: now,
         currentPeriodEnd: new Date(now.getFullYear() + 100, 0, 1),
@@ -113,7 +118,26 @@ export async function createTestTenant(
         throw new Error(`sign-in returned no session cookie for ${email}: "${cookie}"`);
     }
 
-    return { orgId, storeId, userId, email, cookie };
+    return { orgId, storeId, userId, email, planKey: TENANT_PLAN_KEY, cookie };
+}
+
+/**
+ * The same session as {@link asTenant}, but as browser cookies — for tests that
+ * must load an actual page rather than call the API. Server Components do their
+ * own queries, so a route can be correctly scoped while the layout rendering it
+ * is not.
+ */
+export function tenantCookies(who: { cookie: string }, baseUrl: string = BASE_URL) {
+    const { hostname } = new URL(baseUrl);
+    return who.cookie.split('; ').filter(Boolean).map((pair) => {
+        const eq = pair.indexOf('=');
+        return {
+            name: pair.slice(0, eq),
+            value: pair.slice(eq + 1),
+            domain: hostname,
+            path: '/',
+        };
+    });
 }
 
 /** Request headers for this tenant, addressing one of its stores. */
@@ -122,6 +146,75 @@ export function asTenant(tenant: TestTenant, storeId?: string) {
         'x-store-id': storeId ?? tenant.storeId,
         Cookie: tenant.cookie,
     };
+}
+
+export interface TestPlatformAdmin {
+    userId: string;
+    email: string;
+    /** Ready-to-send Cookie header value. */
+    cookie: string;
+}
+
+/**
+ * The platform operator: `platform_admin`, belonging to NO organization.
+ *
+ * That shape is deliberate and matches production (the real operator account has
+ * organization_id NULL). requireAuth gives it accessibleStoreIds = null — global,
+ * unrestricted — and exempts it from the read-only locks, so it is the one
+ * identity that can act across tenants. Nothing else in the suite could reach the
+ * platform console, which is why the manual-billing flow went untested.
+ */
+export async function createPlatformAdmin(request: APIRequestContext): Promise<TestPlatformAdmin> {
+    const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const email = `platform-admin-${ts}@e2e.test`;
+
+    const signUp = await request.post(`${BASE_URL}/api/auth/sign-up/email`, {
+        headers: { 'Content-Type': 'application/json', Origin: BASE_URL },
+        data: { email, password: PASSWORD, name: `Platform Admin ${ts}` },
+    });
+    if (!signUp.ok()) {
+        throw new Error(`sign-up failed for ${email}: ${signUp.status()} ${await signUp.text()}`);
+    }
+
+    const [created] = await db.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1);
+    if (!created) throw new Error(`sign-up succeeded but no user row for ${email}`);
+    const userId = created.id;
+
+    // `role` is input:false — it cannot come through the public sign-up endpoint.
+    // organizationId stays null on purpose: an operator scoped to a tenant would
+    // not be a platform admin.
+    await db.update(user)
+        .set({ role: 'platform_admin', organizationId: null, emailVerified: true, updatedAt: new Date() })
+        .where(eq(user.id, userId));
+
+    // Sign in AFTER the promotion so the session snapshot carries the new role.
+    const signIn = await request.post(`${BASE_URL}/api/auth/sign-in/email`, {
+        headers: { 'Content-Type': 'application/json', Origin: BASE_URL },
+        data: { email, password: PASSWORD },
+    });
+    if (!signIn.ok()) {
+        throw new Error(`sign-in failed for ${email}: ${signIn.status()} ${await signIn.text()}`);
+    }
+
+    const cookie = collectCookies(signIn.headersArray());
+    if (!cookie.includes('session_token')) {
+        throw new Error(`sign-in returned no session cookie for ${email}: "${cookie}"`);
+    }
+
+    return { userId, email, cookie };
+}
+
+/** Request headers for the platform operator. No `x-store-id`: it addresses no store. */
+export function asPlatformAdmin(admin: TestPlatformAdmin) {
+    return { Cookie: admin.cookie };
+}
+
+/** Remove the operator account. It owns no org, so nothing cascades. */
+export async function cleanupPlatformAdmin(admin: TestPlatformAdmin | undefined) {
+    if (!admin) return;
+    await db.delete(session).where(eq(session.userId, admin.userId)).catch(() => {});
+    await db.delete(account).where(eq(account.userId, admin.userId)).catch(() => {});
+    await db.delete(user).where(eq(user.id, admin.userId)).catch(() => {});
 }
 
 /** Remove everything createTestTenant made. Org delete cascades to its stores. */

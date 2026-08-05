@@ -360,7 +360,18 @@ export const consignmentPaymentSchema = z.object({
     payableIds: z.array(z.string()).min(1, "Pilih minimal satu tagihan konsinyasi untuk dibayar"),
 });
 
-// 22. Public submissions (unauthenticated — landing page forms).
+// 22. Manual Subscription Activation (platform admin)
+// Payment is settled outside the app (transfer), so an operator records it here.
+export const manualSubscriptionSchema = z.object({
+    organizationId: z.string().min(1, "Organisasi wajib dipilih"),
+    planKey: z.string().min(1, "Paket wajib dipilih"),
+    // Bounded deliberately: this is typed by hand, and a slip like 120 instead of
+    // 12 would hand out a decade of free access with no payment behind it.
+    months: z.number().int().min(1, "Minimal 1 bulan").max(36, "Maksimal 36 bulan"),
+    note: z.string().max(500).optional(),
+});
+
+// 23. Public submissions (unauthenticated — landing page forms).
 //
 // These are the only endpoints that write to a tenant's tables with no session
 // behind them, so `storeId` is required and the handler must resolve it against

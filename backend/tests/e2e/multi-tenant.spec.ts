@@ -172,6 +172,44 @@ test.describe('Multi-Tenant Isolation', () => {
       expect(b.laptopModels).toContain('Device B');
     });
 
+    // These two fetch the pages instead of driving a browser. What is being
+    // claimed is about the HTML the SERVER sends, so a browser adds only ways to
+    // fail: page.content() races client-side navigation, and BranchSelector
+    // reloads the shell once on a session with no stored branch, which interrupts
+    // the next goto. Both showed up as flakes. No browser, no race.
+    test('the admin page itself ships only the tenant own stores to the browser', async ({ request }) => {
+      // The API twin of this is asserted below, but the (admin) layout runs its
+      // OWN query and feeds TenantProvider. That copy read `select().from(stores)`
+      // with no WHERE for any owner, so every admin page load shipped every
+      // tenant's full store row — name, address, phone — into the HTML payload.
+      // Fixing only the route would have left this untouched.
+      const res = await request.get('/dashboard', { headers: asTenant(tenantA) });
+      expect(res.status()).toBe(200);
+      const html = await res.text();
+
+      // Positive assertion first: without it this would pass just as happily on a
+      // login redirect, which contains no tenant's stores at all.
+      expect(html).toContain(tenantA.storeId);
+      expect(html).not.toContain(tenantB.storeId);
+      expect(html).not.toContain('Toko b');
+    });
+
+    test('no admin page leaks another tenant store into its payload', async ({ request }) => {
+      // Server Components each run their own queries, so one fixed page proves
+      // nothing about its neighbours: /inventory had the same unscoped
+      // `select().from(stores)` and shipped it to EVERY signed-in role, not just
+      // owners, for a prop its client never even read. Sweep the pages that
+      // render a store context rather than trusting them one at a time.
+      for (const path of ['/dashboard', '/inventory', '/transactions', '/customers', '/settings']) {
+        const res = await request.get(path, { headers: asTenant(tenantA) });
+        expect(res.status(), `${path} did not render`).toBe(200);
+        const html = await res.text();
+        expect(html, `${path} leaked tenant B's store id`).not.toContain(tenantB.storeId);
+        expect(html, `${path} leaked tenant B's store name`).not.toContain('Toko b');
+        expect(html, `${path} leaked tenant B's address`).not.toContain('Alamat b');
+      }
+    });
+
     test('GET /api/user/stores - the switcher lists only the tenant own stores', async ({ request }) => {
       // Regression guard: this endpoint returned every store in the database for any
       // owner, leaking other tenants' names and addresses.

@@ -4,8 +4,10 @@ import { requirePlatformAdmin } from "@/lib/auth-guard";
 import PlatformClient from "./client";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
+import { subscriptions, plans } from "@/db/schema/saas";
+import { subscriptionLapsed } from "@/lib/subscription-status";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 export const metadata: Metadata = {
     title: "Platform Console | HanLaptop",
@@ -17,11 +19,38 @@ export default async function PlatformPage() {
         redirect("/");
     }
 
-    // Fetch all tenants
-    const orgs = await db.query.organizations.findMany({
-        with: {
-            stores: true
-        }
+    // Fetch all tenants, their subscription state, and the plans that can be
+    // assigned. Billing is settled manually (transfer), so the operator needs to
+    // see who has lapsed and act on it from here.
+    const [orgs, subRows, assignablePlans] = await Promise.all([
+        db.query.organizations.findMany({ with: { stores: true } }),
+        db.select().from(subscriptions),
+        db.select({ key: plans.key, name: plans.name, priceMonthly: plans.priceMonthly })
+            .from(plans)
+            .where(eq(plans.isActive, true))
+            .orderBy(asc(plans.sortOrder)),
+    ]);
+
+    const subByOrg = new Map(subRows.map((s) => [s.organizationId, s]));
+    const tenants = orgs.map((org) => {
+        const sub = subByOrg.get(org.id);
+        return {
+            id: org.id,
+            name: org.name,
+            isDemo: org.isDemo,
+            storeCount: org.stores?.length ?? 0,
+            planKey: sub?.planKey ?? null,
+            status: sub?.status ?? null,
+            currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
+            // Same predicate the write-gate uses, so this page cannot disagree
+            // with what the tenant actually experiences.
+            lapsed: sub
+                ? subscriptionLapsed({
+                      subscriptionStatus: sub.status,
+                      currentPeriodEnd: sub.currentPeriodEnd,
+                  })
+                : false,
+        };
     });
 
     return (
@@ -41,8 +70,9 @@ export default async function PlatformPage() {
                 )}
             </div>
             
-            <PlatformClient 
-                organizations={orgs}
+            <PlatformClient
+                organizations={tenants}
+                plans={assignablePlans}
                 isImpersonating={!!session.isImpersonating}
                 currentOrgId={session.organizationId}
             />

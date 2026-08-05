@@ -7,6 +7,7 @@ import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission, isWritePermission } from "./permissions";
 import { subscriptions, plans } from "@/db/schema/saas";
 import { hasFeature, type FeatureKey } from "./features";
+import { subscriptionLapsed } from "./subscription-status";
 import { checkLimit, type UsageMetric } from "./usage-limits";
 
 /** All store ids belonging to an organization (the org's tenant boundary). */
@@ -21,7 +22,12 @@ export async function getOrgStoreIds(organizationId: string): Promise<string[]> 
  * resolves isDemo — and we never pay a second roundtrip for it.
  */
 async function loadOrgPlanRow(organizationId: string) {
-    const [row] = await db.select({ plan: plans, isDemo: organizations.isDemo })
+    const [row] = await db.select({
+        plan: plans,
+        isDemo: organizations.isDemo,
+        subscriptionStatus: subscriptions.status,
+        currentPeriodEnd: subscriptions.currentPeriodEnd,
+    })
         .from(organizations)
         .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
         .leftJoin(plans, eq(subscriptions.planKey, plans.key))
@@ -29,6 +35,7 @@ async function loadOrgPlanRow(organizationId: string) {
         .limit(1);
     return row;
 }
+
 
 /** The session object Better-Auth returns for an authenticated request. */
 export type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
@@ -69,12 +76,17 @@ export interface AuthContext {
     /** Whether the platform admin is currently impersonating a tenant. */
     isImpersonating?: boolean;
     /**
-     * True when this request belongs to a demo tenant (`organizations.isDemo`).
-     * Mutations must be refused — enforce with {@link requireWritable} (and it is
-     * already hard-blocked inside {@link requireWriteAccess}). platform_admin is
-     * never read-only.
+     * True when mutations must be refused — either a demo tenant
+     * (`organizations.isDemo`) or a subscription that has lapsed. Enforce with
+     * {@link requireWritable} (already hard-blocked inside
+     * {@link requireWriteAccess}). platform_admin is never read-only.
      */
     isReadOnly: boolean;
+    /**
+     * Why the tenant is read-only, so the refusal can say something true. A shop
+     * whose trial ran out must not be told it is in "demo mode".
+     */
+    readOnlyReason?: "demo" | "subscription";
 }
 
 /**
@@ -216,10 +228,23 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
 
         let plan: typeof plans.$inferSelect | null = null;
         let isReadOnly = false;
+        let readOnlyReason: AuthContext["readOnlyReason"];
         if (organizationId) {
             if (orgRow?.plan) plan = orgRow.plan;
             // platform_admin (incl. while impersonating) is never demo-locked.
-            if (!isPlatformAdmin) isReadOnly = orgRow?.isDemo ?? false;
+            if (!isPlatformAdmin) {
+                if (orgRow?.isDemo) {
+                    isReadOnly = true;
+                    readOnlyReason = "demo";
+                } else if (orgRow && subscriptionLapsed(orgRow)) {
+                    // A lapsed subscription drops the tenant to read-only rather than
+                    // locking it out: the shop keeps seeing its own books, can export
+                    // them, and can pay to restore writing. Before this, an expired
+                    // trial kept full write access indefinitely.
+                    isReadOnly = true;
+                    readOnlyReason = "subscription";
+                }
+            }
         }
 
         return {
@@ -232,7 +257,8 @@ export async function requireAuth(): Promise<AuthContext | NextResponse> {
             isImpersonating,
             accessibleStoreIds,
             plan,
-            isReadOnly
+            isReadOnly,
+            readOnlyReason
         };
     } catch {
         return NextResponse.json(
@@ -294,34 +320,45 @@ export async function requireOwnerOrManager(): Promise<AuthContext | NextRespons
     return authResult;
 }
 
+type ReadOnlyLike = { isReadOnly?: boolean; readOnlyReason?: AuthContext["readOnlyReason"] };
+
 /**
- * Refuse the request if it belongs to a demo tenant (read-only). Role-independent:
- * even an owner session in a demo org cannot mutate. Call this at the top of any
- * mutation handler that does NOT already go through {@link requireWriteAccess}.
- * Returns a 403 NextResponse when locked, otherwise null.
+ * The 403 body for a read-only tenant. Single source of truth so a lapsed
+ * subscription is never described as "demo mode" on one route and correctly on
+ * another. `reason` is machine-readable so the UI can offer the right next step
+ * (renew vs. nothing to do).
  */
-export function requireWritable(authResult: { isReadOnly?: boolean }) {
-    if (authResult.isReadOnly) {
-        return NextResponse.json(
-            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
-            { status: 403 }
-        );
-    }
+export function readOnlyResponse(authResult: ReadOnlyLike) {
+    const bySubscription = authResult.readOnlyReason === "subscription";
+    return NextResponse.json(
+        {
+            error: bySubscription
+                ? "Langganan tidak aktif — data masih bisa dilihat, tetapi perubahan dinonaktifkan. Perpanjang langganan untuk melanjutkan."
+                : "Mode demo — perubahan data dinonaktifkan (read-only).",
+            reason: bySubscription ? "subscription_inactive" : "demo",
+        },
+        { status: 403 }
+    );
+}
+
+/**
+ * Refuse the request if the tenant is read-only — a demo org, or one whose
+ * subscription has lapsed. Role-independent: even an owner session cannot mutate.
+ * Call this at the top of any mutation handler that does NOT already go through
+ * {@link requireWriteAccess}. Returns a 403 NextResponse when locked, otherwise null.
+ */
+export function requireWritable(authResult: ReadOnlyLike) {
+    if (authResult.isReadOnly) return readOnlyResponse(authResult);
     return null;
 }
 
 /**
  * Checks if the user has write access (i.e. is not an investor) and is not in a
- * read-only demo tenant. Returns a 403 NextResponse if either fails, otherwise null.
+ * read-only tenant. Returns a 403 NextResponse if either fails, otherwise null.
  */
-export function requireWriteAccess(authResult: { storeRole: string; isReadOnly?: boolean }) {
-    // Demo tenants are read-only regardless of role (see requireWritable).
-    if (authResult.isReadOnly) {
-        return NextResponse.json(
-            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
-            { status: 403 }
-        );
-    }
+export function requireWriteAccess(authResult: { storeRole: string } & ReadOnlyLike) {
+    // Read-only tenants cannot mutate regardless of role (see requireWritable).
+    if (authResult.isReadOnly) return readOnlyResponse(authResult);
     if (authResult.storeRole === "investor") {
         return NextResponse.json(
             { error: "Forbidden — investor role is read-only" },
@@ -361,14 +398,12 @@ export async function requirePermission(permission: Permission): Promise<AuthCon
     // but they're still tenant-scoped via storeScope() in each query.
     if (authResult.isPlatformAdmin) return authResult;
 
-    // Read-only demo tenants: block any write-intent permission regardless of the
-    // caller's role. This is the central choke that lets a demo user carry a broad
-    // role (e.g. manager/owner) for a full menu while staying fully read-only.
+    // Read-only tenants (demo, or a lapsed subscription): block any write-intent
+    // permission regardless of the caller's role. This is the central choke that
+    // lets such a user carry a broad role (e.g. manager/owner) for a full menu and
+    // keep every read — reports, exports, their own books — while staying read-only.
     if (authResult.isReadOnly && isWritePermission(permission)) {
-        return NextResponse.json(
-            { error: "Mode demo — perubahan data dinonaktifkan (read-only)." },
-            { status: 403 }
-        );
+        return readOnlyResponse(authResult);
     }
 
     const role = authResult.storeRole;

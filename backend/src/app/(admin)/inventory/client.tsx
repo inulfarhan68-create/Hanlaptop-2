@@ -40,7 +40,7 @@ import useSWR from "swr"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { apiFetch } from "@/lib/api"
 
-export function InventoryClient({ user, stores }: { user: any, stores: any[] }) {
+export function InventoryClient({ user }: { user: any }) {
     const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()

@@ -1,115 +1,279 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/utils";
+import { AlertTriangle, CheckCircle2, Clock, MessageCircle, Mail, Landmark } from "lucide-react";
 
-function formatDate(dateString: string | null) {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+type Subscription = {
+    planName: string | null;
+    planKey: string;
+    status: string;
+    currentPeriodEnd: string;
+    maxStores: number | null;
+    maxUsers: number | null;
+    maxTransactionsPerMonth: number | null;
+};
+
+type Plan = {
+    key: string;
+    name: string;
+    priceMonthly: number | null;
+    maxStores: number | null;
+    maxUsers: number | null;
+    maxTransactionsPerMonth: number | null;
+};
+
+type Invoice = {
+    id: string;
+    description: string | null;
+    amount: number;
+    status: string;
+    createdAt: string;
+};
+
+type Contact = { whatsapp: string | null; email: string | null; bankInfo: string | null };
+
+const STATUS_LABELS: Record<string, string> = {
+    trialing: "Masa uji coba",
+    active: "Aktif",
+    past_due: "Jatuh tempo",
+    canceled: "Dibatalkan",
+    unpaid: "Belum dibayar",
+};
+
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+    paid: "Lunas",
+    unpaid: "Belum dibayar",
+    void: "Dibatalkan",
+};
+
+function formatDate(iso: string | null) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
-export default function BillingClient({ subscription, invoices, organizationId }: { subscription: any, invoices: any[], organizationId: string }) {
-    const [loading, setLoading] = useState(false);
+/** Whole days from today until `iso`; negative once it has passed. */
+function daysUntil(iso: string) {
+    const end = new Date(iso);
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return Math.round((startOfDay(end) - startOfDay(new Date())) / 86_400_000);
+}
 
-    const handleUpgrade = async (planKey: string) => {
-        setLoading(true);
-        try {
-            const res = await fetch("/api/subscription/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ planKey })
-            });
-            const data = await res.json();
-            if (data.checkoutUrl) {
-                // Redirect to stub checkout or actual payment page
-                window.location.href = data.checkoutUrl;
-            } else {
-                alert(data.error || "Failed to start checkout");
-            }
-        } catch (error) {
-            console.error("Upgrade error", error);
-            alert("Network error");
-        } finally {
-            setLoading(false);
-        }
-    };
+function quota(value: number | null) {
+    return value === null ? "Tanpa batas" : value.toLocaleString("id-ID");
+}
 
-    const handleMockWebhook = async (planKey: string) => {
-        // Developer tool for phase 5: Fake a webhook to instantly upgrade
-        const res = await fetch("/api/webhooks/billing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                type: "payment_success",
-                invoiceId: invoices[0]?.id || "mock-invoice-id",
-                planKey,
-                orgId: organizationId
-            })
-        });
-        if (res.ok) {
-            alert("Webhook triggered. Refreshing page.");
-            window.location.reload();
-        }
-    };
+export default function BillingClient({
+    subscription,
+    lapsed,
+    plans,
+    invoices,
+    organizationName,
+    contact,
+}: {
+    subscription: Subscription | null;
+    lapsed: boolean;
+    plans: Plan[];
+    invoices: Invoice[];
+    organizationName: string;
+    contact: Contact;
+}) {
+    const remaining = subscription ? daysUntil(subscription.currentPeriodEnd) : null;
+    // Renewal is a conversation, not a checkout — surface it early while the shop
+    // still has days left, not only once it is already locked.
+    const endingSoon = remaining !== null && remaining >= 0 && remaining <= 7;
+    const hasContact = Boolean(contact.whatsapp || contact.email || contact.bankInfo);
+
+    const waLink = contact.whatsapp
+        ? `https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+              `Halo, saya ingin memperpanjang langganan HanLaptop POS untuk toko "${organizationName}".`
+          )}`
+        : null;
 
     return (
-        <div className="space-y-8">
-            <Card>
+        <div className="space-y-6">
+            <Card className={lapsed ? "border-amber-500" : endingSoon ? "border-amber-400/60" : undefined}>
                 <CardHeader>
-                    <CardTitle>Current Plan: {subscription?.plan?.name || "None"}</CardTitle>
+                    <CardTitle className="flex flex-wrap items-center gap-2">
+                        <span>Paket {subscription?.planName ?? subscription?.planKey ?? "—"}</span>
+                        {subscription && (
+                            <span
+                                className={
+                                    lapsed
+                                        ? "inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                                        : "inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+                                }
+                            >
+                                {lapsed ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                                {STATUS_LABELS[subscription.status] ?? subscription.status}
+                            </span>
+                        )}
+                    </CardTitle>
                     <CardDescription>
-                        Status: <span className="capitalize font-semibold">{subscription?.status || "inactive"}</span>
+                        {!subscription ? (
+                            "Toko ini belum memiliki langganan aktif."
+                        ) : lapsed ? (
+                            <>
+                                Masa aktif berakhir {formatDate(subscription.currentPeriodEnd)}. Data Anda
+                                tetap tersimpan dan bisa dilihat serta diekspor, tetapi penyimpanan
+                                perubahan dinonaktifkan sampai langganan diperpanjang.
+                            </>
+                        ) : (
+                            <>
+                                Aktif sampai {formatDate(subscription.currentPeriodEnd)}
+                                {remaining !== null && remaining >= 0 && (
+                                    <> · sisa {remaining} hari</>
+                                )}
+                            </>
+                        )}
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="text-sm space-y-2">
-                        <p><strong>Renewal Date:</strong> {subscription?.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : 'N/A'}</p>
-                        <p><strong>Transactions Limit:</strong> {subscription?.plan?.maxTransactionsPerMonth === null ? "Unlimited" : subscription?.plan?.maxTransactionsPerMonth}</p>
-                        <p><strong>Stores Limit:</strong> {subscription?.plan?.maxStores === null ? "Unlimited" : subscription?.plan?.maxStores}</p>
-                    </div>
-                </CardContent>
-                <CardFooter className="gap-2">
-                    <Button onClick={() => handleUpgrade("pro")} disabled={loading}>
-                        Upgrade to Pro
-                    </Button>
-                    <Button variant="outline" onClick={() => handleUpgrade("business")} disabled={loading}>
-                        Upgrade to Business
-                    </Button>
-                </CardFooter>
-            </Card>
 
-            {/* Developer Only Tools to test Phase 5 stub */}
-            <Card className="border-red-500 bg-red-50/50 dark:bg-red-950/20">
-                <CardHeader>
-                    <CardTitle className="text-red-500">Developer Stub Tools</CardTitle>
-                    <CardDescription>Simulate webhook callbacks for testing.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => handleMockWebhook("pro")}>Simulate Pro Payment</Button>
-                    <Button variant="secondary" size="sm" onClick={() => handleMockWebhook("business")}>Simulate Business Payment</Button>
-                </CardContent>
+                {subscription && (
+                    <CardContent>
+                        <dl className="grid gap-4 sm:grid-cols-3 text-sm">
+                            <div>
+                                <dt className="text-muted-foreground">Batas cabang</dt>
+                                <dd className="font-medium">{quota(subscription.maxStores)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground">Batas pengguna</dt>
+                                <dd className="font-medium">{quota(subscription.maxUsers)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground">Transaksi / bulan</dt>
+                                <dd className="font-medium">{quota(subscription.maxTransactionsPerMonth)}</dd>
+                            </div>
+                        </dl>
+
+                        {endingSoon && !lapsed && (
+                            <p className="mt-4 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
+                                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                                <span>
+                                    Masa aktif tinggal {remaining} hari. Perpanjang sebelum tanggal
+                                    tersebut agar penyimpanan data tidak terhenti.
+                                </span>
+                            </p>
+                        )}
+                    </CardContent>
+                )}
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Invoice History</CardTitle>
+                    <CardTitle>Cara memperpanjang</CardTitle>
+                    <CardDescription>
+                        Pembayaran diproses manual. Setelah transfer dikonfirmasi, masa aktif toko
+                        Anda langsung diperpanjang oleh admin.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {contact.bankInfo && (
+                        <div className="flex items-start gap-3 rounded-md border p-3">
+                            <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium">Transfer ke</p>
+                                <p className="whitespace-pre-line break-words text-sm text-muted-foreground">
+                                    {contact.bankInfo}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Plain anchors, not <Button asChild>: this Button renders a <span>
+                        rather than a Radix Slot, so the padding around the link text
+                        would not be clickable. */}
+                    <div className="flex flex-wrap gap-2">
+                        {waLink && (
+                            <a
+                                href={waLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                            >
+                                <MessageCircle className="h-4 w-4" /> Hubungi via WhatsApp
+                            </a>
+                        )}
+                        {contact.email && (
+                            <a
+                                href={`mailto:${contact.email}?subject=${encodeURIComponent(`Perpanjangan langganan — ${organizationName}`)}`}
+                                className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                            >
+                                <Mail className="h-4 w-4" /> {contact.email}
+                            </a>
+                        )}
+                    </div>
+
+                    {/* No invented bank account or phone number: with nothing configured
+                        the page says who to ask instead of printing a fake channel. */}
+                    {!hasContact && (
+                        <p className="text-sm text-muted-foreground">
+                            Hubungi admin HanLaptop POS untuk memperpanjang langganan toko Anda.
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
+
+            {plans.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Pilihan paket</CardTitle>
+                        <CardDescription>Sebutkan paket yang Anda inginkan saat menghubungi admin.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {plans.map((plan) => {
+                                const isCurrent = subscription?.planKey === plan.key;
+                                return (
+                                    <div
+                                        key={plan.key}
+                                        className={`rounded-lg border p-4 ${isCurrent ? "border-primary bg-primary/5" : ""}`}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="font-semibold">{plan.name}</p>
+                                            {isCurrent && (
+                                                <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-white">
+                                                    Paket Anda
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {plan.priceMonthly === null
+                                                ? "Hubungi kami"
+                                                : `${formatCurrency(plan.priceMonthly)} / bulan`}
+                                        </p>
+                                        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                                            <li>{quota(plan.maxStores)} cabang</li>
+                                            <li>{quota(plan.maxUsers)} pengguna</li>
+                                            <li>{quota(plan.maxTransactionsPerMonth)} transaksi/bulan</li>
+                                        </ul>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Riwayat tagihan</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {invoices.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No invoices found.</p>
+                        <p className="text-sm text-muted-foreground">Belum ada tagihan.</p>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {invoices.map((inv) => (
-                                <div key={inv.id} className="flex justify-between items-center p-4 border rounded-md">
-                                    <div>
-                                        <p className="font-medium">{inv.description}</p>
+                                <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-4">
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium">{inv.description ?? "Tagihan langganan"}</p>
                                         <p className="text-sm text-muted-foreground">{formatDate(inv.createdAt)}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-semibold">Rp {inv.amount.toLocaleString()}</p>
-                                        <p className={`text-sm ${inv.status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                            {inv.status.toUpperCase()}
+                                        <p className="font-semibold">{formatCurrency(inv.amount)}</p>
+                                        <p className={`text-sm ${inv.status === "paid" ? "text-emerald-600" : "text-amber-600"}`}>
+                                            {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
                                         </p>
                                     </div>
                                 </div>
