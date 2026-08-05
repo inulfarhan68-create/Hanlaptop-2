@@ -137,7 +137,14 @@ export default function PlatformClient({
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {organizations.map((org) => (
-                    <Card key={org.id} className={currentOrgId === org.id ? "border-primary shadow-md" : ""}>
+                    <Card
+                        key={org.id}
+                        // A labelled group per tenant: the cards are otherwise an
+                        // undifferentiated wall of identical controls to a screen reader.
+                        role="group"
+                        aria-label={org.name}
+                        className={currentOrgId === org.id ? "border-primary shadow-md" : ""}
+                    >
                         <CardHeader className="pb-2">
                             <CardTitle className="text-xl flex items-center justify-between gap-2">
                                 <span className="truncate">{org.name}</span>
@@ -211,10 +218,20 @@ export default function PlatformClient({
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <Button size="sm" className="flex-1" disabled={saving || !planKey} onClick={() => submitRenew(org)}>
+                                        {/* Every card renders the same button labels, so the
+                                            accessible name has to carry the tenant or a screen
+                                            reader hears "Catat pembayaran" N times with no way
+                                            to tell which shop is about to be charged. */}
+                                        <Button
+                                            size="sm"
+                                            className="flex-1"
+                                            disabled={saving || !planKey}
+                                            aria-label={`Catat pembayaran ${org.name}`}
+                                            onClick={() => submitRenew(org)}
+                                        >
                                             {saving ? "Menyimpan…" : "Catat pembayaran"}
                                         </Button>
-                                        <Button size="sm" variant="ghost" disabled={saving} onClick={() => setRenewing(null)}>
+                                        <Button size="sm" variant="ghost" disabled={saving} aria-label={`Batal ${org.name}`} onClick={() => setRenewing(null)}>
                                             Batal
                                         </Button>
                                     </div>
@@ -227,6 +244,7 @@ export default function PlatformClient({
                                 <Button
                                     variant={org.lapsed && !org.isDemo ? "default" : "outline"}
                                     className="w-full gap-2"
+                                    aria-label={`${org.planKey ? "Perpanjang langganan" : "Aktifkan langganan"} ${org.name}`}
                                     onClick={() => openRenew(org)}
                                     disabled={loading || plans.length === 0}
                                 >
@@ -239,6 +257,7 @@ export default function PlatformClient({
                                 <Button
                                     variant="outline"
                                     className="w-full gap-2 border-primary/50 text-primary hover:bg-primary/10"
+                                    aria-label={`Impersonate ${org.name}`}
                                     onClick={() => handleImpersonate(org.id)}
                                     disabled={loading}
                                 >
