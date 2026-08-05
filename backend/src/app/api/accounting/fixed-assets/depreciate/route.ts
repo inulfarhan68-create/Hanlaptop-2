@@ -4,6 +4,7 @@ import { fixedAssets, depreciationEntries, fiscalPeriods, journalEntries, chartO
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireReportAccess, requireOwner, requireFeature } from "@/lib/auth-guard";
 import { calculateMonthlyDepreciation } from "@/services/AccountingService";
+import { requireSpecificStore } from "@/lib/require-store";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,11 @@ export async function POST(request: Request) {
 
     const featureCheck = await requireFeature("fixedAssets", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
+
+    // "all" is a sentinel, not a store id; this row has a foreign key to
+    // stores.id, so persisting it means a 500. See lib/require-store.ts.
+    const storeCheck = requireSpecificStore(authResult, "penyusutan aset");
+    if (storeCheck) return storeCheck;
 
     try {
         const body = await request.json();
