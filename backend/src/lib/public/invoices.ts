@@ -27,16 +27,44 @@ export const getPublicInvoice = cache(async (id: string): Promise<
     }
   }
 
+  // Every column here reaches the open internet: a nota link is handed to the
+  // customer and forwarded over WhatsApp, with no auth on the way in. So this
+  // selects the fields the receipt prints and nothing else.
+  //
+  // It used to return the whole transaction row with `inventoryItem: true`,
+  // `journals: true` and `customer: true`. That published the shop's costPrice
+  // and supplierId for every item sold, the double-entry journal lines behind
+  // the sale, and the customer's full record — anyone holding a nota link could
+  // read the margin on their own purchase. costPrice is masked from a cashier
+  // (CLAUDE.md #10); it must not be world-readable.
   const tx = await db.query.transactions.findFirst({
     where: eq(transactions.id, cleanId),
+    columns: {
+      id: true,
+      invoiceNumber: true,
+      transactionType: true,
+      transactionDate: true,
+      amount: true,
+      discountAmount: true,
+      dpAmount: true,
+      dueDate: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      description: true,
+      customerName: true,
+      // Not printed — needed below to resolve the store's letterhead and to
+      // refuse a voided nota.
+      storeId: true,
+      isVoided: true,
+    },
     with: {
       items: {
-        with: {
-          inventoryItem: true,
-        },
+        columns: { id: true, quantity: true, unitPrice: true, serialNumbers: true },
+        // itemName only: the rest of the inventory row is internal.
+        with: { inventoryItem: { columns: { itemName: true } } },
       },
-      journals: true,
-      customer: true,
+      // The receipt shows who it is addressed to, not the CRM record (no notes).
+      customer: { columns: { name: true, phone: true, address: true } },
     },
   });
 

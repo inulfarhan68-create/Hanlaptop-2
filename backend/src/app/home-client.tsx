@@ -785,7 +785,10 @@ export default function LandingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storeId: storeInfo?.store?.id || "default",
+          // No "default" fallback: no store carries that id, so it used to reach
+          // the server and die on the foreign key as a 500. Sending nothing gets
+          // a clear "toko wajib dipilih" from validation instead.
+          storeId: storeInfo?.store?.id || "",
           customerName: jualName,
           customerPhone: jualPhone,
           brand: `${jualBrand} ${jualModel}`,
@@ -844,7 +847,10 @@ export default function LandingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storeId: storeInfo?.store?.id || "default",
+          // No "default" fallback: no store carries that id, so it used to reach
+          // the server and die on the foreign key as a 500. Sending nothing gets
+          // a clear "toko wajib dipilih" from validation instead.
+          storeId: storeInfo?.store?.id || "",
           customerName: jualName,
           customerPhone: jualPhone,
           brand: (document.getElementById("tradeInOldModel") as HTMLInputElement)?.value || `${jualBrand} ${jualModel}` || "Lama",
@@ -961,7 +967,10 @@ export default function LandingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storeId: storeInfo?.store?.id || "default",
+          // No "default" fallback: no store carries that id, so it used to reach
+          // the server and die on the foreign key as a 500. Sending nothing gets
+          // a clear "toko wajib dipilih" from validation instead.
+          storeId: storeInfo?.store?.id || "",
           customerName: servisName,
           customerPhone: servisPhone,
           customerAddress: servisAddress,

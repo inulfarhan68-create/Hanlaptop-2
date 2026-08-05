@@ -1,7 +1,16 @@
 import { db } from "@/db";
 import { chartOfAccounts, journalEntries } from "@/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, inArray } from "drizzle-orm";
+import { storeScope, type AuthContext } from "@/lib/auth-guard";
 import { ACCOUNT_CODES } from "../constants/accounting";
+
+/**
+ * The tenant bound every function here needs. Taking the auth context rather
+ * than a bare `storeId` string is deliberate: `authResult.storeId` is `"all"`
+ * for an owner, which is a sentinel and not a store id, so comparing against it
+ * matches nothing. `storeScope` resolves it to the caller's real store ids.
+ */
+type Scope = Pick<AuthContext, "accessibleStoreIds">;
 
 /**
  * Mapping dari accountName ke accountCode berdasarkan COA
@@ -217,32 +226,38 @@ export function getAccountCodeFromName(accountName: string | null): string | nul
  * Map all unmapped journal entries to account codes
  * Returns count of entries updated
  */
-export async function mapUnmappedJournalEntries(storeId?: string): Promise<number> {
-    // Get entries without account_code
-    let query = db.select({
+export async function mapUnmappedJournalEntries(scope: Scope): Promise<number> {
+    // Bound in SQL, not in JS. This used to select every tenant's unmapped
+    // entries and then skip the foreign ones with
+    // `if (storeId && entry.storeId !== storeId) continue`, which had two
+    // consequences: the caller's process held other tenants' rows, and for an
+    // owner — whose storeId is the "all" sentinel — nothing ever matched, so the
+    // endpoint silently mapped zero entries and reported success.
+    const entries = await db.select({
         id: journalEntries.id,
         accountName: journalEntries.accountName,
-        storeId: journalEntries.storeId
     })
     .from(journalEntries)
-    .where(isNull(journalEntries.accountCode));
-
-    const entries = await query;
+    .where(and(isNull(journalEntries.accountCode), storeScope(scope, journalEntries.storeId)));
 
     let updatedCount = 0;
+    const byCode = new Map<string, string[]>();
 
     for (const entry of entries) {
-        // Filter by storeId if provided
-        if (storeId && entry.storeId !== storeId) continue;
-
         const code = getAccountCodeFromName(entry.accountName);
-        if (code) {
-            await db.update(journalEntries)
-                .set({ accountCode: code })
-                .where(eq(journalEntries.id, entry.id));
-            updatedCount++;
-            console.log(`Mapped: ${entry.accountName} -> ${code}`);
-        }
+        if (!code) continue;
+        const ids = byCode.get(code);
+        if (ids) ids.push(entry.id);
+        else byCode.set(code, [entry.id]);
+        updatedCount++;
+    }
+
+    // One UPDATE per distinct code instead of one per row — a full mapping run
+    // over a busy ledger was thousands of round-trips.
+    for (const [code, ids] of byCode) {
+        await db.update(journalEntries)
+            .set({ accountCode: code })
+            .where(inArray(journalEntries.id, ids));
     }
 
     return updatedCount;
@@ -251,22 +266,25 @@ export async function mapUnmappedJournalEntries(storeId?: string): Promise<numbe
 /**
  * Get mapping statistics
  */
-export async function getMappingStats(storeId?: string) {
-    const allEntries = await db.select({ count: sql<number>`count(*)` })
-        .from(journalEntries);
-
-    const unmappedEntries = await db.select({ count: sql<number>`count(*)` })
-        .from(journalEntries)
-        .where(isNull(journalEntries.accountCode));
-
-    const mappedEntries = await db.select({ count: sql<number>`count(*)` })
-        .from(journalEntries)
-        .where(sql`${journalEntries.accountCode} IS NOT NULL`);
+export async function getMappingStats(scope: Scope) {
+    // These three counts used to run with no WHERE on storeId at all — the
+    // `storeId` parameter was accepted and then never referenced — so every
+    // tenant was shown the whole platform's journal totals.
+    //
+    // One aggregate rather than three round-trips, same shape as the reports in
+    // AccountingService.
+    const [row] = await db.select({
+        total: sql<number>`count(*)`,
+        mapped: sql<number>`count(*) FILTER (WHERE ${journalEntries.accountCode} IS NOT NULL)`,
+        unmapped: sql<number>`count(*) FILTER (WHERE ${journalEntries.accountCode} IS NULL)`,
+    })
+    .from(journalEntries)
+    .where(storeScope(scope, journalEntries.storeId));
 
     return {
-        total: Number(allEntries[0]?.count) || 0,
-        mapped: Number(mappedEntries[0]?.count) || 0,
-        unmapped: Number(unmappedEntries[0]?.count) || 0
+        total: Number(row?.total) || 0,
+        mapped: Number(row?.mapped) || 0,
+        unmapped: Number(row?.unmapped) || 0,
     };
 }
 
@@ -274,28 +292,37 @@ export async function getMappingStats(storeId?: string) {
  * Validate that account_code exists in COA
  * Returns list of invalid mappings
  */
-export async function validateMappings(): Promise<{ invalidId: string; invalidCode: string; accountName: string }[]> {
+export async function validateMappings(scope: Scope): Promise<{ invalidId: string; invalidCode: string; accountName: string }[]> {
+    // Took no scope at all before, so it walked every tenant's ledger and
+    // returned their entry ids and account names to whoever asked. The COA
+    // lookup was unscoped too, which meant a code was judged "valid" if ANY
+    // tenant happened to have it — the check could pass on someone else's books.
+    const bound = storeScope(scope, journalEntries.storeId);
+
     const entriesWithCode = await db.select({
         id: journalEntries.id,
         accountCode: journalEntries.accountCode,
         accountName: journalEntries.accountName
     })
     .from(journalEntries)
-    .where(sql`${journalEntries.accountCode} IS NOT NULL`);
+    .where(and(sql`${journalEntries.accountCode} IS NOT NULL`, bound));
+
+    if (entriesWithCode.length === 0) return [];
+
+    // The caller's own active COA, read once. This was a findFirst per entry —
+    // one round-trip per journal line.
+    const coaRows = await db.select({ code: chartOfAccounts.code })
+        .from(chartOfAccounts)
+        .where(and(
+            eq(chartOfAccounts.isActive, true),
+            storeScope(scope, chartOfAccounts.storeId)
+        ));
+    const validCodes = new Set(coaRows.map((r) => r.code));
 
     const invalidMappings: { invalidId: string; invalidCode: string; accountName: string }[] = [];
-
     for (const entry of entriesWithCode) {
         if (!entry.accountCode) continue;
-
-        const coa = await db.query.chartOfAccounts.findFirst({
-            where: and(
-                eq(chartOfAccounts.code, entry.accountCode),
-                eq(chartOfAccounts.isActive, true)
-            )
-        });
-
-        if (!coa) {
+        if (!validCodes.has(entry.accountCode)) {
             invalidMappings.push({
                 invalidId: entry.id,
                 invalidCode: entry.accountCode,

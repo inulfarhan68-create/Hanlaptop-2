@@ -11,3 +11,11 @@ data/*.db-shm
 # Playwright e2e output (regenerated per run)
 test-results/
 playwright-report/
+
+# TypeScript incremental build cache. Rewritten by every `tsc --noEmit` and
+# `next build`, so tracking it left the tree permanently dirty and the file had
+# to be hand-excluded from every commit. Unanchored on purpose, unlike the
+# `/logs/` entry in the root .gitignore: that one is a directory NAME that would
+# match at any depth, whereas this is a file extension no source file uses, and
+# each tsconfig emits its own (tsconfig.tsbuildinfo, tsconfig.test.tsbuildinfo…).
+*.tsbuildinfo

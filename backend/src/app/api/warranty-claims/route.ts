@@ -4,6 +4,7 @@ import { warrantyClaims, activityLogs, transactions, customers } from "@/db/sche
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
 import { warrantyClaimSchema } from "@/lib/validators";
+import { requireSpecificStore } from "@/lib/require-store";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
     
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;
+
+    // "all" is a sentinel, not a store id; this row has a foreign key to
+    // stores.id, so persisting it means a 500. See lib/require-store.ts.
+    const storeCheck = requireSpecificStore(authResult, "klaim garansi");
+    if (storeCheck) return storeCheck;
 
     try {
         const body = await request.json();
