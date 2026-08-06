@@ -1,12 +1,40 @@
 import { NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, checkGlobalDailyLimit } from "@/lib/rate-limit";
+import { getSession } from "@/lib/session";
+import { requireAuth, requireFeature } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
+/** Anonymous estimates the landing page may spend per day, platform-wide. */
+const PUBLIC_DAILY_ESTIMATES = 200;
+
 export async function POST(request: Request) {
-    // 1. Rate Limiting (limit to 15 requests per minute per IP for AI safety)
+    // Per-IP first: cheap, and it stops one visitor hammering it.
     const rateLimitResponse = await checkRateLimit(request, 15, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
+
+    // This endpoint serves two audiences and they need different rules.
+    //
+    // Four ADMIN surfaces call it — inventory, procurement, RestockTab,
+    // TradeInTab — so for a signed-in shop it is not a public teaser at all, it
+    // is the paid AI pricing feature. Gating it by plan there is the whole point;
+    // /api/ai/pricing, the endpoint that looks like it should carry that gate, is
+    // called by nothing.
+    //
+    // For an anonymous visitor it stays open: it is the lead magnet on the
+    // landing page, and asking someone to sign up before they can see what the
+    // product does defeats it. What it gets instead is a platform-wide daily
+    // ceiling, because per-IP limits cap one visitor, not the Gemini bill.
+    const session = await getSession();
+    if (session) {
+        const authResult = await requireAuth();
+        if (authResult instanceof NextResponse) return authResult;
+        const featureCheck = await requireFeature("aiPricing", authResult);
+        if (featureCheck instanceof NextResponse) return featureCheck;
+    } else {
+        const capped = await checkGlobalDailyLimit("ai-estimate", PUBLIC_DAILY_ESTIMATES);
+        if (capped) return capped;
+    }
 
     try {
         const body = await request.json();

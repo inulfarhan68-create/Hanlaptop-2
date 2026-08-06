@@ -208,3 +208,59 @@ export async function checkRateLimit(
     
     return null;
 }
+
+/**
+ * A ceiling on how often something may happen ACROSS the whole platform, not per
+ * caller.
+ *
+ * Per-IP limiting caps one visitor; it does nothing about the total bill. The
+ * public buyback estimate calls Gemini on every request and sits on the landing
+ * page as a lead magnet, so its cost scales with traffic — including bot traffic
+ * — with no upper bound. This is that bound.
+ *
+ * Keyed on a fixed name rather than the caller, and on the UTC date so it resets
+ * daily. Falls back to the in-memory map when Upstash is absent (local dev),
+ * where "global" only means "this process" — acceptable for dev, and the reason
+ * production needs Redis for this to mean anything.
+ *
+ * Returns a 429 when the ceiling is reached, otherwise null.
+ */
+export async function checkGlobalDailyLimit(
+    name: string,
+    limit: number
+): Promise<NextResponse | null> {
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `global:${name}:${day}`;
+    const refusal = NextResponse.json(
+        {
+            error: "Kuota estimasi AI harian sudah habis. Silakan coba lagi besok, atau hubungi kami langsung.",
+            code: "DAILY_QUOTA_REACHED",
+        },
+        { status: 429 }
+    );
+
+    if (upstashUrl && upstashToken) {
+        try {
+            const redis = new Redis({ url: upstashUrl, token: upstashToken });
+            const used = await redis.incr(key);
+            // Only the first write needs an expiry; re-setting it every call would
+            // slide the window forward and the counter would never reset.
+            if (used === 1) await redis.expire(key, 2 * 24 * 60 * 60);
+            return used > limit ? refusal : null;
+        } catch (e) {
+            console.error("Global daily limiter failed, falling back to local memory:", e);
+        }
+    }
+
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+    if (!entry || now > entry.resetTime) {
+        // Midnight UTC, so the local fallback resets on the same boundary as the key.
+        const tomorrow = new Date();
+        tomorrow.setUTCHours(24, 0, 0, 0);
+        rateLimitMap.set(key, { count: 1, resetTime: tomorrow.getTime() });
+        return null;
+    }
+    entry.count++;
+    return entry.count > limit ? refusal : null;
+}

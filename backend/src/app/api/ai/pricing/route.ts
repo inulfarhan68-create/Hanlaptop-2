@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { aiPricingLogs } from "@/db/schema";
-import { requireAuth, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { checkRateLimitTier } from "@/lib/rate-limit";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
@@ -40,6 +40,13 @@ export async function POST(request: Request) {
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
+
+    // Pro and above, same as the other AI routes. Note this endpoint currently
+    // has no caller in the app — the admin AI pricing surfaces all go through
+    // /api/public/buyback/estimate — but it is reachable, so it is gated rather
+    // than left as an ungated way in.
+    const featureCheck = await requireFeature("aiPricing", authResult);
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

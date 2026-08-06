@@ -54,6 +54,17 @@ export const FEATURES = {
     technicianCommission: "Komisi Teknisi",
     auditTrail: "Audit Trail",
     approvals: "Approval Workflow",
+    // ── AI ──
+    // Advertised since launch but never gateable: they existed only in the
+    // marketing ADDONS list, not here, so nothing could check them and every
+    // plan got them free — each call spending Gemini credit. Bundled into Pro
+    // rather than sold separately: there is no add-on purchase path, and
+    // building billing for one before a single customer has asked to buy it
+    // would be inventing demand.
+    aiSpec: "AI Cek Spesifikasi",
+    aiOcr: "AI OCR Invoice",
+    aiPricing: "AI Pricing & Buyback",
+
     // ── Enterprise ──
     api: "API",
     whiteLabel: "White Label",
@@ -98,6 +109,11 @@ const CORE: FeatureKey[] = [
 const PRO_ADDS: FeatureKey[] = [
     "service", "buyback", "bulkImport", "catalog", "flyer", "markdown",
     "devicePassport", "specSummary", "agingInventory", "consignment", "accounting", "roles",
+    // AI starts at Pro. It is the differentiator that demos in ten seconds
+    // ("photograph the laptop, the specs fill themselves in"), and it is also
+    // the only feature that costs real money per use — so the tenants using it
+    // should be the ones paying more than Rp69rb.
+    "aiSpec", "aiOcr", "aiPricing",
 ];
 const BUSINESS_ADDS: FeatureKey[] = [
     "multiStore", "stockTransfer", "stockOpname", "qc", "purchaseOrder",
@@ -173,10 +189,10 @@ export const PLAN_SEED: PlanSeed[] = [
 ];
 
 /** Paid add-ons (variable-cost / premium), billed separately from the base plan. */
+// Genuinely sold separately. The three AI entries used to sit here too, which
+// was the problem: advertised as buyable with no way to buy them, and handed to
+// everyone meanwhile. They are Pro features now — see PRO_ADDS.
 export const ADDONS = [
-    { key: "aiSpec", name: "AI Cek Spesifikasi", desc: "Isi otomatis spek lengkap hanya dari foto atau serial number laptop." },
-    { key: "aiOcr", name: "AI OCR Invoice", desc: "Scan & impor nota/faktur supplier otomatis jadi data stok." },
-    { key: "aiPricing", name: "AI Pricing & Buyback", desc: "Prediksi cerdas estimasi harga jual & beli berdasarkan data pasar." },
     { key: "whatsapp", name: "WhatsApp API (Verified)", desc: "Kirim nota & pengingat servis otomatis ke pelanggan." },
     { key: "customDomain", name: "Custom Domain", desc: "Katalog online & portal pelanggan menggunakan domain toko Anda." },
     { key: "storage", name: "Cloud Storage Ekstra", desc: "Kapasitas 100GB tambahan untuk foto barang, KTP, dan bukti servis." },
