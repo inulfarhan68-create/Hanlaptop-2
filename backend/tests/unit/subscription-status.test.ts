@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { subscriptionLapsed, addMonths, PAYING_STATUSES } from "@/lib/subscription-status";
+import { subscriptionLapsed, addMonths, daysUntilLapse, EXPIRY_WARNING_DAYS, PAYING_STATUSES } from "@/lib/subscription-status";
 import { manualSubscriptionSchema } from "@/lib/validators";
 
 // Locks the rule that decides whether a paying tenant keeps write access.
@@ -98,6 +98,43 @@ describe("addMonths", () => {
             const from = at(2026, 1, 31);
             expect(addMonths(from, months).getTime()).toBeGreaterThan(from.getTime());
         }
+    });
+});
+
+// Decides whether a shop is warned before its tills stop. Warning a day late is
+// the failure that matters — by then the save has already been refused.
+describe("daysUntilLapse", () => {
+    const at = (y: number, m: number, d: number, h = 9) => new Date(y, m - 1, d, h);
+    const sub = (end: Date, status = "trialing") => ({ subscriptionStatus: status, currentPeriodEnd: end });
+
+    it("counts whole calendar days, not elapsed hours", () => {
+        // 23:00 today -> 08:00 tomorrow is under 24h but is still "besok".
+        // Counting hours would floor that to 0 and say the shop expires today.
+        expect(daysUntilLapse(sub(at(2026, 8, 6, 8)), at(2026, 8, 5, 23))).toBe(1);
+    });
+
+    it("returns 0 on the last valid day, while the shop can still work", () => {
+        expect(daysUntilLapse(sub(at(2026, 8, 5, 23)), at(2026, 8, 5, 9))).toBe(0);
+    });
+
+    it("stays quiet outside the warning window", () => {
+        expect(daysUntilLapse(sub(at(2026, 8, 12)), at(2026, 8, 5))).toBe(EXPIRY_WARNING_DAYS);
+        expect(daysUntilLapse(sub(at(2026, 8, 13)), at(2026, 8, 5))).toBeNull();
+        expect(daysUntilLapse(sub(at(2027, 1, 1)), at(2026, 8, 5))).toBeNull();
+    });
+
+    it("says nothing once it has already lapsed — the read-only banner owns that", () => {
+        // Two banners about the same subscription would contradict each other.
+        expect(daysUntilLapse(sub(at(2026, 8, 4)), at(2026, 8, 5))).toBeNull();
+        expect(daysUntilLapse(sub(at(2026, 8, 10), "past_due"), at(2026, 8, 5))).toBeNull();
+    });
+
+    it("says nothing for an org with no subscription", () => {
+        expect(daysUntilLapse({ subscriptionStatus: null, currentPeriodEnd: null }, at(2026, 8, 5))).toBeNull();
+    });
+
+    it("warns an active paid plan too, not just a trial", () => {
+        expect(daysUntilLapse(sub(at(2026, 8, 8), "active"), at(2026, 8, 5))).toBe(3);
     });
 });
 

@@ -5,7 +5,7 @@ import { TenantProvider } from "@/components/TenantProvider";
 import { db } from "@/db";
 import { stores, userStoreAccess, organizations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/saas";
-import { subscriptionLapsed } from "@/lib/subscription-status";
+import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
 import type { ReadOnlyReason } from "@/components/layout/ReadOnlyBanner";
 import { eq } from "drizzle-orm";
 
@@ -55,7 +55,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // right on first paint. Mirrors requireAuth's rule (demo, or lapsed
   // subscription; platform_admin is never locked) — run alongside the store
   // query so it costs no extra latency.
-  const readOnlyPromise: Promise<ReadOnlyReason | undefined> =
+  //
+  // It also resolves how close a still-valid subscription is to lapsing. The
+  // billing page carried that warning already, but only for someone who thought
+  // to open it — so in practice the first signal a shop got was a save failing
+  // mid-sale. Warning in the shell reaches them while renewing is still routine.
+  type ShellNotice = { readOnly?: ReadOnlyReason; expiringInDays?: number };
+  const noticePromise: Promise<ShellNotice> =
     organizationId && role !== "platform_admin"
       ? db
           .select({
@@ -67,19 +73,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
           .where(eq(organizations.id, organizationId))
           .limit(1)
-          .then(([org]) => {
-            if (!org) return undefined;
-            if (org.isDemo) return "demo" as const;
-            return subscriptionLapsed(org) ? ("subscription" as const) : undefined;
+          .then(([org]): ShellNotice => {
+            if (!org) return {};
+            if (org.isDemo) return { readOnly: "demo" };
+            if (subscriptionLapsed(org)) return { readOnly: "subscription" };
+            // null unless it lapses within the warning window.
+            const days = daysUntilLapse(org);
+            return days === null ? {} : { expiringInDays: days };
           })
-      : Promise.resolve(undefined);
+      : Promise.resolve({});
 
-  const [allStores, readOnlyReason] = await Promise.all([storesPromise, readOnlyPromise]);
+  const [allStores, notice] = await Promise.all([storesPromise, noticePromise]);
   const defaultStore = allStores.length > 0 ? allStores[0] : null;
 
   return (
     <TenantProvider initialStores={allStores} defaultStore={defaultStore}>
-      <ClientLayout user={session.user} readOnlyReason={readOnlyReason}>
+      <ClientLayout
+        user={session.user}
+        readOnlyReason={notice.readOnly}
+        expiringInDays={notice.expiringInDays}
+      >
         {children}
       </ClientLayout>
     </TenantProvider>
