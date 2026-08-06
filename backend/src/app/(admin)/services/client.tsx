@@ -648,44 +648,36 @@ export default function ServicesClient({ user }: { user: any }) {
       </div>
 
       {/* Stats Board Panel */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 shrink-0">
-        <Card className="bg-card border-border/60 shadow-sm">
-          <CardContent className="p-3 md:p-3.5 flex flex-col justify-center">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">Servis Aktif</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-lg md:text-2xl font-extrabold text-blue-600 dark:text-blue-400">{totalActiveCount}</span>
-              <span className="text-[9px] md:text-[10px] text-muted-foreground font-medium">unit antrean</span>
+      <div className="flex flex-wrap lg:flex-nowrap gap-2 mb-4 shrink-0">
+        <div className="flex-1 flex flex-col justify-center bg-blue-500/5 border border-blue-500/20 rounded-xl p-2 px-3">
+            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Servis Aktif</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-sm md:text-base font-bold text-blue-600 dark:text-blue-400">{totalActiveCount}</span>
+              <span className="text-[9px] text-muted-foreground">antrean</span>
             </div>
-          </CardContent>
-        </Card>
+        </div>
         
-        <Card className="bg-card border-border/60 shadow-sm">
-          <CardContent className="p-3 md:p-3.5 flex flex-col justify-center">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">Estimasi Antrean</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-lg md:text-2xl font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(estimatedQueueValue)}</span>
+        <div className="flex-1 flex flex-col justify-center bg-amber-500/5 border border-amber-500/20 rounded-xl p-2 px-3">
+            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Est. Antrean</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-sm md:text-base font-bold text-amber-600 dark:text-amber-400">{formatCurrency(estimatedQueueValue)}</span>
             </div>
-          </CardContent>
-        </Card>
+        </div>
 
-        <Card className="bg-card border-border/60 shadow-sm">
-          <CardContent className="p-3 md:p-3.5 flex flex-col justify-center">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">Selesai Hari Ini</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-lg md:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{finishedTodayCount}</span>
-              <span className="text-[9px] md:text-[10px] text-muted-foreground font-medium">unit</span>
+        <div className="flex-1 flex flex-col justify-center bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-2 px-3">
+            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selesai Hari Ini</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-sm md:text-base font-bold text-emerald-600 dark:text-emerald-400">{finishedTodayCount}</span>
+              <span className="text-[9px] text-muted-foreground">unit</span>
             </div>
-          </CardContent>
-        </Card>
+        </div>
 
-        <Card className="bg-card border-border/60 shadow-sm">
-          <CardContent className="p-3 md:p-3.5 flex flex-col justify-center">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">Pendapatan Hari Ini</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-lg md:text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">{formatCurrency(realizedToday)}</span>
+        <div className="flex-1 flex flex-col justify-center bg-primary/5 border border-primary/20 rounded-xl p-2 px-3">
+            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pendapatan Hari Ini</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-sm md:text-base font-bold text-primary">{formatCurrency(realizedToday)}</span>
             </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -772,6 +764,40 @@ export default function ServicesClient({ user }: { user: any }) {
                   </div>
                   <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {colItems.map((item:any) => {
+                      if (col === 'Diambil') {
+                        return (
+                          <div
+                            key={item.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", item.id);
+                              setDraggingStatus(item.status);
+                            }}
+                            onDragEnd={() => setDraggingStatus(null)}
+                            className="bg-card border border-border/50 rounded-lg p-2 mb-0 flex flex-col gap-1 relative cursor-grab active:cursor-grabbing hover:border-primary/30 transition-colors"
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="truncate flex-1 min-w-0">
+                                <h4 className="font-bold text-xs truncate" title={item.deviceName}>{item.deviceName}</h4>
+                                <p className="text-[10px] text-muted-foreground truncate">{item.customerName}</p>
+                              </div>
+                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded shrink-0">
+                                {formatCurrency(item.finalCost || item.estimatedCost || 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1 border-t border-border/40 pt-1">
+                                <p className="text-[9px] text-muted-foreground flex items-center gap-1 truncate max-w-[70%]">
+                                  <Wrench className="h-2.5 w-2.5 shrink-0" />
+                                  <span className="truncate">{item.technicianName || "N/A"}</span>
+                                </p>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 text-blue-600 hover:bg-blue-50 shrink-0" onClick={() => openModal(item)} title="Detail/Edit">
+                                  <Edit2 className="h-2.5 w-2.5" />
+                                </Button>
+                            </div>
+                          </div>
+                        )
+                      }
+
                       const sla = getSlaStatus(item.receivedDate, item.status);
                       return (
                         <Card

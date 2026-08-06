@@ -379,7 +379,7 @@ export function Sidebar({ user }: { user?: any }) {
           isCollapsed ? "flex-col items-center gap-2 pb-2" : "flex-row items-center gap-2"
         )}>
           {/* Notifications */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -453,7 +453,7 @@ export function Sidebar({ user }: { user?: any }) {
           </div>
 
           {/* User Profile */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <button 
               className={cn(
                 "flex w-full items-center rounded-xl text-xs font-bold transition-all duration-300 border border-transparent",
@@ -465,12 +465,12 @@ export function Sidebar({ user }: { user?: any }) {
               }}
               title={isCollapsed ? "Profil" : undefined}
             >
-              <div className="flex items-center gap-3 w-full">
+              <div className="flex items-center gap-3 w-full min-w-0">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 {!isCollapsed && (
-                  <div className="flex-1 overflow-hidden text-left">
+                  <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-medium leading-none truncate">{user?.name || "Admin"}</p>
                     <p className="text-xs text-muted-foreground truncate mt-1">{user?.email || "admin@hanlaptop.com"}</p>
                   </div>

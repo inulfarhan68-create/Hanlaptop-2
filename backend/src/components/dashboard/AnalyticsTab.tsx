@@ -8,22 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import dynamic from "next/dynamic";
 
-// Dynamic import for recharts components to avoid SSR hydration mismatch
-const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false });
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false });
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
-const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
-const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
-const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
-const AreaChart = dynamic(() => import('recharts').then(mod => mod.AreaChart), { ssr: false });
-const Area = dynamic(() => import('recharts').then(mod => mod.Area), { ssr: false });
-const Legend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, Legend } from "recharts";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
@@ -56,7 +41,7 @@ export function AnalyticsTab() {
   const averageTxValue = data.totalTransactions > 0 ? Math.round(data.revenue / data.totalTransactions) : 0;
 
   const brandColors = [
-    "hsl(var(--primary))", "#8b5cf6", "#10b981", "#f59e0b",
+    "#06b6d4", "#8b5cf6", "#10b981", "#f59e0b",
     "#ef4444", "#0ea5e9", "#f43f5e", "#64748b"
   ];
 
@@ -74,13 +59,13 @@ export function AnalyticsTab() {
   ];
 
   const revenueData = [
-    { name: "Laptop Bekas", value: Math.round(data.revenueDetails?.laptop || 0), color: "hsl(189 94% 43%)" },
-    { name: "Sparepart", value: Math.round(data.revenueDetails?.sparepart || 0), color: "hsl(199 89% 48%)" },
-    { name: "Aksesoris", value: Math.round(data.revenueDetails?.aksesoris || 0), color: "hsl(221 83% 53%)" },
-    { name: "Jasa Servis", value: Math.round(data.revenueDetails?.servis || 0), color: "hsl(173 80% 40%)" },
+    { name: "Laptop Bekas", value: Math.round(data.revenueDetails?.laptop || 0), color: "#06b6d4" },
+    { name: "Sparepart", value: Math.round(data.revenueDetails?.sparepart || 0), color: "#0284c7" },
+    { name: "Aksesoris", value: Math.round(data.revenueDetails?.aksesoris || 0), color: "#2563eb" },
+    { name: "Jasa Servis", value: Math.round(data.revenueDetails?.servis || 0), color: "#0d9488" },
   ];
 
-  const opexColors = ["hsl(189 94% 43%)", "hsl(199 89% 48%)", "hsl(210 100% 60%)", "hsl(221 83% 53%)", "hsl(173 80% 40%)", "hsl(200 40% 50%)"];
+  const opexColors = ["#06b6d4", "#0284c7", "#3b82f6", "#2563eb", "#0d9488", "#64748b"];
 
   const opexData = Object.entries(data.opexDetails || {})
     .map(([name, value], index) => {
@@ -111,22 +96,22 @@ export function AnalyticsTab() {
               </div>
               <div className="text-lg md:text-2xl font-bold tracking-tight truncate">{formatCurrency(averageTxValue)}</div>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2 pl-3 border-l border-border/50 shrink-0">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2 pl-3 border-l border-border/50 shrink-0 min-w-max">
               <div className="flex flex-col">
                 <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Laptop</span>
-                <span className="text-xs md:text-sm font-bold">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.laptop || 0) / data.totalTransactions) : 0)}</span>
+                <span className="text-xs md:text-sm font-bold whitespace-nowrap">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.laptop || 0) / data.totalTransactions) : 0)}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Sprpart</span>
-                <span className="text-xs md:text-sm font-bold">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.sparepart || 0) / data.totalTransactions) : 0)}</span>
+                <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Sparepart</span>
+                <span className="text-xs md:text-sm font-bold whitespace-nowrap">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.sparepart || 0) / data.totalTransactions) : 0)}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Aksrsis</span>
-                <span className="text-xs md:text-sm font-bold">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.aksesoris || 0) / data.totalTransactions) : 0)}</span>
+                <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Aksesoris</span>
+                <span className="text-xs md:text-sm font-bold whitespace-nowrap">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.aksesoris || 0) / data.totalTransactions) : 0)}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] md:text-[11px] text-muted-foreground uppercase font-medium">Servis</span>
-                <span className="text-xs md:text-sm font-bold">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.servis || 0) / data.totalTransactions) : 0)}</span>
+                <span className="text-xs md:text-sm font-bold whitespace-nowrap">{formatCurrency(data.totalTransactions > 0 ? Math.round((data.revenueDetails?.servis || 0) / data.totalTransactions) : 0)}</span>
               </div>
             </div>
           </CardContent>
@@ -251,7 +236,7 @@ export function AnalyticsTab() {
                   <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip cursor={{fill: 'hsl(var(--muted) / 0.5)'}} formatter={(value: any) => formatCurrency(Math.round(value))} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                  <Bar dataKey="laptop" name="Laptop" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="laptop" name="Laptop" fill="#06b6d4" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="sparepart" name="Sparepart" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="aksesoris" name="Aksesoris" fill="#10b981" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="servis" name="Servis" fill="#f59e0b" radius={[4, 4, 0, 0]} />
@@ -276,8 +261,8 @@ export function AnalyticsTab() {
                   <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
                   <Tooltip cursor={{fill: 'hsl(var(--muted) / 0.5)'}} contentStyle={{backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px', fontSize: '12px'}} formatter={(v: any) => formatCurrency(Math.round(v * 1000))} />
-                  <Bar dataKey="sales" name="Sales" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="service" name="Service" fill="hsl(var(--primary) / 0.4)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="sales" name="Sales" fill="#06b6d4" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="service" name="Service" fill="#67e8f9" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -297,7 +282,7 @@ export function AnalyticsTab() {
                   <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
                   <Tooltip contentStyle={{backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px', fontSize: '12px'}} formatter={(v: any) => formatCurrency(Math.round(v * 1000))} />
-                  <Line type="monotone" dataKey="totalRevenue" name="Total Income" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--card))' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="totalRevenue" name="Total Income" stroke="#06b6d4" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#ffffff' }} activeDot={{ r: 6 }} />
                   <Line type="monotone" dataKey="expense" name="Expense" stroke="#94a3b8" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--card))' }} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
