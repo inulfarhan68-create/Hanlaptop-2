@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { MobileHeader } from "@/components/layout/MobileHeader";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 // Format Rupiah
 const formatRp = (num: number) => {
@@ -167,6 +168,11 @@ export default function HomeClient({ user }: { user: any }) {
           </div>
         </div>
       </div>
+
+      {/* First-run guidance, directly under the KPIs — which for a brand-new shop
+          are all zeros with nothing saying what to do about it. Renders nothing,
+          spacing included, once the three steps are done. */}
+      <OnboardingChecklist />
 
       {/* MENU FITUR */}
       <div className="px-4 mt-4">
