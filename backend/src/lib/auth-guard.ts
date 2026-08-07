@@ -6,7 +6,7 @@ import { userStoreAccess, stores, organizations } from "@/db/schema";
 import { eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import { Permission, hasPermission, isWritePermission } from "./permissions";
 import { subscriptions, plans } from "@/db/schema/saas";
-import { hasFeature, type FeatureKey } from "./features";
+import { hasFeature, FEATURES, type FeatureKey } from "./features";
 import { subscriptionLapsed } from "./subscription-status";
 import { checkLimit, type UsageMetric } from "./usage-limits";
 
@@ -474,8 +474,18 @@ export async function requireFeature(
     if (authResult.isPlatformAdmin) return authResult;
 
     if (!authResult.plan || !hasFeature(authResult.plan, feature)) {
+        // Clients surface this straight to the user (`toast.error(err.message)`),
+        // so it has to read like the rest of the app: Indonesian, naming the
+        // feature the way the pricing page does rather than its internal key, and
+        // saying what to do about it. It used to say "Payment Required — Your
+        // current plan does not support the 'aiPricing' feature."
+        const label = FEATURES[feature] ?? feature;
         return NextResponse.json(
-            { error: `Payment Required — Your current plan does not support the '${feature}' feature.` },
+            {
+                error: `Fitur "${label}" tidak termasuk dalam paket Anda. Upgrade paket untuk memakainya.`,
+                code: "FEATURE_NOT_IN_PLAN",
+                feature,
+            },
             { status: 402 }
         );
     }
