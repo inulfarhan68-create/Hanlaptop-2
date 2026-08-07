@@ -43,7 +43,7 @@ export function ClientLayout({
         ) : expiringInDays !== undefined ? (
           <ExpiringBanner days={expiringInDays} />
         ) : null}
-        <div className={`flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth print:overflow-visible pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4 ${pathname === '/dashboard' || pathname === '/home' ? 'p-0' : 'p-1 sm:p-2 md:p-4'}`}>
+        <div className={`flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth print:overflow-visible pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4 ${pathname === '/dashboard' || pathname === '/home' ? 'p-0 md:p-4' : 'p-1 sm:p-2 md:p-4'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
