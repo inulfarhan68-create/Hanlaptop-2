@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, TrendingUp, DollarSign, Percent, PackageOpen, AlertTriangle } from "lucide-react"
+import { Search, TrendingUp, DollarSign, Percent, PackageOpen, AlertTriangle, Wallet, ArrowDownRight, LineChart, PieChart } from "lucide-react"
 
 interface ProductProfitTabProps {
   period: { from?: string; to?: string; label: string }
@@ -76,8 +76,8 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
               <p className="text-sm md:text-lg font-black text-foreground mt-1.5">{fmt(summary.totalRevenue)}</p>
               <p className="text-[9px] text-muted-foreground mt-0.5">Penjualan kotor produk & jasa</p>
             </div>
-            <div className="bg-primary/10 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
-              <DollarSign className="h-5 w-5 text-primary" />
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
+              <Wallet className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -86,11 +86,11 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
           <CardContent className="p-3 md:p-4 flex items-center justify-between">
             <div className="text-left">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">Total HPP (Modal)</p>
-              <p className="text-sm md:text-lg font-black text-destructive mt-1.5">{fmt(summary.totalCogs)}</p>
+              <p className="text-sm md:text-lg font-black text-foreground mt-1.5">{fmt(summary.totalCogs)}</p>
               <p className="text-[9px] text-muted-foreground mt-0.5">Total harga pokok barang terjual</p>
             </div>
-            <div className="bg-destructive/10 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
-              <TrendingUp className="h-5 w-5 text-destructive" />
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
+              <ArrowDownRight className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -99,11 +99,11 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
           <CardContent className="p-3 md:p-4 flex items-center justify-between">
             <div className="text-left">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">Total Laba Kotor</p>
-              <p className="text-sm md:text-lg font-black text-emerald-600 dark:text-emerald-500 mt-1.5">{fmt(summary.totalProfit)}</p>
+              <p className="text-sm md:text-lg font-black text-foreground mt-1.5">{fmt(summary.totalProfit)}</p>
               <p className="text-[9px] text-muted-foreground mt-0.5">Laba kotor sebelum opex</p>
             </div>
-            <div className="bg-emerald-100 dark:bg-emerald-950/30 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
-              <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
+              <LineChart className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -112,20 +112,20 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
           <CardContent className="p-3 md:p-4 flex items-center justify-between">
             <div className="text-left">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">Margin Laba</p>
-              <p className="text-sm md:text-lg font-black text-indigo-600 dark:text-indigo-400 mt-1.5">{summary.overallMargin.toFixed(1)}%</p>
+              <p className="text-sm md:text-lg font-black text-foreground mt-1.5">{summary.overallMargin.toFixed(1)}%</p>
               <p className="text-[9px] text-muted-foreground mt-0.5">Persentase margin laba kotor</p>
             </div>
-            <div className="bg-indigo-100 dark:bg-indigo-950/30 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
-              <Percent className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2 hidden sm:block">
+              <PieChart className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Analysis Sections */}
-      <div className="grid gap-6 lg:grid-cols-3 text-left">
+      <div className="grid gap-3 lg:grid-cols-3 text-left">
         {/* Left: Products Rankings (takes 2 cols) */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-3">
           <Card className="border border-border/50 bg-card rounded-xl shadow-sm overflow-hidden">
             <CardHeader className="pb-3 pt-4 px-4 border-b border-border/40">
               <CardTitle className="text-sm md:text-base font-bold flex items-center gap-2 justify-between flex-wrap">
@@ -171,12 +171,12 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
                 <Table className="min-w-[650px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground w-[240px]">Produk / Model</TableHead>
-                      <TableHead className="text-center text-[10px] uppercase font-bold text-muted-foreground w-[70px]">Terjual</TableHead>
-                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground">Omzet</TableHead>
-                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground">HPP (Modal)</TableHead>
-                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground">Laba</TableHead>
-                      <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground w-[80px]">Margin</TableHead>
+                      <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground w-full">Produk / Model</TableHead>
+                      <TableHead className="text-center text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">Terjual</TableHead>
+                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">Omzet</TableHead>
+                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">HPP</TableHead>
+                      <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">Laba</TableHead>
+                      <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap pl-4">Margin</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -187,18 +187,20 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
                     ) : (
                       sortedProducts.map((p: any, idx) => (
                         <TableRow key={p.inventoryId || idx} className="hover:bg-muted/40">
-                          <TableCell className="pl-4 py-2.5 text-xs font-semibold text-foreground flex items-center gap-1.5 max-w-[240px] truncate" title={p.itemName}>
-                            <span className="text-[9px] text-muted-foreground/60 font-mono w-4 shrink-0">{idx + 1}.</span>
-                            <div className="truncate shrink">
-                              <p className="font-semibold truncate">{p.itemName}</p>
-                              <span className="text-[9px] text-muted-foreground/80 font-normal">{p.category}</span>
+                          <TableCell className="pl-4 py-2.5 text-xs font-semibold text-foreground">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-[9px] text-muted-foreground/60 font-mono w-4 shrink-0 text-right">{idx + 1}.</span>
+                              <div className="truncate shrink min-w-0" title={p.itemName}>
+                                <p className="font-semibold truncate">{p.itemName}</p>
+                                <span className="text-[9px] text-muted-foreground/80 font-normal">{p.category}</span>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center py-2.5 text-xs font-mono">{p.qtySold} unit</TableCell>
-                          <TableCell className="text-right py-2.5 text-xs font-medium">{fmt(p.revenue)}</TableCell>
-                          <TableCell className="text-right py-2.5 text-xs text-destructive font-medium">{fmt(p.cogs)}</TableCell>
-                          <TableCell className="text-right py-2.5 text-xs font-extrabold text-emerald-600 dark:text-emerald-500">{fmt(p.profit)}</TableCell>
-                          <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">{p.margin.toFixed(1)}%</TableCell>
+                          <TableCell className="text-center py-2.5 text-xs font-mono px-4">{p.qtySold}</TableCell>
+                          <TableCell className="text-right py-2.5 text-xs font-medium whitespace-nowrap px-4">{fmt(p.revenue)}</TableCell>
+                          <TableCell className="text-right py-2.5 text-xs text-destructive font-medium whitespace-nowrap px-4">{fmt(p.cogs)}</TableCell>
+                          <TableCell className="text-right py-2.5 text-xs font-extrabold text-emerald-600 dark:text-emerald-500 whitespace-nowrap px-4">{fmt(p.profit)}</TableCell>
+                          <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono whitespace-nowrap pl-4">{p.margin.toFixed(1)}%</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -210,7 +212,7 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
         </div>
 
         {/* Right: Categories & Dead Stock (takes 1 col) */}
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Categories margins */}
           <Card className="border border-border/50 bg-card rounded-xl shadow-sm overflow-hidden">
             <CardHeader className="pb-2 pt-4 px-4 border-b border-border/40">
@@ -223,9 +225,9 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground">Kategori</TableHead>
-                    <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground">Omzet</TableHead>
-                    <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground w-[80px]">Margin</TableHead>
+                    <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground w-full">Kategori</TableHead>
+                    <TableHead className="text-right text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">Omzet</TableHead>
+                    <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap pl-4">Margin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,8 +239,8 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
                     categories.map((c: any) => (
                       <TableRow key={c.category} className="hover:bg-muted/40">
                         <TableCell className="pl-4 py-2.5 text-xs font-bold">{c.category}</TableCell>
-                        <TableCell className="text-right py-2.5 text-xs">{fmt(c.revenue)}</TableCell>
-                        <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">{c.margin.toFixed(1)}%</TableCell>
+                        <TableCell className="text-right py-2.5 text-xs whitespace-nowrap px-4">{fmt(c.revenue)}</TableCell>
+                        <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono whitespace-nowrap pl-4">{c.margin.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -261,9 +263,9 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
                 <Table>
                   <TableHeader className="sticky top-0 bg-card z-10">
                     <TableRow>
-                      <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground">Nama Barang</TableHead>
-                      <TableHead className="text-center text-[10px] uppercase font-bold text-muted-foreground w-[55px]">Stok</TableHead>
-                      <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground">Modal Tertanam</TableHead>
+                      <TableHead className="pl-4 text-[10px] uppercase font-bold text-muted-foreground w-full">Nama Barang</TableHead>
+                      <TableHead className="text-center text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap px-4">Stok</TableHead>
+                      <TableHead className="text-right pr-4 text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap pl-4">Modal Tertanam</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -274,14 +276,14 @@ export function ProductProfitTab({ period, fmt }: ProductProfitTabProps) {
                     ) : (
                       deadStock.map((d: any) => (
                         <TableRow key={d.id} className="hover:bg-muted/40">
-                          <TableCell className="pl-4 py-2.5 text-xs font-medium text-foreground max-w-[150px] truncate" title={d.itemName}>
-                            <div>
+                          <TableCell className="pl-4 py-2.5 text-xs font-medium text-foreground">
+                            <div className="truncate">
                               <p className="truncate font-semibold">{d.itemName}</p>
                               <span className="text-[9px] text-muted-foreground/80">{d.category}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center py-2.5 text-xs font-mono font-bold text-amber-600">{d.quantity}</TableCell>
-                          <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-destructive font-mono">{fmt(d.capitalLocked)}</TableCell>
+                          <TableCell className="text-center py-2.5 text-xs font-mono font-bold text-amber-600 whitespace-nowrap px-4">{d.quantity}</TableCell>
+                          <TableCell className="text-right pr-4 py-2.5 text-xs font-bold text-destructive font-mono whitespace-nowrap pl-4">{fmt(d.capitalLocked)}</TableCell>
                         </TableRow>
                       ))
                     )}

@@ -87,7 +87,7 @@ export default function HomeClient({ user }: { user: any }) {
     <div className="flex-1 pb-24 md:pb-8 bg-background min-h-screen">
       
       {/* HEADER & HERO CARD */}
-      <div className="bg-primary pt-0 pb-16 rounded-b-3xl relative overflow-hidden">
+      <div className="bg-primary pt-0 pb-16 rounded-b-3xl md:rounded-3xl relative overflow-hidden md:shadow-lg">
         {/* Background Decorations */}
         <div className="absolute top-16 right-0 -mr-16 w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 w-48 h-48 rounded-full bg-black/10 blur-2xl pointer-events-none" />
@@ -129,7 +129,7 @@ export default function HomeClient({ user }: { user: any }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             {/* KAS & BANK */}
             <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800">
               <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1.5 mb-1 uppercase tracking-wide">
@@ -186,7 +186,7 @@ export default function HomeClient({ user }: { user: any }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-y-5 gap-x-2">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-y-5 gap-x-2 md:gap-x-4">
           {MAIN_FEATURES.map((feat) => {
             const Icon = feat.icon;
             return (
@@ -225,7 +225,7 @@ export default function HomeClient({ user }: { user: any }) {
       </div>
 
       {/* RIWAYAT TERBARU */}
-      <div className="px-4 mt-4 mb-4">
+      <div className="px-4 mt-4 md:mt-8 mb-4">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-[15px] font-bold text-foreground tracking-tight">Riwayat Terbaru</h3>
           <Link href="/transactions?mode=Riwayat" className="text-primary text-xs font-bold hover:underline flex items-center gap-1">

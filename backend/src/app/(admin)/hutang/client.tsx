@@ -135,56 +135,48 @@ export default function HutangClient() {
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-20 md:pb-4">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-2 md:gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="p-3 md:p-4 md:pb-2">
-              <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground flex justify-between items-center uppercase tracking-wider">
-                Total Hutang Supplier <FileText className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
-              <div className="text-base md:text-2xl font-bold text-primary">{formatCurrency(totalHutang)}</div>
-            </CardContent>
-          </Card>
+        {/* KPI & Aging Buckets */}
+        <div className="flex flex-col xl:flex-row gap-2">
+          {/* Main KPI */}
+          <div className="flex shrink-0 items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-2 px-3">
+            <div className="bg-primary/10 p-1.5 rounded-lg hidden md:block">
+              <FileText className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total Hutang</div>
+              <div className="text-sm md:text-base font-bold text-primary flex items-baseline gap-1">
+                {formatCurrency(totalHutang)} <span className="text-[10px] font-normal opacity-70">({totalCount} trx)</span>
+              </div>
+            </div>
+          </div>
 
-          <Card className="bg-destructive/5 border-destructive/20">
-            <CardHeader className="p-3 md:p-4 md:pb-2">
-              <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground flex justify-between items-center uppercase tracking-wider">
-                Belum Dibayar <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-destructive" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
-              <div className="text-base md:text-2xl font-bold text-destructive">{totalCount} Transaksi</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Aging buckets — total sisa per umur tunggakan; klik untuk memfilter daftar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
-          {AGING_BUCKETS.map((b) => {
-            const s = agingSummary[b.key] || { total: 0, count: 0 }
-            const active = bucketFilter === b.key
-            const clsMap: Record<string, string> = {
-              emerald: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5',
-              amber: 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5',
-              orange: 'text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/5',
-              rose: 'text-rose-600 dark:text-rose-400 border-rose-500/30 bg-rose-500/5',
-            }
-            return (
-              <button
-                key={b.key}
-                type="button"
-                onClick={() => setBucketFilter(active ? null : b.key)}
-                className={`text-left rounded-xl border p-3 transition-all ${clsMap[b.cls]} ${active ? 'ring-2 ring-current' : 'hover:brightness-110'}`}
-                title={active ? 'Klik untuk hapus filter' : `Filter: ${b.label}`}
-              >
-                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{b.label}</div>
-                <div className="text-sm md:text-lg font-extrabold mt-0.5">{formatCurrency(s.total)}</div>
-                <div className="text-[10px] opacity-70">{s.count} transaksi</div>
-              </button>
-            )
-          })}
+          {/* Aging buckets */}
+          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+            {AGING_BUCKETS.map((b) => {
+              const s = agingSummary[b.key] || { total: 0, count: 0 }
+              const active = bucketFilter === b.key
+              const clsMap: Record<string, string> = {
+                emerald: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5',
+                amber: 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5',
+                orange: 'text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/5',
+                rose: 'text-rose-600 dark:text-rose-400 border-rose-500/30 bg-rose-500/5',
+              }
+              return (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => setBucketFilter(active ? null : b.key)}
+                  className={`flex flex-col justify-center text-left rounded-xl border p-2 px-3 transition-all ${clsMap[b.cls]} ${active ? 'ring-2 ring-current' : 'hover:brightness-110'}`}
+                  title={active ? 'Klik untuk hapus filter' : `Filter: ${b.label}`}
+                >
+                  <div className="text-[9px] font-bold uppercase tracking-wider opacity-80">{b.label}</div>
+                  <div className="text-xs md:text-sm font-extrabold flex items-baseline gap-1 mt-0.5">
+                    {formatCurrency(s.total)} <span className="text-[9px] font-normal opacity-70">({s.count})</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Filter */}

@@ -124,11 +124,11 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
         <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Stok Baru (&lt;30 hari)</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stok Baru (&lt;30 hari)</p>
               <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.new.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.new.qty} unit barang fisik</p>
             </div>
-            <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </div>
           </CardContent>
@@ -137,11 +137,11 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
         <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Stok Sedang (30-90 hari)</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stok Sedang (30-90 hari)</p>
               <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.medium.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.medium.qty} unit barang fisik</p>
             </div>
-            <div className="bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500" />
             </div>
           </CardContent>
@@ -150,18 +150,18 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
         <Card className="border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Dead Stock (&gt;90 hari)</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dead Stock (&gt;90 hari)</p>
               <p className="text-lg md:text-xl font-black text-foreground mt-1.5">{fmt(metrics.old.val)}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.old.qty} unit barang fisik</p>
             </div>
-            <div className="bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+            <div className="bg-slate-100 dark:bg-slate-800/60 p-2 rounded-xl shrink-0 ml-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <Card className="md:col-span-1 border border-border/50 bg-white/60 dark:bg-card/60 backdrop-blur-md rounded-xl shadow-sm">
           <CardHeader className="pb-1 pt-4 px-4">
             <CardTitle className="text-sm font-bold">Distribusi Nilai Aset</CardTitle>
@@ -246,13 +246,13 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-8 text-center pl-3">No</TableHead>
-                  <TableHead>Nama Barang</TableHead>
-                  <TableHead className="text-right">Stok</TableHead>
-                  <TableHead className="text-right font-medium">HPP</TableHead>
-                  <TableHead className="text-right font-bold">Nilai Aset</TableHead>
-                  <TableHead className="text-center">Umur (Hari)</TableHead>
-                  <TableHead className="text-center pr-3">Status</TableHead>
+                  <TableHead className="w-[50px] text-center pl-3">No</TableHead>
+                  <TableHead className="w-full">Nama Barang</TableHead>
+                  <TableHead className="text-right whitespace-nowrap px-4">Stok</TableHead>
+                  <TableHead className="text-right font-medium whitespace-nowrap px-4">HPP</TableHead>
+                  <TableHead className="text-right font-bold whitespace-nowrap px-4">Nilai Aset</TableHead>
+                  <TableHead className="text-center whitespace-nowrap px-4">Umur (Hari)</TableHead>
+                  <TableHead className="text-center pr-3 whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,15 +264,15 @@ export function AgingInventoryTab({ fmt }: AgingInventoryTabProps) {
                   filteredAging.map((item: any, idx: number) => (
                     <TableRow key={item.id} className="hover:bg-muted/40 text-xs">
                       <TableCell className="text-center font-medium pl-3 text-muted-foreground/80">{idx + 1}</TableCell>
-                      <TableCell className="font-bold min-w-[150px]">
+                      <TableCell className="font-bold">
                         {item.itemName}
                         {item.barcode && <span className="block text-[9px] text-muted-foreground font-mono mt-0.5">Barcode: {item.barcode}</span>}
                       </TableCell>
-                      <TableCell className="text-right font-bold">{item.quantity}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{fmt(item.costPrice)}</TableCell>
-                      <TableCell className="text-right font-bold text-foreground">{fmt(item.itemVal)}</TableCell>
-                      <TableCell className="text-center tabular-nums font-semibold">{item.ageDays} hari</TableCell>
-                      <TableCell className="text-center pr-3">
+                      <TableCell className="text-right font-bold whitespace-nowrap px-4">{item.quantity}</TableCell>
+                      <TableCell className="text-right text-muted-foreground whitespace-nowrap px-4">{fmt(item.costPrice)}</TableCell>
+                      <TableCell className="text-right font-bold text-foreground whitespace-nowrap px-4">{fmt(item.itemVal)}</TableCell>
+                      <TableCell className="text-center tabular-nums font-semibold whitespace-nowrap px-4">{item.ageDays} hari</TableCell>
+                      <TableCell className="text-center pr-3 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-0.5 rounded-full border text-[9px] font-black uppercase shrink-0 ${item.color}`}>
                           {item.ageGroup === "new" ? "Baru" : item.ageGroup === "medium" ? "Sedang" : "Mati"}
                         </span>
