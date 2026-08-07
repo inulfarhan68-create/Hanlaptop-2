@@ -14,11 +14,14 @@ export function ClientLayout({
   user,
   readOnlyReason,
   expiringInDays,
+  isImpersonating,
 }: {
   children: React.ReactNode;
   user: any;
   readOnlyReason?: ReadOnlyReason;
   expiringInDays?: number;
+  /** Operator borrowing a tenant's identity — resolved server-side in the layout. */
+  isImpersonating?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -31,7 +34,7 @@ export function ClientLayout({
 
       {/* Desktop: Sidebar (hidden on mobile) */}
       <div className="hidden md:block print:hidden relative z-50 h-full">
-        <Sidebar user={user} />
+        <Sidebar user={user} isImpersonating={isImpersonating} />
       </div>
 
       {/* Main Content */}

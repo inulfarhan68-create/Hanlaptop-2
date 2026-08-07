@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getSession } from "@/lib/session";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { TenantProvider } from "@/components/TenantProvider";
@@ -86,12 +87,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [allStores, notice] = await Promise.all([storesPromise, noticePromise]);
   const defaultStore = allStores.length > 0 ? allStores[0] : null;
 
+  // Whether the operator is currently borrowing a tenant's identity. Only the
+  // server knows — it is the `x-impersonate-org-id` cookie that requireAuth
+  // reads — so the sidebar cannot work it out for itself. It matters there
+  // because a platform_admin browsing as themselves has no shop, while one who
+  // is impersonating is deliberately acting as a tenant and needs the shop menu.
+  const isImpersonating =
+    role === "platform_admin" && Boolean((await cookies()).get("x-impersonate-org-id")?.value);
+
   return (
     <TenantProvider initialStores={allStores} defaultStore={defaultStore}>
       <ClientLayout
         user={session.user}
         readOnlyReason={notice.readOnly}
         expiringInDays={notice.expiringInDays}
+        isImpersonating={isImpersonating}
       >
         {children}
       </ClientLayout>
