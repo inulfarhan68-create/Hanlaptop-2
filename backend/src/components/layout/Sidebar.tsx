@@ -115,7 +115,7 @@ const hiddenSidebarItems = [
   { title: "CRM & Marketing", href: "/crm", icon: Percent, description: "Leads & kampanye marketing" },
 ];
 
-export function Sidebar({ user }: { user?: any }) {
+export function Sidebar({ user, isImpersonating = false }: { user?: any; isImpersonating?: boolean }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [activeGroup, setActiveGroup] = useState<string | null>("Kasir & Transaksi")
   const pathname = usePathname()
@@ -197,9 +197,23 @@ export function Sidebar({ user }: { user?: any }) {
   const userRole = storeSettings?.userRole || user?.role || "kasir";
   const isGlobalOwner = user?.role === "owner" || user?.role === "platform_admin";
 
+  // The SaaS operator, browsing as themselves, owns no shop. Every store menu
+  // below is either meaningless or actively misleading for them: storeScope gives
+  // platform_admin `accessibleStoreIds = null`, so opening Transaksi or Inventori
+  // shows every tenant's rows blended together rather than "their" data.
+  //
+  // While impersonating they ARE acting as a tenant — that is the entire point of
+  // the feature — so the full menu comes back.
+  const isOperatorConsoleOnly = user?.role === "platform_admin" && !isImpersonating;
+
   const isItemVisible = (href: string) => {
     if (href.startsWith("/platform")) {
       return user?.role === "platform_admin";
+    }
+    if (isOperatorConsoleOnly) {
+      // Keep settings reachable so the operator can still manage their own
+      // account and sign out; everything else is a tenant's tool, not theirs.
+      return href.startsWith("/settings");
     }
     if (isGlobalOwner || userRole === "owner") return true;
     if (userRole === "investor") {
