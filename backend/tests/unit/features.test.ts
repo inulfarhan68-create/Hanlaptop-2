@@ -5,6 +5,7 @@ import {
     buildFeatures,
     FEATURE_KEYS,
     PLAN_SEED,
+    ADDONS,
 } from "@/lib/features";
 
 // Locks the SaaS feature-gating layer. Plans gate capabilities via
@@ -98,5 +99,36 @@ describe("PLAN_SEED matrix (v2)", () => {
 
     it("the internal (unlimited) plan is hidden from public pricing", () => {
         expect(byKey.internal.isPublic).toBe(false);
+    });
+
+    it("AI starts at Pro — Starter must not get it", () => {
+        // These were advertised as add-ons but existed only in the marketing list,
+        // never in FEATURES, so nothing could gate them and every plan used them
+        // free while each call spent Gemini credit. If a future edit drops them
+        // back out of PRO_ADDS the endpoints silently open up again, so pin it.
+        const starter = buildFeatures(byKey.starter.features);
+        expect(starter.aiSpec || starter.aiOcr || starter.aiPricing).toBe(false);
+
+        for (const plan of ["pro", "business", "enterprise", "internal"] as const) {
+            const f = buildFeatures(byKey[plan].features);
+            expect(f.aiSpec && f.aiOcr && f.aiPricing, `${plan} should include AI`).toBe(true);
+        }
+    });
+
+    it("every AI capability is gateable, and the remaining add-ons are not code", () => {
+        // The defect being locked out: a capability named in the pricing copy but
+        // absent from FEATURES can never be checked by requireFeature, so it is
+        // free to everyone no matter what the page says. That is what happened to
+        // AI — which matters especially because each call spends Gemini credit.
+        for (const key of ["aiSpec", "aiOcr", "aiPricing"]) {
+            expect(FEATURE_KEYS, `${key} must be gateable`).toContain(key as never);
+        }
+
+        // The three left in ADDONS are delivered by hand, not by code: WhatsApp is
+        // wa.me links rather than a paid API, custom domain is a Vercel setting,
+        // extra storage is a Blob quota. There is no request path to gate, so they
+        // are deliberately absent from FEATURES. If a code-backed add-on is ever
+        // added here, it needs a FEATURES key and a requireFeature call with it.
+        expect(ADDONS.map((a) => a.key)).toEqual(["whatsapp", "customDomain", "storage"]);
     });
 });

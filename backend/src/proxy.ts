@@ -97,9 +97,10 @@ export async function proxy(request: NextRequest) {
     
     // Content-Security-Policy (CSP)
     // Only applied to HTML routes ideally, but putting it globally for strictness
+    const isDev = process.env.NODE_ENV === 'development';
     const csp = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline';
+        script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https://*.public.blob.vercel-storage.com;
         font-src 'self' data:;

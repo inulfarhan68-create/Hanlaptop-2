@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { checkRateLimitTier } from "@/lib/rate-limit";
 import { GoogleGenAI } from "@google/genai";
 
@@ -65,6 +65,11 @@ export async function POST(request: Request) {
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
+
+    // Pro and above. Every call spends Gemini credit, so it belongs to the plans
+    // that pay for it — see PRO_ADDS in lib/features.
+    const featureCheck = await requireFeature("aiOcr", authResult);
+    if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
         const body = await request.json();

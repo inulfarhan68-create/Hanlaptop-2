@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Check, X, Store, Boxes, LineChart, ShieldCheck, ArrowRight, Sparkles, Building2, CheckCircle2, Cpu, HardDrive, MessageCircle, Globe, FileText, Zap, Play } from "lucide-react";
+import { Check, X, Store, Boxes, LineChart, ShieldCheck, ArrowRight, Sparkles, Building2, CheckCircle2, HardDrive, MessageCircle, Globe, Zap, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DemoButton } from "@/components/marketing/DemoButton";
@@ -393,13 +393,12 @@ export default async function ProductLandingPage() {
                 </div>
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {ADDONS.map((a, i) => {
-                        const isAi = a.key.startsWith('ai');
+                        // AI is part of the Pro plan now, not a separate purchase,
+                        // so nothing in this list gets the AI highlight any more.
+                        const isAi = false;
                         
                         let Icon = Zap;
-                        if (a.key === 'aiSpec') Icon = Cpu;
-                        else if (a.key === 'aiOcr') Icon = FileText;
-                        else if (a.key === 'aiPricing') Icon = LineChart;
-                        else if (a.key === 'whatsapp') Icon = MessageCircle;
+                        if (a.key === 'whatsapp') Icon = MessageCircle;
                         else if (a.key === 'customDomain') Icon = Globe;
                         else if (a.key === 'storage') Icon = HardDrive;
 
