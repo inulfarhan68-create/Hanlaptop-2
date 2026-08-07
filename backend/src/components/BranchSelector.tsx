@@ -13,7 +13,7 @@ type StoreData = {
 };
 
 export function BranchSelector({ isCollapsed = false, isDarkBg = false, variant = "default", className }: { isCollapsed?: boolean; isDarkBg?: boolean; variant?: "default" | "minimal"; className?: string }) {
-  const { isOwner } = useUserRole();
+  const { canSeeAllStores } = useUserRole();
   const [stores, setStores] = useState<StoreData[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
   const [isOpen, setIsOpen] = useState(false);
@@ -30,17 +30,32 @@ export function BranchSelector({ isCollapsed = false, isDarkBg = false, variant 
           
           const savedStore = localStorage.getItem('selectedStoreId');
           const isValidStore = savedStore && (
-            uniqueStores.some((s: StoreData) => s.id === savedStore) || 
-            (savedStore === 'all' && isOwner)
+            uniqueStores.some((s: StoreData) => s.id === savedStore) ||
+            (savedStore === 'all' && canSeeAllStores)
           );
-          
+
           if (isValidStore) {
             setSelectedStoreId(savedStore);
           } else if (uniqueStores.length > 0) {
-            const defaultStoreId = isOwner ? 'all' : uniqueStores[0].id;
+            const defaultStoreId = canSeeAllStores ? 'all' : uniqueStores[0].id;
             setSelectedStoreId(defaultStoreId);
             localStorage.setItem('selectedStoreId', defaultStoreId);
-            window.location.reload();
+
+            // Reload only when this page load actually used a different store.
+            //
+            // apiFetch sends `x-store-id: 'all'` whenever nothing is stored
+            // (lib/api.ts), and requireAuth resolves 'all' for a non-owner to
+            // their first accessible store. So the page is already correct in
+            // both of these cases:
+            //   - the default IS 'all' (owner / platform_admin), or
+            //   - there is only one store, which is what 'all' resolved to.
+            // Reloading there refetched byte-identical data and discarded
+            // whatever the user had begun, on every first visit in a fresh
+            // browser. Only a multi-store non-owner can genuinely land on a
+            // different store than the server picked, so only they reload.
+            if (defaultStoreId !== 'all' && uniqueStores.length > 1) {
+              window.location.reload();
+            }
           }
         }
       } catch (err) {
@@ -50,12 +65,13 @@ export function BranchSelector({ isCollapsed = false, isDarkBg = false, variant 
       }
     };
     fetchStores();
-  }, [isOwner]);
+  }, [canSeeAllStores]);
 
   if (isLoading || stores.length === 0) return null;
   // Don't show selector if kasir only has 1 store
-  if (!isOwner && stores.length === 1) return null;
-
+  // A single-store user has nothing to switch between. Anyone who can address
+  // every store keeps the selector so they can return to "Semua Cabang".
+  if (!canSeeAllStores && stores.length === 1) return null;
   const currentStoreName = selectedStoreId === "all" 
     ? "Semua Cabang" 
     : stores.find(s => s.id === selectedStoreId)?.name || "Pilih Cabang";
@@ -89,7 +105,7 @@ export function BranchSelector({ isCollapsed = false, isDarkBg = false, variant 
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
             <div className="absolute z-50 mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 left-0 top-full w-56">
               <div className="max-h-[300px] overflow-y-auto p-1.5 space-y-1">
-                {isOwner && (
+                {canSeeAllStores && (
                   <button
                     onClick={() => handleSelect("all")}
                     className={cn(
@@ -162,7 +178,7 @@ export function BranchSelector({ isCollapsed = false, isDarkBg = false, variant 
             isCollapsed ? "left-full ml-2 top-0 w-48" : "left-2 right-2 top-full"
           )}>
             <div className="max-h-[300px] overflow-y-auto p-1.5 space-y-1">
-              {isOwner && (
+              {canSeeAllStores && (
                 <button
                   onClick={() => handleSelect("all")}
                   className={cn(
