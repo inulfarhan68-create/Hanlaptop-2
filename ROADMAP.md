@@ -1,9 +1,15 @@
 # ROADMAP.md
 
-Rekomendasi pengembangan, hasil review (security, performance, SaaS readiness), dan daftar technical debt. Semua temuan berbasis pembacaan kode per **2026-07-10**.
+Rekomendasi pengembangan, hasil review (security, performance, SaaS readiness), dan daftar technical debt. Temuan awal berbasis pembacaan kode per **2026-07-10**; diperbarui **2026-08-07**.
 
-> **Update 2026-07-10 — sebagian temuan sudah diperbaiki** (lihat penanda ✔️ **SUDAH DIPERBAIKI**):
-> standardisasi env DB, adapter rate limiter Redis (Upstash) dengan fallback LRU, penguatan sanitizer XSS, dan koreksi dokumentasi env. Item lain masih terbuka / sengaja ditahan karena berisiko.
+> **Update 2026-08-07 — sapuan keamanan keenam, 9 temuan, semuanya sudah live.**
+> Ronde ini menyisir permukaan yang **lima sapuan sebelumnya tak pernah sentuh** — semuanya hanya menyisir `src/app/api/**`. Tujuh dari sembilan temuan ada di luar direktori itu: Server Component, endpoint publik, lapisan `services/`, dan jalur tulis yang menerima sentinel `"all"`. Rinciannya di §2.
+>
+> Juga selesai: langganan kini benar-benar menggerbang tulis (dengan jalur pembayaran manual lewat konsol operator), rate limiter Redis **terverifikasi terdistribusi di produksi**, dan fitur AI menjadi fitur berbayar alih-alih gratis untuk semua.
+>
+> **Cara membaca skor di bawah:** angkanya naik, tapi ronde ini menemukan sembilan masalah nyata di kategori yang sebelumnya dianggap bersih. Skor mencerminkan *yang sudah diperiksa*, bukan *yang terbukti aman* — dan pelajaran utamanya justru bahwa batas audit sebelumnya (`api/**`) terlalu sempit.
+>
+> **Update 2026-07-10:** standardisasi env DB, adapter rate limiter Redis (Upstash) dengan fallback LRU, penguatan sanitizer XSS, dan koreksi dokumentasi env.
 
 ---
 
@@ -11,10 +17,10 @@ Rekomendasi pengembangan, hasil review (security, performance, SaaS readiness), 
 
 | Aspek | Skor | Catatan singkat |
 | --- | ---: | --- |
-| Security | 72/100 | Fondasi bagus (guard, PBAC, CSRF, CSP, IDOR test). Kelemahan: sanitasi XSS regex, rate limit in-memory. |
-| Performance | 70/100 | Lazy routes, SWR dedup, index DB, chunk manual. Ada beberapa query N+1 & full-table fetch. |
-| Maintainability | 60/100 | Service layer rapi, tapi banyak skrip one-off & `any`, file besar. |
-| **SaaS Readiness** | **62/100** | Multi-tenant kuat, observability ada. Blocker skala: rate limiter in-memory, DB env ganda, tanpa CI/CD & test coverage tipis. |
+| Security | 84/100 | Rate limiter Redis terverifikasi terdistribusi; 9 temuan ronde 2026-08-07 sudah live. Sisa: `'unsafe-inline'` di CSP, sanitizer regex. |
+| Performance | 82/100 | Agregasi SQL untuk laporan (neraca 42,8s → 1,06s), rantai auth ganda dihapus, pagination di jalur yang membutuhkannya. |
+| Maintainability | 68/100 | Skrip one-off sudah tertata; `any` & file besar masih ada. Test kini benar-benar bisa gagal (lihat §2). |
+| **SaaS Readiness** | **80/100** | Multi-tenant kuat + gating langganan bergigi + jalur bayar manual. CI/CD lengkap (unit + integrasi + e2e). Sisa: tanpa payment gateway. |
 
 Detail per aspek di bawah.
 
@@ -33,7 +39,25 @@ Detail per aspek di bawah.
 - **Validasi input** menyeluruh via Zod (`validators.ts`).
 - **SQL injection:** rendah — Drizzle ORM parameterized, tidak ada raw string SQL dari input user yang terlihat.
 
-### Perlu diperbaiki ⚠️
+### Ronde 2026-08-07 — di luar `api/**` (semuanya ✔️ live & terverifikasi di produksi)
+
+Lima sapuan sebelumnya hanya menyisir `src/app/api/**`. Tujuh dari sembilan temuan berikut ada di luar sana — itu pelajaran utamanya, bukan temuan individualnya.
+
+| Prioritas | Temuan | Lokasi |
+| --- | --- | --- |
+| **Critical** ✔️ | **Nota publik menyiarkan harga modal ke internet.** `/api/public/invoice/[id]` tanpa auth (memang disengaja — tautannya diteruskan ke pelanggan lewat WhatsApp) mengembalikan baris transaksi **utuh** dengan `with: { inventoryItem: true, journals: true, customer: true }`. Terbukti di produksi pada nota sungguhan: `costPrice`, `supplierId`, 19 kolom inventaris, dan seluruh entri jurnal double-entry terbaca siapa pun yang memegang tautan. Aturan masking `costPrice` dari kasir tak ada artinya bila nota membocorkannya. Nota servis sama: `parts` membawa `costPrice` di sebelah harga tagihan. Kini memilih kolom eksplisit — `inventoryItem` menyusut 19 → 1 field. | `lib/public/invoices.ts`, `lib/public/services.ts` |
+| High ✔️ | **Server Component mengirim seluruh tabel `stores` ke browser.** `(admin)/layout.tsx` dan `(admin)/inventory/page.tsx` sama-sama `db.select().from(stores)` **tanpa WHERE**; yang kedua untuk **semua peran** dan untuk prop yang client-nya tak pernah baca. Terverifikasi di data live: alamat & HP asli tiap tenant terkirim ke browser tenant lain. `storeScope` tak berlaku di sini (tak ada `authResult`) — batasnya harus ditulis tangan lewat `session.user.organizationId`. | `(admin)/layout.tsx`, `(admin)/inventory/page.tsx` |
+| High ✔️ | **Form publik = corong spam tanpa throttle.** `public/service/booking` & `public/buyback` menulis ke antrean servis dan lead CRM tenant **tanpa auth, tanpa rate limit, tanpa Zod**, dengan `storeId: storeId \|\| 'default'` mentah dari body. Store id bukan rahasia — `getPublicCatalog` mengembalikannya. Kini 5/menit per IP + validasi toko nyata & aktif. Bonus: `'default'` adalah 500 terpendam (tak ada toko ber-id itu), pelanggan menerima "Internal server error". | `api/public/service/booking`, `api/public/buyback` |
+| High ✔️ | **Lapisan `services/` tak pernah diaudit.** `JournalMappingService`: `getMappingStats(storeId?)` **menerima parameter lalu tak pernah memakainya** → tiap tenant melihat total jurnal seluruh platform; `validateMappings()` tanpa scope → mengembalikan id entri & nama akun tenant lain, dan mencocokkan kode ke COA **tenant mana pun**. Terverifikasi: store-demo memiliki 13 dari 68 entri; endpoint mengembalikan 68, kini 13. | `services/JournalMappingService.ts` |
+| High ✔️ | **Test keamanan RBAC yang tak bisa gagal.** Blok Authorization di `security.spec.ts` mendeklarasikan `kasirToken`/`managerToken`/`storeId` dan **tak pernah mengisinya** → semua request `session_token=undefined` → 401, dan tiap assertion mengizinkan 401 **dan juga 200**. Artinya kasir yang berhasil membuka settings atau manager yang berhasil menghapus toko akan tercatat lulus. TypeScript melaporkannya sejak awal (4× TS2454) tapi `tsconfig` mengecualikan `tests/`. Dua dari tiga premisnya juga salah tentang kodenya. | `tests/e2e/security.spec.ts` |
+| Medium ✔️ | **Sentinel `"all"` menembus jalur tulis.** `/api/accounting/fiscal-periods` rusak total untuk owner — dan handler-nya `requireOwner()`, jadi owner satu-satunya audiensnya sementara selector-nya default `"all"`: POST menulis `storeId: "all"` → pelanggaran FK → 500; PATCH → "Period not found" untuk periodenya sendiri; pengaman urutan tutup-buku mati diam-diam. Pola sama di 5 handler tulis lain. Kini 400 yang menyebut harus pilih cabang. | `lib/require-store.ts` + 6 route |
+| Medium ✔️ | **Langganan tak menggerbang apa pun.** `loadOrgPlanRow` join subscriptions→plans **tanpa filter status**, jadi trial yang habis tetap punya akses tulis selamanya. `/api/cron/billing` inert tiga kali lipat: tak terdaftar di `vercel.json`, hanya ekspor POST (Vercel Cron kirim GET), dan hanya menyapu `active` sehingga trial kedaluwarsa tetap `trialing`. Kunci kini diturunkan dari `currentPeriodEnd`, jadi benar walau scheduler tak pernah jalan. | `lib/auth-guard.ts`, `api/cron/billing` |
+| Medium ✔️ | **Fitur AI gratis untuk semua paket** — diiklankan sebagai add-on berbayar, tapi key-nya hanya ada di daftar pemasaran `ADDONS`, tak pernah di `FEATURES`, sehingga `requireFeature` tak bisa menyebutnya dan tiap panggilan membakar kuota Gemini. Kini fitur Pro. Endpoint publiknya sadar-sesi: tenant wajib punya paket, anonim tetap terbuka dengan **plafon harian platform-wide** (per-IP membatasi satu pengunjung, bukan tagihan). | `lib/features.ts`, `api/public/buyback/estimate` |
+| Low ✔️ | **Pesan penolakan gate berbahasa Inggris + menyebut key internal.** Client meneruskannya apa adanya ke toast. Kini Bahasa Indonesia dengan nama fitur seperti di halaman harga, plus `code`/`feature` agar client bisa menawarkan tautan upgrade. | `lib/auth-guard.ts` |
+
+> **Jebakan operasional yang terungkap ronde ini:** `requireFeature()` membaca kolom `features` di **baris tabel `plans`**, bukan konstanta TypeScript. Mengubah matriks fitur tanpa `npm run db:sync-plans` gagal **senyap dan terbalik** — paket yang baru diberi fitur justru ditolak. Sudah jadi aturan 18 di CLAUDE.md.
+
+### Ronde sebelumnya ⚠️
 | Prioritas | Temuan | Lokasi |
 | --- | --- | --- |
 | High ✔️ diperbaiki | **4 kebocoran BACA lintas-tenant.** (a) `GET /api/user/stores` mengembalikan **seluruh** store di database untuk peran owner — padahal pasca-Fase-2 owner itu org-scoped — sehingga store switcher membocorkan nama & alamat tenant lain; (b) fallback identitas toko berisi **kontak asli Han Laptop** dan tercetak di nota tenant lain (lihat Technical Debt #11); (c) `GET /api/suggestions` ber-auth tapi tanpa `storeScope`, sehingga autocomplete menyodorkan nama barang & perangkat **semua tenant**; (d) `GET /api/crm/leads` pada cabang `storeId === "all"` berjalan **tanpa WHERE sama sekali** → owner disuguhi buyback lead semua tenant berikut kontak pelanggan. | `api/user/stores`, `api/settings`, `api/suggestions`, `api/crm/leads` |
@@ -75,7 +99,7 @@ Detail per aspek di bawah.
 ## 4. Technical Debt
 
 ### 🔴 Critical
-1. ✔️ **SUDAH DIPERBAIKI** — **Rate limiter in-memory di lingkungan serverless.** Ditambahkan `lib/rate-limiter/redis-adapter.ts` (Upstash Redis, fixed-window, fail-open); `index.ts` memakai Redis bila `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` ada, jika tidak fallback ke LRU. *Tindak lanjut: set env Upstash di produksi agar adapter Redis aktif.*
+1. ✔️ **SUDAH DIPERBAIKI & AKTIF DI PRODUKSI** — **Rate limiter in-memory di lingkungan serverless.** Upstash Redis aktif; kode menerima `UPSTASH_REDIS_REST_*` **atau** `KV_REST_API_*` (nama yang dipasang integrasi Upstash Vercel). **Terbukti terdistribusi**: 20 permintaan serentak ke endpoint berbatas 5/menit menghasilkan tepat 5 lolos + 15× 429 — mustahil kalau tiap instance punya penghitung sendiri.
 2. ✔️ **SUDAH DIPERBAIKI** — **Konvensi env DB.** Sekarang hanya `DATABASE_URL` (Supabase Postgres pooler) + `DIRECT_URL` (direct connection untuk migrasi). Legacy `TURSO_*` sudah dihapus.
 
 ### 🟠 High
@@ -102,21 +126,21 @@ Detail per aspek di bawah.
 | Dimensi | Status | Catatan |
 | --- | --- | --- |
 | Multi-tenancy | 🟢 Kuat | Store scoping + PBAC + tes isolasi. Model data siap multi-store/organisasi. |
-| Scalability | 🟢 Baik | Supabase Postgres + serverless, tapi rate limiter in-memory & beberapa query full-fetch jadi penghambat. |
+| Scalability | 🟢 Baik | Supabase Postgres + serverless; rate limiter kini Redis terdistribusi (terverifikasi), agregasi laporan di SQL. |
 | Maintainability | 🟠 Sedang | Service layer & validasi rapi; terkotori skrip one-off & `any`. |
 | Extensibility | 🟢 Baik | PBAC matrix, journal mapping, dan schema modular mudah diperluas. |
 | Observability | 🟢 Baik | Pino, request-id, Sentry, structured log. |
 | Monitoring/Health | 🟢 Baik | `/health`, `/ready`, `/live`. |
 | Deployment | 🟢 Baik | Vercel — satu service Next di root (`experimentalServices`) + cron backup. |
-| CI/CD | 🟢 Baik | `.github/workflows/ci.yml` (satu job `backend:`) menjalankan `tsc` + **unit test (Vitest)** + integrasi (service Postgres) + build. Sisa: Playwright e2e di CI. |
-| Production readiness | 🟠 Sedang | Perlu selesaikan Critical/High di atas. |
+| CI/CD | 🟢 Kuat | `.github/workflows/ci.yml` menjalankan `tsc` + unit (Vitest) + integrasi (service Postgres) + **Playwright e2e** + build. Berjalan pada PR & push ke `main` — bukan pada branch lain, jadi branch tanpa PR tak pernah teruji. |
+| Production readiness | 🟢 Baik | Critical/High tertutup. Sisa: payment gateway (billing manual lewat konsol operator), `unsafe-inline` di CSP. |
 
 ---
 
 ## 6. Rekomendasi Prioritas (urutan disarankan)
 
 1. ✔️ **SELESAI** — Standarkan env DB (menerima kedua konvensi) + perbarui README/health check.
-2. ✔️ **SELESAI (kode)** — Adapter Upstash Redis untuk rate limiter. *Tindak lanjut ops: set `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` di produksi.*
+2. ✔️ **SELESAI (kode + ops)** — Adapter Upstash Redis untuk rate limiter, aktif di produksi lewat integrasi Vercel (`KV_REST_API_*`) dan terbukti berbagi penghitung antar instance.
 3. ✔️ **SELESAI** — Sanitasi/XSS diperkuat (script/style block) + **CSP `unsafe-eval` dihapus**. *Sisa opsional: hilangkan `'unsafe-inline'` dengan nonce/hash bila diperlukan.*
 4. ✔️ **SELESAI** — Cron endpoint fail-closed di produksi + **hentikan tracking DB SQLite** ter-commit (git rm --cached + `.gitignore`).
 5. ✔️ **SEBAGIAN** — **CI + test**: Vitest 39 unit + 23 integration test (alur jual `TransactionService`, invoice, QC, service-parts — di **Postgres throwaway**), keduanya di CI; `tsc` hijau. ✔️ **SELESAI** — integrasi `AccountingService`/laporan + Playwright e2e (termasuk gate isolasi multi-tenant) sudah berjalan di CI.
