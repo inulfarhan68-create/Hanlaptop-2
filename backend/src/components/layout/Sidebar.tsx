@@ -211,9 +211,14 @@ export function Sidebar({ user, isImpersonating = false }: { user?: any; isImper
       return user?.role === "platform_admin";
     }
     if (isOperatorConsoleOnly) {
-      // Keep settings reachable so the operator can still manage their own
-      // account and sign out; everything else is a tenant's tool, not theirs.
-      return href.startsWith("/settings");
+      // Nothing but the console. /settings looked like a reasonable exception —
+      // it is not: every tab there is tenant-scoped (store profile, branches,
+      // banks, admin management, backup), and /settings/billing hard-redirects
+      // to "/" when organizationId is null, which is always true for the
+      // operator. Offering those links produced a menu that bounced you to the
+      // landing page. Sign-out lives outside these groups, so this does not
+      // strand anyone.
+      return false;
     }
     if (isGlobalOwner || userRole === "owner") return true;
     if (userRole === "investor") {

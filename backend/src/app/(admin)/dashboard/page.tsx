@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { isOperatorBrowsingAsSelf } from "@/lib/operator-redirect";
 import DashboardClient from "./client";
 
 export const metadata = {
@@ -12,6 +13,12 @@ export default async function DashboardPage() {
 
   if (!session) {
     redirect("/login");
+  }
+
+  // The operator has no shop, and this page would show them every tenant's
+  // figures added together (accessibleStoreIds = null). Their console instead.
+  if (await isOperatorBrowsingAsSelf(session.user)) {
+    redirect("/platform");
   }
 
   // Pass user (which includes role) down to client
