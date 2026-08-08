@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { activityLogs } from "@/db/schema";
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requireFeature, storeScope } from "@/lib/auth-guard";
 import { desc, and, or, ilike, inArray, count, type SQL } from "drizzle-orm";
 import { actionCodesMatching, entityTypesMatching, ACTION_GROUPS } from "@/lib/audit-labels";
 
@@ -20,6 +20,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+
+    // The page is gated, but a bookmarked fetch is not — enforce the plan where
+    // the data actually leaves. preAuth so the whole auth chain is not re-run.
+    const gate = await requireFeature("auditTrail", authResult);
+    if (gate instanceof NextResponse) return gate;
 
     try {
         const { searchParams } = new URL(request.url);
