@@ -75,7 +75,15 @@ export function useFeatureGate(feature: FeatureKey) {
                 planName
                     ? `${FEATURES[feature]} tersedia mulai paket ${planName}.`
                     : `${FEATURES[feature]} tidak termasuk dalam paket Anda.`,
-                { description: "Buka Billing & Plan untuk upgrade." },
+                {
+                    description: "Buka Billing & Plan untuk upgrade.",
+                    action: {
+                        label: "Lihat paket",
+                        onClick: () => {
+                            window.location.href = `/settings/billing?feature=${feature}#paket`;
+                        },
+                    },
+                },
             ),
     };
 }

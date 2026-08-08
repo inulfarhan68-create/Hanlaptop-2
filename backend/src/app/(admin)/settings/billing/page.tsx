@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { subscriptions, plans, invoices } from "@/db/schema/saas";
 import { organizations } from "@/db/schema";
 import { subscriptionLapsed } from "@/lib/subscription-status";
+import { parseFeatures, FEATURE_KEYS, type FeatureKey } from "@/lib/features";
 import { asc, eq, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
     title: "Langganan & Pembayaran | HanLaptop",
 };
 
-export default async function BillingPage() {
+export default async function BillingPage({
+    searchParams,
+}: {
+    // Every locked screen links here with the feature the shop just hit, so this
+    // page can answer the question they actually arrived with — "which plan has
+    // Servis?" — instead of showing four cards of quotas.
+    searchParams: Promise<{ feature?: string }>;
+}) {
     const session = await requireOwnerOnly();
     if (session instanceof NextResponse) {
         redirect("/");
@@ -40,6 +48,9 @@ export default async function BillingPage() {
             maxStores: plans.maxStores,
             maxUsers: plans.maxUsers,
             maxTransactionsPerMonth: plans.maxTransactionsPerMonth,
+            sortOrder: plans.sortOrder,
+            features: plans.features,
+            isPublic: plans.isPublic,
         })
             .from(plans)
             .where(eq(plans.isActive, true))
@@ -58,6 +69,11 @@ export default async function BillingPage() {
               currentPeriodEnd: currentSub.currentPeriodEnd,
           })
         : false;
+
+    // Only a real feature key survives — the value comes from a URL, so an
+    // unknown one is dropped rather than echoed back into the page.
+    const requested = (await searchParams)?.feature;
+    const highlight = FEATURE_KEYS.includes(requested as FeatureKey) ? (requested as FeatureKey) : null;
 
     // Billing is settled outside the app, so renewing means reaching a human.
     // These are real business details — when unset the client omits the block
@@ -99,6 +115,9 @@ export default async function BillingPage() {
                 }))}
                 organizationName={orgRows[0]?.name ?? ""}
                 contact={contact}
+                currentFeatures={parseFeatures(currentSub?.plan?.features)}
+                currentSortOrder={currentSub?.plan?.sortOrder ?? null}
+                highlightFeature={highlight}
             />
         </div>
     );
