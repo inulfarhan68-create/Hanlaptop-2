@@ -7,7 +7,7 @@ import { organizations, stores, transactions, inventory, serviceOrders } from "@
 import { subscriptions, plans, subscriptionEvents } from "@/db/schema/saas";
 import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
 import { redirect } from "next/navigation";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 export const metadata: Metadata = {
     title: "Platform Console | HanLaptop",
@@ -22,7 +22,7 @@ export default async function PlatformPage() {
     // Everything the console needs, in one parallel batch. The usage counts are
     // grouped in SQL rather than fetched per tenant: a card list that costs one
     // query per shop stops being viable the moment there are more than a few.
-    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents] = await Promise.all([
+    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents, eventMarks] = await Promise.all([
         db.query.organizations.findMany({ with: { stores: true } }),
         db.select().from(subscriptions),
         db.select({ key: plans.key, name: plans.name, priceMonthly: plans.priceMonthly })
@@ -44,7 +44,30 @@ export default async function PlatformPage() {
             .from(subscriptionEvents)
             .orderBy(desc(subscriptionEvents.createdAt))
             .limit(8),
+        // Latest of each interesting event per tenant, so a pending renewal
+        // request can be told from one that has already been served.
+        db.select({
+            organizationId: subscriptionEvents.organizationId,
+            type: subscriptionEvents.type,
+            last: sql<string>`max(${subscriptionEvents.createdAt})`,
+        })
+            .from(subscriptionEvents)
+            .where(inArray(subscriptionEvents.type, ["renewal_requested", "manual_renewal", "manual_activation"]))
+            .groupBy(subscriptionEvents.organizationId, subscriptionEvents.type),
     ]);
+
+    // A request counts as outstanding only if nothing was granted after it —
+    // otherwise every tenant you have ever served would sit in the queue forever.
+    const lastByOrgType = new Map(eventMarks.map((e) => [`${e.organizationId}:${e.type}`, new Date(e.last).getTime()]));
+    const hasPendingRequest = (orgId: string) => {
+        const asked = lastByOrgType.get(`${orgId}:renewal_requested`);
+        if (!asked) return false;
+        const granted = Math.max(
+            lastByOrgType.get(`${orgId}:manual_renewal`) ?? 0,
+            lastByOrgType.get(`${orgId}:manual_activation`) ?? 0
+        );
+        return asked > granted;
+    };
 
     const sumByStore = (rows: { storeId: string | null; n: number }[]) =>
         new Map(rows.map((r) => [r.storeId ?? "", Number(r.n)]));
@@ -86,6 +109,8 @@ export default async function PlatformPage() {
                 serviceOrders: total(svcByStore),
             },
             monthlyPrice: sub?.planKey ? planPrice.get(sub.planKey) ?? null : null,
+            // The shop has asked to renew and has not been served yet.
+            pendingRequest: hasPendingRequest(org.id),
         };
     });
 
@@ -104,12 +129,14 @@ export default async function PlatformPage() {
         trialing: tenants.filter((t) => t.status === "trialing" && !t.lapsed).length,
         expiringSoon: tenants.filter((t) => t.expiringInDays !== null).length,
         lapsed: tenants.filter((t) => t.lapsed && !t.isDemo).length,
+        pendingRequests: tenants.filter((t) => t.pendingRequest).length,
     };
 
-    // Whoever needs a phone call first: lapsed, then closest to lapsing, then the
-    // rest. Scanning cards by eye works at four tenants and not at forty.
+    // Whoever needs acting on first. A shop that has actually asked to pay
+    // outranks everything: it is the only signal here that someone is waiting on
+    // you rather than the other way round.
     const rank = (t: (typeof tenants)[number]) =>
-        t.lapsed && !t.isDemo ? 0 : t.expiringInDays !== null ? 1 : t.isDemo ? 3 : 2;
+        t.pendingRequest ? 0 : t.lapsed && !t.isDemo ? 1 : t.expiringInDays !== null ? 2 : t.isDemo ? 4 : 3;
     tenants.sort((a, b) => {
         const r = rank(a) - rank(b);
         if (r !== 0) return r;

@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Clock, MessageCircle, Mail, Landmark } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, MessageCircle, Mail, Landmark, Send } from "lucide-react";
 
 type Subscription = {
     planName: string | null;
@@ -83,6 +87,31 @@ export default function BillingClient({
     // still has days left, not only once it is already locked.
     const endingSoon = remaining !== null && remaining >= 0 && remaining <= 7;
     const hasContact = Boolean(contact.whatsapp || contact.email || contact.bankInfo);
+
+    // Clicking "Perpanjang" used to land here and offer nothing to do — no
+    // contact configured meant a dead end, and even with one the shop could only
+    // be told to go away and phone someone. This records the intent so the
+    // operator sees it in their console.
+    const [requesting, setRequesting] = useState(false);
+    const [requested, setRequested] = useState(false);
+
+    const requestRenewal = async () => {
+        setRequesting(true);
+        try {
+            const res = await apiFetch("/api/subscription/request-renewal", { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                toast.error(data.error || "Gagal mengirim permintaan");
+                return;
+            }
+            setRequested(true);
+            toast.success(data.message || "Permintaan terkirim");
+        } catch {
+            toast.error("Gagal menghubungi server");
+        } finally {
+            setRequesting(false);
+        }
+    };
 
     const waLink = contact.whatsapp
         ? `https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
@@ -211,6 +240,30 @@ export default function BillingClient({
                             Hubungi admin HanLaptop POS untuk memperpanjang langganan toko Anda.
                         </p>
                     )}
+
+                    {/* Always present, with or without a contact channel: this is the
+                        one action the shop can take from inside the app, and without
+                        it a tenant with no configured contact has no route at all. */}
+                    <div className="border-t pt-4">
+                        {requested ? (
+                            <p className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+                                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                                Permintaan perpanjangan sudah terkirim. Admin akan menghubungi Anda
+                                untuk konfirmasi pembayaran.
+                            </p>
+                        ) : (
+                            <>
+                                <Button onClick={requestRenewal} disabled={requesting} className="gap-2">
+                                    <Send className="h-4 w-4" />
+                                    {requesting ? "Mengirim…" : "Saya ingin perpanjang"}
+                                </Button>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Memberi tahu admin bahwa Anda ingin memperpanjang. Ini bukan
+                                    pembayaran — admin tetap mengonfirmasi transfer Anda.
+                                </p>
+                            </>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 
