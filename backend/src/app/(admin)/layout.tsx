@@ -6,7 +6,7 @@ import { TenantProvider } from "@/components/TenantProvider";
 import { db } from "@/db";
 import { stores, userStoreAccess } from "@/db/schema";
 import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
-import { getPlanState } from "@/lib/plan-gate";
+import { getPlanState, getUpgradeTargets } from "@/lib/plan-gate";
 import type { PlanFeatureMap } from "@/lib/route-features";
 import type { ReadOnlyReason } from "@/components/layout/ReadOnlyBanner";
 import { eq } from "drizzle-orm";
@@ -86,6 +86,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       : Promise.resolve({});
 
   const [allStores, notice] = await Promise.all([storesPromise, noticePromise]);
+  // Which plan to name for each feature they lack. Only the missing ones, so a
+  // shop on the top plan ships an empty object.
+  const upgrades = await getUpgradeTargets(notice.features ?? null);
   const defaultStore = allStores.length > 0 ? allStores[0] : null;
 
   // Whether the operator is currently borrowing a tenant's identity. Only the
@@ -104,6 +107,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         expiringInDays={notice.expiringInDays}
         isImpersonating={isImpersonating}
         planFeatures={notice.features ?? null}
+        planUpgrades={upgrades}
       >
         {children}
       </ClientLayout>

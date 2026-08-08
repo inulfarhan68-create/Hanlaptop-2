@@ -18,6 +18,7 @@ export function ClientLayout({
   expiringInDays,
   isImpersonating,
   planFeatures,
+  planUpgrades,
 }: {
   children: React.ReactNode;
   user: any;
@@ -27,12 +28,14 @@ export function ClientLayout({
   isImpersonating?: boolean;
   /** The tenant's plan feature map, so the menu can match what they pay for. */
   planFeatures?: PlanFeatureMap | null;
+  /** Feature → cheapest plan that sells it, for the locked-tab offers. */
+  planUpgrades?: Record<string, string>;
 }) {
   const pathname = usePathname();
 
   return (
     <SessionUserProvider user={user}>
-    <PlanFeaturesProvider features={planFeatures ?? null}>
+    <PlanFeaturesProvider features={planFeatures ?? null} upgrades={planUpgrades ?? {}}>
     <div className="flex flex-col md:flex-row h-screen w-full bg-gradient-to-br from-teal-100 via-cyan-100 to-emerald-100 dark:from-background dark:via-background dark:to-background dark:bg-background light-blue:bg-none light-blue:bg-slate-50 overflow-hidden print:bg-none print:h-auto print:overflow-visible text-foreground transition-colors duration-500">
       
       {/* Mobile: Top Header */}
