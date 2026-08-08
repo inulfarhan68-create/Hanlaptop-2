@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Server, Users, UserX, CalendarClock, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Server, Users, UserX, CalendarClock, CheckCircle2, AlertTriangle, Wallet, Activity, Receipt, Package, Wrench } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Tenant = {
@@ -15,11 +16,39 @@ type Tenant = {
     status: string | null;
     currentPeriodEnd: string | null;
     lapsed: boolean;
+    expiringInDays: number | null;
+    usage: { transactions: number; inventory: number; serviceOrders: number };
+    monthlyPrice: number | null;
+};
+
+type Summary = {
+    mrr: number;
+    payingTenants: number;
+    trialing: number;
+    expiringSoon: number;
+    lapsed: number;
+};
+
+type ActivityEntry = {
+    org: string;
+    type: string;
+    by: string | null;
+    months: number | null;
+    at: string;
 };
 
 type AssignablePlan = { key: string; name: string; priceMonthly: number | null };
 
 const DURATIONS = [1, 3, 6, 12] as const;
+
+/** subscriptionEvents.type is free-form text; anything unmapped shows raw. */
+const ACTIVITY_LABELS: Record<string, string> = {
+    manual_activation: "langganan diaktifkan",
+    manual_renewal: "diperpanjang",
+    past_due: "jatuh tempo",
+    upgraded: "upgrade paket",
+    trial_started: "mulai uji coba",
+};
 
 function formatDate(iso: string | null) {
     if (!iso) return "—";
@@ -29,11 +58,15 @@ function formatDate(iso: string | null) {
 export default function PlatformClient({
     organizations,
     plans,
+    summary,
+    activity,
     isImpersonating,
     currentOrgId,
 }: {
     organizations: Tenant[];
     plans: AssignablePlan[];
+    summary: Summary;
+    activity: ActivityEntry[];
     isImpersonating: boolean;
     currentOrgId: string | null;
 }) {
@@ -125,8 +158,42 @@ export default function PlatformClient({
         }
     };
 
+    const needsAttention = organizations.filter((o) => !o.isDemo && (o.lapsed || o.expiringInDays !== null));
+
     return (
         <div className="space-y-6">
+            {/* The numbers an operator opens this page to find. MRR counts only
+                what is actually being collected — paying plans, active, not
+                lapsed — so it cannot be flattered by trials or the internal plan. */}
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border bg-card p-4">
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Wallet className="h-3.5 w-3.5" /> Pendapatan / bulan</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{formatCurrency(summary.mrr)}</p>
+                    <p className="text-xs text-muted-foreground">{summary.payingTenants} toko berbayar</p>
+                </div>
+                <div className="rounded-xl border bg-card p-4">
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Activity className="h-3.5 w-3.5" /> Masa uji coba</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{summary.trialing}</p>
+                    <p className="text-xs text-muted-foreground">belum membayar</p>
+                </div>
+                <div className={`rounded-xl border p-4 ${summary.expiringSoon > 0 ? "border-sky-300 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/40" : "bg-card"}`}>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarClock className="h-3.5 w-3.5" /> Berakhir ≤7 hari</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{summary.expiringSoon}</p>
+                    <p className="text-xs text-muted-foreground">perlu dihubungi</p>
+                </div>
+                <div className={`rounded-xl border p-4 ${summary.lapsed > 0 ? "border-amber-400 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40" : "bg-card"}`}>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Terkunci</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{summary.lapsed}</p>
+                    <p className="text-xs text-muted-foreground">read-only</p>
+                </div>
+            </div>
+
+            {needsAttention.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                    <strong className="text-foreground">{needsAttention.length} toko perlu perhatian</strong> — ditampilkan paling atas.
+                </p>
+            )}
+
             {isImpersonating && (
                 <div className="flex justify-end">
                     <Button variant="destructive" onClick={handleStopImpersonation} disabled={loading} className="gap-2 font-bold">
@@ -173,7 +240,27 @@ export default function PlatformClient({
                                     <CalendarClock className="h-4 w-4 shrink-0" />
                                     {org.lapsed ? "Berakhir " : "Sampai "}
                                     {formatDate(org.currentPeriodEnd)}
+                                    {org.expiringInDays !== null && (
+                                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-100">
+                                            {org.expiringInDays === 0 ? "hari ini" : org.expiringInDays === 1 ? "besok" : `${org.expiringInDays} hari lagi`}
+                                        </span>
+                                    )}
                                 </p>
+
+                                {/* Whether the shop is actually being worked in. A trial
+                                    with stock and service orders is worth chasing; an
+                                    empty one is not, and plan/status alone cannot tell
+                                    them apart. */}
+                                {!org.isDemo && (
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1" title="Transaksi"><Receipt className="h-3.5 w-3.5" />{org.usage.transactions}</span>
+                                        <span className="flex items-center gap-1" title="Barang"><Package className="h-3.5 w-3.5" />{org.usage.inventory}</span>
+                                        <span className="flex items-center gap-1" title="Order servis"><Wrench className="h-3.5 w-3.5" />{org.usage.serviceOrders}</span>
+                                        {org.usage.transactions + org.usage.inventory + org.usage.serviceOrders === 0 && (
+                                            <span className="text-amber-700 dark:text-amber-400">belum dipakai</span>
+                                        )}
+                                    </div>
+                                )}
 
                                 {org.lapsed && !org.isDemo && (
                                     <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -276,6 +363,26 @@ export default function PlatformClient({
                     </Card>
                 ))}
             </div>
+
+            {/* Money moves outside the app, so subscriptionEvents is the only
+                record that a tenant was granted paid time — and until now it was
+                written and never read. */}
+            {activity.length > 0 && (
+                <div className="rounded-xl border bg-card p-4">
+                    <p className="mb-3 text-sm font-semibold">Aktivitas langganan terakhir</p>
+                    <ul className="space-y-2 text-sm">
+                        {activity.map((a, i) => (
+                            <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-muted-foreground">
+                                <span className="font-medium text-foreground">{a.org}</span>
+                                <span>{ACTIVITY_LABELS[a.type] ?? a.type}</span>
+                                {a.months !== null && <span>· {a.months} bulan</span>}
+                                {a.by && <span className="truncate">· oleh {a.by}</span>}
+                                <span className="ml-auto shrink-0 text-xs">{formatDate(a.at)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 }
