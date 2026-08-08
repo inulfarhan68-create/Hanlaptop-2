@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { inventory, activityLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireOwnerOrManager, requirePermission, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requirePermission, requireFeature, storeScope } from "@/lib/auth-guard";
 import { Permissions } from "@/lib/permissions";
 import { AuditService } from "@/services/AuditService";
 import { inventorySchema } from "@/lib/validators";
@@ -83,6 +83,15 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             }
         }
         console.log("[PUT API] updateData constructed:", updateData);
+
+        // Publishing to the online catalog is a Pro feature. Only the publish
+        // ACTION is gated, not the edit: a shop that drops to a plan without
+        // catalog must still be able to unpublish and to edit an item that is
+        // already flagged, so unchanged values and `false` pass through.
+        if (updateData.isPublished === true && existingItem!.isPublished !== true) {
+            const gate = await requireFeature("catalog", authResult);
+            if (gate instanceof NextResponse) return gate;
+        }
 
         const [updated] = await db
             .update(inventory)

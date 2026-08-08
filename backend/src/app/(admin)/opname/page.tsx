@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { planAllows } from "@/lib/plan-gate";
+import { PlanUpsell } from "@/components/PlanUpsell";
 import StockOpnameClient from "./client";
 
 export const metadata = {
@@ -12,6 +14,14 @@ export default async function StockOpnamePage() {
 
   if (!session) {
     redirect("/login");
+  }
+
+  // Plan gate. Hiding the menu item is not enough — a bookmark, a shared link,
+  // or a typed URL all reach the page directly, and it would then render and
+  // fire API calls that answer 402.
+  const planUser = session.user as { role?: string; organizationId?: string | null };
+  if (!(await planAllows(planUser, "stockOpname"))) {
+    return <PlanUpsell feature="stockOpname" />;
   }
 
   return <StockOpnameClient />;

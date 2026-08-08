@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { journalEntries, transactions } from "@/db/schema";
 import { eq, desc, gte, lte, and } from "drizzle-orm";
-import { requireReportAccess, storeScope } from "@/lib/auth-guard";
+import { requireReportAccess, requireFeature, storeScope } from "@/lib/auth-guard";
 import { withActiveJournalEntries } from "@/db/query-helpers";
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
+
+    // Jurnal Umum is a Business feature and the tab that renders it is gated, but
+    // the endpoint was open — the only accounting report without a check. preAuth
+    // so the auth chain is not walked twice.
+    const gate = await requireFeature("generalJournal", authResult);
+    if (gate instanceof NextResponse) return gate;
 
     try {
         const { searchParams } = new URL(request.url);
