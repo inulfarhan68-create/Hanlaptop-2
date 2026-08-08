@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { organizations, stores, transactions, inventory, serviceOrders } from "@/db/schema";
 import { subscriptions, plans, subscriptionEvents } from "@/db/schema/saas";
 import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
+import { pendingRequest } from "@/lib/subscription-requests";
 import { redirect } from "next/navigation";
 import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 
@@ -22,7 +23,7 @@ export default async function PlatformPage() {
     // Everything the console needs, in one parallel batch. The usage counts are
     // grouped in SQL rather than fetched per tenant: a card list that costs one
     // query per shop stops being viable the moment there are more than a few.
-    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents, eventMarks] = await Promise.all([
+    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents, eventMarks, upgradeAsks] = await Promise.all([
         db.query.organizations.findMany({ with: { stores: true } }),
         db.select().from(subscriptions),
         db.select({ key: plans.key, name: plans.name, priceMonthly: plans.priceMonthly })
@@ -52,21 +53,47 @@ export default async function PlatformPage() {
             last: sql<string>`max(${subscriptionEvents.createdAt})`,
         })
             .from(subscriptionEvents)
-            .where(inArray(subscriptionEvents.type, ["renewal_requested", "manual_renewal", "manual_activation"]))
+            .where(inArray(subscriptionEvents.type, ["renewal_requested", "upgrade_requested", "manual_renewal", "manual_activation"]))
             .groupBy(subscriptionEvents.organizationId, subscriptionEvents.type),
+        // Upgrade asks carry the plan they want, and that is the whole point of
+        // the request — "someone is waiting" is far less useful than "Ruang
+        // Laptop wants Pro". Newest first; the first row per org wins.
+        db.select({
+            organizationId: subscriptionEvents.organizationId,
+            payload: subscriptionEvents.payload,
+        })
+            .from(subscriptionEvents)
+            .where(eq(subscriptionEvents.type, "upgrade_requested"))
+            .orderBy(desc(subscriptionEvents.createdAt))
+            .limit(50),
     ]);
 
     // A request counts as outstanding only if nothing was granted after it —
     // otherwise every tenant you have ever served would sit in the queue forever.
     const lastByOrgType = new Map(eventMarks.map((e) => [`${e.organizationId}:${e.type}`, new Date(e.last).getTime()]));
-    const hasPendingRequest = (orgId: string) => {
-        const asked = lastByOrgType.get(`${orgId}:renewal_requested`);
-        if (!asked) return false;
-        const granted = Math.max(
+    const marksFor = (orgId: string) => ({
+        renewalAskedAt: lastByOrgType.get(`${orgId}:renewal_requested`) ?? 0,
+        upgradeAskedAt: lastByOrgType.get(`${orgId}:upgrade_requested`) ?? 0,
+        grantedAt: Math.max(
             lastByOrgType.get(`${orgId}:manual_renewal`) ?? 0,
             lastByOrgType.get(`${orgId}:manual_activation`) ?? 0
-        );
-        return asked > granted;
+        ),
+    });
+
+    // Which plan an outstanding upgrade ask named, if the ask is still open.
+    const latestUpgradeTarget = new Map<string, string>();
+    for (const row of upgradeAsks) {
+        if (latestUpgradeTarget.has(row.organizationId)) continue;
+        try {
+            const to = JSON.parse(row.payload ?? "{}").to;
+            if (typeof to === "string") latestUpgradeTarget.set(row.organizationId, to);
+        } catch { /* free-form payload; a bad row must not break the console */ }
+    }
+    const pendingUpgradeTo = (orgId: string) => {
+        const state = pendingRequest(marksFor(orgId));
+        if (!state.pending || state.kind !== "upgrade") return null;
+        const key = latestUpgradeTarget.get(orgId);
+        return key ? planName.get(key) ?? key : null;
     };
 
     const sumByStore = (rows: { storeId: string | null; n: number }[]) =>
@@ -75,6 +102,7 @@ export default async function PlatformPage() {
     const invByStore = sumByStore(invRows);
     const svcByStore = sumByStore(svcRows);
     const planPrice = new Map(assignablePlans.map((p) => [p.key, p.priceMonthly]));
+    const planName = new Map(assignablePlans.map((p) => [p.key, p.name]));
 
     const subByOrg = new Map(subRows.map((s) => [s.organizationId, s]));
     const tenants = orgs.map((org) => {
@@ -110,7 +138,9 @@ export default async function PlatformPage() {
             },
             monthlyPrice: sub?.planKey ? planPrice.get(sub.planKey) ?? null : null,
             // The shop has asked to renew and has not been served yet.
-            pendingRequest: hasPendingRequest(org.id),
+            pendingRequest: pendingRequest(marksFor(org.id)).pending,
+            // The plan an open upgrade ask named, so the operator sees what to grant.
+            pendingUpgradePlan: pendingUpgradeTo(org.id),
         };
     });
 

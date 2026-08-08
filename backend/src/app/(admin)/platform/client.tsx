@@ -20,6 +20,8 @@ type Tenant = {
     usage: { transactions: number; inventory: number; serviceOrders: number };
     monthlyPrice: number | null;
     pendingRequest: boolean;
+    /** Plan name an open upgrade ask named — null when the ask is a plain renewal. */
+    pendingUpgradePlan: string | null;
 };
 
 type Summary = {
@@ -48,6 +50,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
     manual_activation: "langganan diaktifkan",
     manual_renewal: "diperpanjang",
     renewal_requested: "minta perpanjangan",
+    upgrade_requested: "minta upgrade paket",
     past_due: "jatuh tempo",
     upgraded: "upgrade paket",
     trial_started: "mulai uji coba",
@@ -197,7 +200,7 @@ export default function PlatformClient({
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-400 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
                     <Send className="h-4 w-4 shrink-0" />
                     <span>
-                        <strong className="font-semibold">{summary.pendingRequests} toko minta diperpanjang.</strong>{" "}
+                        <strong className="font-semibold">{summary.pendingRequests} toko menunggu jawaban Anda.</strong>{" "}
                         Konfirmasi pembayarannya, lalu catat lewat tombol di kartunya.
                     </span>
                 </div>
@@ -232,7 +235,8 @@ export default function PlatformClient({
                                 <span className="truncate">{org.name}</span>
                                 {org.pendingRequest && (
                                     <span className="shrink-0 rounded-full bg-emerald-600 px-2 py-1 text-xs font-medium text-white">
-                                        Minta perpanjang
+                                        {/* The plan is the actionable part: it says what to grant. */}
+                                        {org.pendingUpgradePlan ? `Minta upgrade → ${org.pendingUpgradePlan}` : "Minta perpanjang"}
                                     </span>
                                 )}
                                 {currentOrgId === org.id && <span className="shrink-0 text-xs bg-primary text-white px-2 py-1 rounded-full">Active</span>}

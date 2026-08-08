@@ -2,6 +2,7 @@ import { cache } from "react";
 import { db } from "@/db";
 import { inventory, stores, storeSettings } from "@/db/schema";
 import { eq, and, gt, or } from "drizzle-orm";
+import { storeHasFeature } from "@/lib/plan-gate";
 
 export interface PublicCatalogData {
   store: {
@@ -45,6 +46,18 @@ export const getPublicCatalog = cache(async (storeSlug: string): Promise<
   const store = storeResult[0];
 
   if (!store || !store.isActive) {
+    return { error: "Store not found or inactive", status: 404 };
+  }
+
+  // 1b. Katalog Online is a Pro feature, and this is the one surface where the
+  // plan had no say at all: no session, no guard, so every shop got a public
+  // storefront regardless of what it paid for.
+  //
+  // 404, not 402: the visitor is the shop's customer, not the shop. They cannot
+  // act on a billing message, and telling the public which plan a shop is on
+  // leaks the shop's business. The owner learns it from the locked toggle in
+  // Inventori, where it is actionable.
+  if (!(await storeHasFeature(store.id, "catalog"))) {
     return { error: "Store not found or inactive", status: 404 };
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Building, CreditCard, User, Shield, Database, AlertCircle, MapPin, ChevronRight } from "lucide-react"
 import { useSessionUser } from "@/components/SessionUserProvider"
 import { useUserRole } from "@/hooks/useUserRole"
+import { useHasFeature } from "@/components/PlanFeaturesProvider"
 
 // Import modular tab components
 import { StoreSettingsTab } from "@/components/settings/StoreSettingsTab"
@@ -24,6 +25,8 @@ interface TabItem {
   icon: any
   requiresOwner?: boolean
   requiresGlobalOwner?: boolean
+  /** False when the plan does not include the feature behind the tab. */
+  requiresFeature?: boolean
 }
 
 export default function SettingsClient() {
@@ -32,6 +35,9 @@ export default function SettingsClient() {
   const { isOwner, role } = useUserRole()
   const isGlobalOwner = (session?.user as any)?.role === "owner" || (session?.user as any)?.role === "platform_admin"
   const router = useRouter()
+  // /api/logs enforces "auditTrail", so on a plan without it this tab could only
+  // ever render an error. Hide it rather than sell a broken screen.
+  const hasAuditTrail = useHasFeature("auditTrail")
 
   // Original (Vite) rendered <Navigate to="/dashboard"> for non-owner/manager.
   // In the Vite SPA the session was already in context, so the role was known on
@@ -96,10 +102,12 @@ export default function SettingsClient() {
       desc: "Pantau audit log sistem & riwayat aksi karyawan",
       icon: AlertCircle,
       requiresOwner: true,
+      requiresFeature: hasAuditTrail,
     },
   ]
 
   const visibleTabs = allTabs.filter(tab => {
+    if (tab.requiresFeature === false) return false
     if (tab.requiresGlobalOwner && !isGlobalOwner) return false
     if (tab.requiresOwner && !(isOwner || role === "owner" || role === "manager")) return false
     return true

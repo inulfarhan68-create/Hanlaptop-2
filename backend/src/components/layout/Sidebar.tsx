@@ -51,6 +51,8 @@ import { useUserRole } from "@/hooks/useUserRole"
 import { BranchSelector } from "@/components/BranchSelector"
 import { ShiftOpenModal, ShiftCloseModal } from "@/components/ShiftModal"
 import { Button } from "@/components/ui/button"
+import { routeAllowedByPlan } from "@/lib/route-features"
+import { usePlanFeatures } from "@/components/PlanFeaturesProvider"
 
 const sidebarGroups = [
   {
@@ -116,6 +118,10 @@ const hiddenSidebarItems = [
 ];
 
 export function Sidebar({ user, isImpersonating = false }: { user?: any; isImpersonating?: boolean }) {
+  // Plan features come from context, not a prop: the mobile nav and Settings read
+  // the same map, and threading it through each of them separately is how the two
+  // drift apart.
+  const planFeatures = usePlanFeatures()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [activeGroup, setActiveGroup] = useState<string | null>("Kasir & Transaksi")
   const pathname = usePathname()
@@ -232,6 +238,13 @@ export function Sidebar({ user, isImpersonating = false }: { user?: any; isImper
     return true;
   }
 
+  // Not in the shop's plan. Shown, not hidden: a Starter shop that never sees
+  // "Servis" has no way to learn the product does servis at all, and hiding it
+  // answers the complaint ("I can open everything") by making the app look
+  // smaller instead of making the tier mean something. The link still leads to
+  // the page, which is gated server-side and renders the upgrade offer.
+  const isItemLocked = (href: string) => !routeAllowedByPlan(href, planFeatures);
+
   return (
     <nav 
       className={cn(
@@ -310,18 +323,21 @@ export function Sidebar({ user, isImpersonating = false }: { user?: any; isImper
                   {visibleItems.map((item) => {
                     const Icon = item.icon
                     const isActive = pathname.startsWith(item.href)
-                    const isApprovals = item.href === '/approvals' && pendingApprovalsCount > 0
+                    const isLocked = isItemLocked(item.href)
+                    const isApprovals = item.href === '/approvals' && pendingApprovalsCount > 0 && !isLocked
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        title={isCollapsed ? item.title : undefined}
+                        title={isLocked ? `${item.title} — tidak termasuk paket Anda` : isCollapsed ? item.title : undefined}
                         className={cn(
                           "group relative flex items-center justify-between rounded-full text-xs font-bold transition-all duration-300",
                           isCollapsed ? "justify-center p-2.5" : "space-x-3 px-3 py-2.5",
-                          isActive 
-                            ? "bg-primary shadow-md text-primary-foreground dark:bg-accent dark:text-accent-foreground" 
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-accent"
+                          isActive
+                            ? "bg-primary shadow-md text-primary-foreground dark:bg-accent dark:text-accent-foreground"
+                            : isLocked
+                              ? "text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-accent"
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -332,6 +348,9 @@ export function Sidebar({ user, isImpersonating = false }: { user?: any; isImper
                           <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
                             {pendingApprovalsCount}
                           </span>
+                        )}
+                        {!isCollapsed && isLocked && (
+                          <Lock className="h-3.5 w-3.5 shrink-0 opacity-70" />
                         )}
                       </Link>
                     )

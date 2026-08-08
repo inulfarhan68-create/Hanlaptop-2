@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Clock, MessageCircle, Mail, Landmark, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, MessageCircle, Mail, Landmark, Send, Lock } from "lucide-react";
+import { FEATURES, FEATURE_KEYS, parseFeatures, type FeatureKey } from "@/lib/features";
 
 type Subscription = {
     planName: string | null;
@@ -25,6 +26,9 @@ type Plan = {
     maxStores: number | null;
     maxUsers: number | null;
     maxTransactionsPerMonth: number | null;
+    sortOrder: number;
+    features: string;
+    isPublic: boolean;
 };
 
 type Invoice = {
@@ -74,6 +78,9 @@ export default function BillingClient({
     invoices,
     organizationName,
     contact,
+    currentFeatures,
+    currentSortOrder,
+    highlightFeature,
 }: {
     subscription: Subscription | null;
     lapsed: boolean;
@@ -81,6 +88,11 @@ export default function BillingClient({
     invoices: Invoice[];
     organizationName: string;
     contact: Contact;
+    /** What the shop's current plan grants — the baseline each card is diffed against. */
+    currentFeatures: Partial<Record<FeatureKey, boolean>>;
+    currentSortOrder: number | null;
+    /** The feature the shop was blocked on just before arriving here, if any. */
+    highlightFeature: FeatureKey | null;
 }) {
     const remaining = subscription ? daysUntil(subscription.currentPeriodEnd) : null;
     // Renewal is a conversation, not a checkout — surface it early while the shop
@@ -112,6 +124,44 @@ export default function BillingClient({
             setRequesting(false);
         }
     };
+
+    // Naming a plan is a different ask from renewing one, so it is its own
+    // request: the operator needs to know WHICH plan to move the shop to.
+    const [upgradingTo, setUpgradingTo] = useState<string | null>(null);
+    const [upgradeAsked, setUpgradeAsked] = useState<string | null>(null);
+
+    const requestUpgrade = async (plan: Plan) => {
+        setUpgradingTo(plan.key);
+        try {
+            const res = await apiFetch("/api/subscription/request-upgrade", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ planKey: plan.key }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                toast.error(data.error || "Gagal mengirim permintaan");
+                return;
+            }
+            setUpgradeAsked(plan.key);
+            toast.success(data.message || "Permintaan terkirim");
+        } catch {
+            toast.error("Gagal menghubungi server");
+        } finally {
+            setUpgradingTo(null);
+        }
+    };
+
+    /** What a plan adds on top of the shop's current one. */
+    const gains = (plan: Plan): FeatureKey[] => {
+        const f = parseFeatures(plan.features);
+        return FEATURE_KEYS.filter((k) => f[k] === true && currentFeatures[k] !== true);
+    };
+
+    // The plan the shop should be looking at, when they arrived from a lock.
+    const planForHighlight = highlightFeature
+        ? plans.find((p) => p.isPublic && parseFeatures(p.features)[highlightFeature] === true) ?? null
+        : null;
 
     const waLink = contact.whatsapp
         ? `https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
@@ -268,19 +318,50 @@ export default function BillingClient({
             </Card>
 
             {plans.length > 0 && (
-                <Card>
+                <Card id="paket">
                     <CardHeader>
                         <CardTitle>Pilihan paket</CardTitle>
-                        <CardDescription>Sebutkan paket yang Anda inginkan saat menghubungi admin.</CardDescription>
+                        <CardDescription>
+                            Minta upgrade langsung dari sini — admin akan menghubungi Anda untuk pembayaran.
+                        </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
+                        {/* Why they are here. Arriving from a padlock and being shown four
+                            cards of quotas leaves the shop to work out for themselves which
+                            plan carries the thing they just tried to open. */}
+                        {highlightFeature && (
+                            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+                                <p className="text-sm text-muted-foreground">
+                                    Anda mencoba membuka{" "}
+                                    <strong className="text-foreground">{FEATURES[highlightFeature]}</strong>
+                                    {planForHighlight
+                                        ? <>, tersedia mulai paket <strong className="text-foreground">{planForHighlight.name}</strong>.</>
+                                        : <>, yang tidak termasuk paket Anda.</>}
+                                </p>
+                            </div>
+                        )}
                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {plans.map((plan) => {
+                            {plans
+                                // A retired or internal tier is not on sale; the shop's own
+                                // plan stays so they can see what they already have.
+                                .filter((plan) => plan.isPublic || subscription?.planKey === plan.key)
+                                .map((plan) => {
                                 const isCurrent = subscription?.planKey === plan.key;
+                                const isHigher = currentSortOrder === null || plan.sortOrder > currentSortOrder;
+                                const added = isCurrent ? [] : gains(plan);
+                                const carriesHighlight =
+                                    highlightFeature !== null && parseFeatures(plan.features)[highlightFeature] === true;
                                 return (
                                     <div
                                         key={plan.key}
-                                        className={`rounded-lg border p-4 ${isCurrent ? "border-primary bg-primary/5" : ""}`}
+                                        className={`flex flex-col rounded-lg border p-4 ${
+                                            isCurrent
+                                                ? "border-primary bg-primary/5"
+                                                : carriesHighlight && plan.key === planForHighlight?.key
+                                                  ? "border-amber-500/60 bg-amber-500/5"
+                                                  : ""
+                                        }`}
                                     >
                                         <div className="flex items-center justify-between gap-2">
                                             <p className="font-semibold">{plan.name}</p>
@@ -300,6 +381,50 @@ export default function BillingClient({
                                             <li>{quota(plan.maxUsers)} pengguna</li>
                                             <li>{quota(plan.maxTransactionsPerMonth)} transaksi/bulan</li>
                                         </ul>
+                                        {added.length > 0 && (
+                                            <div className="mt-3 border-t pt-3">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    Tambahan dari paket Anda
+                                                </p>
+                                                <ul className="mt-1.5 space-y-1 text-xs text-muted-foreground">
+                                                    {/* Four, then a count: the full matrix belongs on the
+                                                        pricing page, this only has to make the gap concrete. */}
+                                                    {added.slice(0, 4).map((k) => (
+                                                        <li
+                                                            key={k}
+                                                            className={`flex items-start gap-1.5 ${k === highlightFeature ? "font-semibold text-foreground" : ""}`}
+                                                        >
+                                                            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+                                                            <span>{FEATURES[k]}</span>
+                                                        </li>
+                                                    ))}
+                                                    {added.length > 4 && (
+                                                        <li className="pl-4.5">dan {added.length - 4} fitur lain</li>
+                                                    )}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {!isCurrent && isHigher && (
+                                            <Button
+                                                size="sm"
+                                                variant={plan.key === planForHighlight?.key ? "default" : "outline"}
+                                                className="mt-4 w-full"
+                                                disabled={upgradingTo === plan.key || upgradeAsked === plan.key}
+                                                onClick={() => requestUpgrade(plan)}
+                                            >
+                                                {upgradeAsked === plan.key ? (
+                                                    <>
+                                                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Permintaan terkirim
+                                                    </>
+                                                ) : upgradingTo === plan.key ? (
+                                                    "Mengirim…"
+                                                ) : (
+                                                    <>
+                                                        <Send className="mr-1.5 h-3.5 w-3.5" /> Minta upgrade
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
                                     </div>
                                 );
                             })}
