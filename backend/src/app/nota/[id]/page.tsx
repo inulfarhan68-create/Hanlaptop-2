@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { pickIdentity, clause } from "@/lib/shop-identity";
 import { getPublicInvoice } from "@/lib/public/invoices";
 import NotaClient from "./client";
 import type { Metadata } from "next";
@@ -22,11 +23,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { transaction, storeSettings } = result.data;
-  const storeName = storeSettings.storeName || "HanLaptop";
+  // null when the shop has not set a name — the title then simply omits it
+  // rather than putting another tenant's brand on their customer's receipt.
+  const storeName = pickIdentity(storeSettings.storeName);
   const invoiceNo = transaction.invoiceNumber || transaction.id.substring(0, 8).toUpperCase();
   const customerName = transaction.customerName || transaction.customer?.name || "Pelanggan";
-  const title = `Nota #${invoiceNo} | ${storeName}`;
-  const description = `Invoice transaksi untuk ${customerName} — ${storeName}`;
+  const title = `Nota #${invoiceNo}${clause(" | ", storeName)}`;
+  const description = `Invoice transaksi untuk ${customerName}${clause(" — ", storeName)}`;
 
   return {
     title,
@@ -35,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "website",
-      siteName: storeName,
+      siteName: storeName ?? undefined,
     },
     twitter: {
       card: "summary",

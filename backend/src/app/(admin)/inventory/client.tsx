@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useDeferredValue } from "react"
+import { pickIdentity, cachedIdentity } from "@/lib/shop-identity"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -846,9 +847,13 @@ export function InventoryClient({ user }: { user: any }) {
 
       // 7. Draw Bottom Margin Contact Handles (Pure Black text with Pure Black icons)
       const footerTextY = ch * 0.97;
-      const storeInstagram = localStorage.getItem("storeInstagram") || "hanlaptop";
-      const storePhone = localStorage.getItem("storePhone") || "0851-6187-0922";
+      // A flyer this shop publishes. The old fallbacks were the flagship's real
+      // Instagram handle and real phone number, so an unconfigured shop printed
+      // a poster sending its customers to a different business (rule 16).
+      const storeInstagram = cachedIdentity("storeInstagram");
+      const storePhone = cachedIdentity("storePhone");
 
+      if (storeInstagram) {
       // ── Authentic Instagram Brand Gradient Vector Logo ──
       const igSize = 30; // Match WhatsApp icon size
       const igIconX = pad + 6;
@@ -892,7 +897,11 @@ export function InventoryClient({ user }: { user: any }) {
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillText(`@${storeInstagram}`, igIconX + igSize + 8, footerTextY);
+      }
 
+      // Drawn only when the shop actually has one — an unset handle used to
+      // print the flagship's, sending this shop's customers elsewhere.
+      if (storePhone) {
       // WhatsApp (Right side: Black Icon + Black Text)
       const waText = `WA: ${storePhone}`;
       ctx.font = `700 ${contactFontSize}px 'Segoe UI', system-ui, sans-serif`;
@@ -922,6 +931,7 @@ export function InventoryClient({ user }: { user: any }) {
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       ctx.fillText(waText, cw - pad - 6, footerTextY);
+      }
     };
 
     img.onload = () => {
@@ -1123,7 +1133,8 @@ export function InventoryClient({ user }: { user: any }) {
       XLSX.utils.book_append_sheet(wb, ws, "Stok Inventaris")
       
       const dateStr = new Date().toISOString().substring(0, 10);
-      const storeName = localStorage.getItem("storeName") || "HanLaptop";
+      // A filename, not a claim of identity — but still not another shop's name.
+      const storeName = cachedIdentity("storeName") ?? "Toko";
       XLSX.writeFile(wb, `Laporan_Stok_${storeName.replace(/ /g, "_")}_${dateStr}.xlsx`)
       toast.success("Excel berhasil diekspor!")
     } catch (e) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react"
+import { cachedIdentity, fillTemplate } from "@/lib/shop-identity"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -104,14 +105,20 @@ export default function PiutangClient() {
     let template = localStorage.getItem("waTemplatePiutang");
     if (!template) template = defaultTemplate;
 
-    const storeName = localStorage.getItem("storeName") || "HanLaptop";
-
-    const text = template
-      .replace(/{nama}/g, t.customerName || 'Pelanggan')
-      .replace(/{toko}/g, storeName)
-      .replace(/{nota}/g, t.invoiceNumber || '-')
-      .replace(/{sisa}/g, formatCurrency(sisa))
-      .replace(/{tempo}/g, dateFormatted);
+    // The template is the shop's own sentence and is written expecting {toko} to
+    // resolve — blanking it renders "tagihan dari **". So if the name is not
+    // known yet, refuse rather than send a broken or misattributed reminder.
+    const { text, missing } = fillTemplate(template, {
+      nama: t.customerName || 'Pelanggan',
+      toko: cachedIdentity("storeName"),
+      nota: t.invoiceNumber || '-',
+      sisa: formatCurrency(sisa),
+      tempo: dateFormatted,
+    });
+    if (missing.length > 0) {
+      toast.error("Nama toko belum termuat. Coba lagi sebentar lagi.");
+      return;
+    }
 
     const encodedText = encodeURIComponent(text)
 

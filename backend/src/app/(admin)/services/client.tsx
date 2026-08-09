@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"
+import { pickIdentity, cachedIdentity, clause, fillTemplate } from "@/lib/shop-identity"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useTenant } from "@/components/TenantProvider"
 import { apiFetch } from "@/lib/api"
@@ -161,7 +162,7 @@ export default function ServicesClient({ user }: { user: any }) {
   };
 
   const handleWAWithTemplate = (s: any, templateType: string) => {
-    const storeName = storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop";
+    const storeName = pickIdentity(storeSettings?.storeName, cachedIdentity("storeName"));
     const receiptLink = `${window.location.origin}/nota-servis/${s.id}`;
     let template = "";
 
@@ -191,14 +192,22 @@ export default function ServicesClient({ user }: { user: any }) {
     const formattedCost = formatCurrency(costVal);
     const tindakanStr = s.notes ? getCleanedNotes(s.notes) : "-";
 
-    const text = template
-      .replace(/{nama}/g, s.customerName || "Pelanggan")
-      .replace(/{unit}/g, s.deviceName || "Laptop")
-      .replace(/{keluhan}/g, s.issue || "-")
-      .replace(/{toko}/g, storeName)
-      .replace(/{biaya}/g, formattedCost)
-      .replace(/{tindakan}/g, tindakanStr)
-      .replace(/{link}/g, receiptLink);
+    // Every one of these templates says "di *{toko}*" — the customer is being
+    // told which shop has their laptop. Blank renders "di **" and a literal
+    // names the wrong shop, so refuse until the name is known (rule 16).
+    const { text, missing } = fillTemplate(template, {
+      nama: s.customerName || "Pelanggan",
+      unit: s.deviceName || "Laptop",
+      keluhan: s.issue || "-",
+      toko: storeName,
+      biaya: formattedCost,
+      tindakan: tindakanStr,
+      link: receiptLink,
+    });
+    if (missing.length > 0) {
+      toast.error("Nama toko belum termuat. Coba lagi sebentar lagi.");
+      return;
+    }
 
     let phone = s.customerPhone || '';
     if (phone.startsWith('0')) phone = '62' + phone.substring(1);
@@ -607,9 +616,11 @@ export default function ServicesClient({ user }: { user: any }) {
   }
 
   const handleWA = (s: any) => {
-    const storeName = localStorage.getItem("storeName") || "HanLaptop";
+    const storeName = cachedIdentity("storeName");
     const receiptLink = `${window.location.origin}/nota-servis/${s.id}`;
-    const text = `Halo Kak ${s.customerName},\nIni dengan *${storeName}*.\n\nUpdate Servis Laptop: *${s.deviceName}*\nStatus Saat Ini: *${s.status}*\n${s.notes ? `Catatan: ${getCleanedNotes(s.notes)}\n` : ''}${s.status === 'Selesai' || s.status === 'Diambil' ? `Biaya Akhir: ${formatCurrency(s.finalCost || s.estimatedCost)}\n` : `Estimasi Biaya: ${formatCurrency(s.estimatedCost)}\n`}\nCek Nota/Status Lengkap: ${receiptLink}\n\nTerima kasih.`;
+    // The "Ini dengan *X*" line vanishes when we do not know who we are, rather
+    // than telling the customer they are dealing with another shop (rule 16).
+    const text = `Halo Kak ${s.customerName},${clause("\nIni dengan *", storeName, "*.")}\n\nUpdate Servis Laptop: *${s.deviceName}*\nStatus Saat Ini: *${s.status}*\n${s.notes ? `Catatan: ${getCleanedNotes(s.notes)}\n` : ''}${s.status === 'Selesai' || s.status === 'Diambil' ? `Biaya Akhir: ${formatCurrency(s.finalCost || s.estimatedCost)}\n` : `Estimasi Biaya: ${formatCurrency(s.estimatedCost)}\n`}\nCek Nota/Status Lengkap: ${receiptLink}\n\nTerima kasih.`;
     
     let phone = s.customerPhone || '';
     if (phone.startsWith('0')) phone = '62' + phone.substring(1);
@@ -906,10 +917,14 @@ export default function ServicesClient({ user }: { user: any }) {
                             {/* Second row: Utility buttons */}
                             <div className="flex justify-end items-center gap-1 border-t border-border/30 pt-1.5 mt-0.5">
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 shrink-0" onClick={() => {
-                                const storeName = storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop";
-                                const storeAddress = storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123";
-                                const storePhone = storeSettings?.storePhone || localStorage.getItem("storePhone") || "0812-3456-7890";
-                                printServiceLabel(item, { name: storeName, address: storeAddress, phone: storePhone });
+                                // This label is stuck to the customer's laptop. An
+                                // invented address on it sends them to another
+                                // shop; blank simply prints nothing (rule 16).
+                                printServiceLabel(item, {
+                                  name: pickIdentity(storeSettings?.storeName, cachedIdentity("storeName")) ?? "",
+                                  address: pickIdentity(storeSettings?.storeAddress, cachedIdentity("storeAddress")) ?? "",
+                                  phone: pickIdentity(storeSettings?.storePhone, cachedIdentity("storePhone")) ?? "",
+                                });
                               }} title="Cetak Label Unit">
                                 <Printer className="h-4 w-4" />
                               </Button>

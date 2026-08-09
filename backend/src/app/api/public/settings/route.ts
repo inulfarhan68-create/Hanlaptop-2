@@ -24,7 +24,9 @@ export async function GET(request: Request) {
                 });
             }
             return NextResponse.json({
-                storeName: storeInfo?.name || "HanLaptop",
+                // Blank, never the flagship: this is served publicly for whichever
+                // store was asked for (rule 16).
+                storeName: storeInfo?.name || "",
                 storeLogo: null
             });
         }

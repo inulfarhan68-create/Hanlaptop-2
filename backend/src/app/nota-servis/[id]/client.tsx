@@ -629,7 +629,7 @@ export default function NotaServisClient({ data: initialData, id }: { data: Publ
                 <img src={storeSettings.storeSignature || assetUrl("/ttd.png")} alt="" className="max-w-full max-h-full object-contain opacity-80 mix-blend-multiply" onError={(e) => e.currentTarget.style.display = 'none'} />
               </div>
               <div className="border-b border-slate-400 w-full mb-1.5 mt-auto relative z-10"></div>
-              <p className="text-[12px] font-bold text-slate-900 relative z-10">{storeSettings.storeName || "HanLaptop"}</p>
+              <p className="text-[12px] font-bold text-slate-900 relative z-10">{storeSettings.storeName || ""}</p>
             </div>
           </div>
 

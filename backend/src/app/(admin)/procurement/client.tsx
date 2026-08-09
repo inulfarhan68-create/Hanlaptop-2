@@ -234,7 +234,7 @@ export default function ProcurementClient() {
                       {new Date(item.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })}
                     </TableCell>
                     <TableCell className="text-xs py-3.5 font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
-                      {item.store?.name || "HanLaptop"}
+                      {item.store?.name || "—"}
                     </TableCell>
                     <TableCell className="text-xs py-3.5 font-bold max-w-[150px] truncate" title={item.itemName}>
                       {item.itemName}

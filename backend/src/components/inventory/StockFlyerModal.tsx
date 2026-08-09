@@ -87,12 +87,14 @@ export function StockFlyerModal({ isOpen, onClose, items }: StockFlyerModalProps
       const rawFooter = storeSettings.storeFooter
       if (rawFooter.includes("|||IG:")) {
         const parts = rawFooter.split("|||IG:")
-        setCustomInstagram(parts[1] || "hanlaptop")
+        // Blank, not the flagship's handle: this ends up printed on a poster
+        // this shop publishes (rule 16).
+        setCustomInstagram(parts[1] || "")
       } else {
-        setCustomInstagram("hanlaptop")
+        setCustomInstagram("")
       }
     } else {
-      setCustomInstagram("hanlaptop")
+      setCustomInstagram("")
     }
   }, [storeSettings])
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react"
+import { pickIdentity, cachedIdentity, clause } from "@/lib/shop-identity"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -110,11 +111,13 @@ export default function HutangClient() {
   const handleWhatsApp = (t: any) => {
     const sisa = (t.amount || 0) - (t.dpAmount || 0);
     const dateFormatted = t.dueDate ? new Date(t.dueDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-';
-    const storeName = localStorage.getItem("storeName") || "HanLaptop";
+    // We own this sentence, so an unknown shop name drops the clause instead of
+    // naming someone else's shop to our supplier (rule 16).
+    const storeName = pickIdentity(cachedIdentity("storeName"));
     const supplier = getSupplierName(t);
     const supplierPhone = t.supplier && t.supplier.phone ? t.supplier.phone : null;
 
-    const text = `Halo *${supplier}*, kami dari *${storeName}*. Ingin mengonfirmasi sisa pembayaran untuk nota pembelian stok kami *${t.invoiceNumber || '-'}* senilai *${formatCurrency(sisa)}* yang jatuh tempo pada *${dateFormatted}* sedang kami proses. Terima kasih banyak.`;
+    const text = `Halo *${supplier}*${clause(", kami dari *", storeName, "*")}. Ingin mengonfirmasi sisa pembayaran untuk nota pembelian stok kami *${t.invoiceNumber || '-'}* senilai *${formatCurrency(sisa)}* yang jatuh tempo pada *${dateFormatted}* sedang kami proses. Terima kasih banyak.`;
 
     const encodedText = encodeURIComponent(text)
 

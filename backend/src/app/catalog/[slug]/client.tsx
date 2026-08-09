@@ -383,15 +383,20 @@ export default function CatalogClient({ initialData, slug }: { initialData: Publ
                       <span className="font-medium">{data.store.phone}</span>
                     </div>
                   )}
-                  <a 
-                    href={`https://instagram.com/${data.store.slug || "hanlaptop"}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
+                  {/* Only when this shop has a handle of its own. It used to fall
+                      back to the flagship's, so an unconfigured shop's public
+                      catalog sent its visitors to a competitor (rule 16). */}
+                  {data.store.slug && (
+                  <a
+                    href={`https://instagram.com/${data.store.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:text-pink-500 transition-colors shrink-0"
                   >
                     <InstagramIcon className="h-3 w-3 text-slate-400 dark:text-slate-500 shrink-0" />
-                    <span>@{data.store.slug || "hanlaptop"}</span>
+                    <span>@{data.store.slug}</span>
                   </a>
+                  )}
                 </div>
               </div>
             </div>

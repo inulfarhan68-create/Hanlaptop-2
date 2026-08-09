@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react"
+import { cachedIdentity, clause } from "@/lib/shop-identity"
 import { createPortal } from "react-dom"
 import useSWR from "swr"
 import { apiFetch } from "@/lib/api"
@@ -97,8 +98,10 @@ export default function PayrollClient() {
   )
 
   const handleTechWA = (tech: any) => {
-    const storeName = localStorage.getItem("storeName") || "HanLaptop";
-    const text = `Halo *${tech.name}*, ini dari *${storeName}*. Ingin berkoordinasi mengenai pekerjaan servis unit pelanggan. Terima kasih.`;
+    // Our own sentence, so the clause drops when the name is unknown rather than
+    // telling our technician they work for a different shop (rule 16).
+    const storeName = cachedIdentity("storeName");
+    const text = `Halo *${tech.name}*${clause(", ini dari *", storeName, "*")}. Ingin berkoordinasi mengenai pekerjaan servis unit pelanggan. Terima kasih.`;
     const encodedText = encodeURIComponent(text)
     const phoneNum = tech.phone || ''
     let waNumber = phoneNum.replace(/\D/g, '')
@@ -964,8 +967,10 @@ export default function PayrollClient() {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
-    const storeName = localStorage.getItem("storeName") || "HanLaptop"
-    const storeAddress = localStorage.getItem("storeAddress") || ""
+    // Payslip header. Blank prints nothing, which is the truth; the old fallback
+    // printed another shop's name on an employee's pay record (rule 16).
+    const storeName = cachedIdentity("storeName") ?? ""
+    const storeAddress = cachedIdentity("storeAddress") ?? ""
 
     const htmlContent = `
       <html>
@@ -982,7 +987,7 @@ export default function PayrollClient() {
         </style>
       </head>
       <body>
-        <div class="center bold title">${storeName.toUpperCase()}</div>
+        ${storeName ? `<div class="center bold title">${storeName.toUpperCase()}</div>` : ""}
         <div class="center">${storeAddress}</div>
         <div class="line"></div>
         <div class="center bold">SLIP GAJI BULANAN</div>

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { pickIdentity, clause } from "@/lib/shop-identity";
 import { notFound } from "next/navigation";
 import { getPublicCatalog } from "@/lib/public/catalog";
 import { getAppUrl } from "@/lib/app-url";
@@ -24,10 +25,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { store, items } = result.data;
-  const storeName = store.name || "HanLaptop";
+  // A catalog belongs to whichever shop published it. Naming the flagship here
+  // would put its brand on another shop's storefront and in the search result
+  // that leads to it — so an unnamed shop simply gets an unbranded title.
+  const storeName = pickIdentity(store.name);
   const itemCount = items.length;
-  const title = `Katalog Laptop Bekas | ${storeName}`;
-  const description = `Cari laptop bekas berkualitas di ${storeName}. ${itemCount} unit tersedia dengan harga terbaik. Garansi toko & siap pakai.`;
+  const title = `Katalog Laptop Bekas${clause(" | ", storeName)}`;
+  const description = `Cari laptop bekas berkualitas${clause(" di ", storeName)}. ${itemCount} unit tersedia dengan harga terbaik. Garansi toko & siap pakai.`;
   const canonical = `/catalog/${store.slug}`;
 
   return {
@@ -37,7 +41,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       "laptop bekas",
       "laptop second",
       "laptop murah",
-      storeName,
+      ...(storeName ? [storeName] : []),
       "katalog laptop",
       "laptop berkualitas",
     ],
@@ -45,8 +49,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "website",
-      siteName: storeName,
-      ...(store.logo ? { images: [{ url: store.logo, alt: storeName }] } : {}),
+      siteName: storeName ?? undefined,
+      ...(store.logo ? { images: [{ url: store.logo, alt: storeName ?? "Katalog" }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
@@ -70,11 +74,13 @@ export default async function CatalogPage({ params }: PageProps) {
   }
   const { store, items } = result.data;
 
-  // Generate JSON-LD for SEO
+  // Generate JSON-LD for SEO. The name is whatever this shop calls itself, or
+  // blank — publishing the flagship's name here would attribute another shop's
+  // storefront to it in search results (rule 16).
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Store",
-    "name": store.name || "HanLaptop",
+    "name": pickIdentity(store.name) ?? "",
     "image": store.logo || "",
     "address": {
       "@type": "PostalAddress",
