@@ -7,6 +7,7 @@ import { userStoreAccess } from "@/db/schema/store";
 import { user, account, session } from "@/db/schema/users";
 import { seedStoreCoa } from "@/db/seed-coa";
 import { auth } from "@/lib/auth";
+import { checkRateLimitTier } from "@/lib/rate-limit";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 
@@ -20,6 +21,13 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
+    // The front door was the one public write with no throttle at all, and it is
+    // the most expensive call in the app: each one creates an organization, a
+    // store, a subscription, a user and a full chart of accounts. A script could
+    // fill the database — and the operator console — with junk tenants.
+    const rateLimited = await checkRateLimitTier(req, "signup");
+    if (rateLimited) return rateLimited;
+
     try {
         const body = await req.json();
         const parsed = registerSchema.safeParse(body);
