@@ -4,9 +4,10 @@ import { getSession } from "@/lib/session";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 import { TenantProvider } from "@/components/TenantProvider";
 import { db } from "@/db";
-import { stores, userStoreAccess, organizations } from "@/db/schema";
-import { subscriptions } from "@/db/schema/saas";
+import { stores, userStoreAccess } from "@/db/schema";
 import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
+import { getPlanState } from "@/lib/plan-gate";
+import type { PlanFeatureMap } from "@/lib/route-features";
 import type { ReadOnlyReason } from "@/components/layout/ReadOnlyBanner";
 import { eq } from "drizzle-orm";
 
@@ -61,27 +62,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // billing page carried that warning already, but only for someone who thought
   // to open it — so in practice the first signal a shop got was a save failing
   // mid-sale. Warning in the shell reaches them while renewing is still routine.
-  type ShellNotice = { readOnly?: ReadOnlyReason; expiringInDays?: number };
+  //
+  // The same row also carries the plan's feature map, which the sidebar needs:
+  // it filtered by role alone, so a Starter shop saw the whole Business menu.
+  type ShellNotice = {
+    readOnly?: ReadOnlyReason;
+    expiringInDays?: number;
+    features?: PlanFeatureMap | null;
+  };
+  // getPlanState is cache()d, so the gated page rendered inside this layout reuses
+  // this exact row rather than issuing its own copy of the query.
   const noticePromise: Promise<ShellNotice> =
     organizationId && role !== "platform_admin"
-      ? db
-          .select({
-            isDemo: organizations.isDemo,
-            subscriptionStatus: subscriptions.status,
-            currentPeriodEnd: subscriptions.currentPeriodEnd,
-          })
-          .from(organizations)
-          .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
-          .where(eq(organizations.id, organizationId))
-          .limit(1)
-          .then(([org]): ShellNotice => {
-            if (!org) return {};
-            if (org.isDemo) return { readOnly: "demo" };
-            if (subscriptionLapsed(org)) return { readOnly: "subscription" };
-            // null unless it lapses within the warning window.
-            const days = daysUntilLapse(org);
-            return days === null ? {} : { expiringInDays: days };
-          })
+      ? getPlanState(organizationId).then((state): ShellNotice => {
+          if (!state) return {};
+          const { features } = state;
+          if (state.isDemo) return { readOnly: "demo", features };
+          if (subscriptionLapsed(state)) return { readOnly: "subscription", features };
+          // null unless it lapses within the warning window.
+          const days = daysUntilLapse(state);
+          return days === null ? { features } : { expiringInDays: days, features };
+        })
       : Promise.resolve({});
 
   const [allStores, notice] = await Promise.all([storesPromise, noticePromise]);
@@ -102,6 +103,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         readOnlyReason={notice.readOnly}
         expiringInDays={notice.expiringInDays}
         isImpersonating={isImpersonating}
+        planFeatures={notice.features ?? null}
       >
         {children}
       </ClientLayout>

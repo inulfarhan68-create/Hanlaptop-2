@@ -8,6 +8,8 @@ import { SessionUserProvider } from "@/components/SessionUserProvider";
 import { ReadOnlyBanner, type ReadOnlyReason } from "./ReadOnlyBanner";
 import { ExpiringBanner } from "./ExpiringBanner";
 import { AnimatePresence, motion } from "framer-motion";
+import type { PlanFeatureMap } from "@/lib/route-features";
+import { PlanFeaturesProvider } from "@/components/PlanFeaturesProvider";
 
 export function ClientLayout({
   children,
@@ -15,6 +17,7 @@ export function ClientLayout({
   readOnlyReason,
   expiringInDays,
   isImpersonating,
+  planFeatures,
 }: {
   children: React.ReactNode;
   user: any;
@@ -22,11 +25,14 @@ export function ClientLayout({
   expiringInDays?: number;
   /** Operator borrowing a tenant's identity — resolved server-side in the layout. */
   isImpersonating?: boolean;
+  /** The tenant's plan feature map, so the menu can match what they pay for. */
+  planFeatures?: PlanFeatureMap | null;
 }) {
   const pathname = usePathname();
 
   return (
     <SessionUserProvider user={user}>
+    <PlanFeaturesProvider features={planFeatures ?? null}>
     <div className="flex flex-col md:flex-row h-screen w-full bg-gradient-to-br from-teal-100 via-cyan-100 to-emerald-100 dark:from-background dark:via-background dark:to-background dark:bg-background light-blue:bg-none light-blue:bg-slate-50 overflow-hidden print:bg-none print:h-auto print:overflow-visible text-foreground transition-colors duration-500">
       
       {/* Mobile: Top Header */}
@@ -65,6 +71,7 @@ export function ClientLayout({
       {/* Mobile: Bottom Navigation (hidden on desktop) */}
       <BottomNav />
     </div>
+    </PlanFeaturesProvider>
     </SessionUserProvider>
   );
 }
