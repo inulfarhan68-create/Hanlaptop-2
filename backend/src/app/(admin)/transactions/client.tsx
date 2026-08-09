@@ -106,7 +106,7 @@ export default function TransactionsClient({ user }: { user: any }) {
     setEditingTrx(trx)
     // Map backend type names to client tab modes
     let targetMode: TransactionMode = "Penjualan"
-    if (trx.transactionType === "Jasa Servis") targetMode = "Servis"
+    if (trx.transactionType === "Jasa Servis") targetMode = "Penjualan"
     else if (trx.transactionType === "Pembelian Stok") targetMode = "Pembelian"
     else if (trx.transactionType === "Tukar Tambah" || trx.transactionType === "Buyback") targetMode = "Tukar Tambah"
     else if (trx.transactionType === "Operasional") targetMode = "Pengeluaran"
