@@ -107,6 +107,7 @@ export class TransactionService {
                 let totalUtangKonsinyasi = 0;
                 let totalKomisiKonsinyasi = 0;
                 let totalRegularSales = 0;
+                let totalServiceRevenue = 0;
                 
                 for (const item of items) {
                     if (!item.inventoryId) throw new Error("Inventory ID is required for sales items");
@@ -114,6 +115,22 @@ export class TransactionService {
                         where: eq(inventory.id, item.inventoryId as string)
                     });
                     
+                    // ── Service line items (Jasa Servis) ──
+                    // No physical stock to deduct, no HPP, no serial numbers, no
+                    // passport transitions. Just record the line item and accumulate
+                    // revenue for the "Pendapatan Servis" journal entry.
+                    if (invItem?.category === "Jasa Servis") {
+                        await tx.insert(transactionItems).values({
+                            transactionId: newTx.id,
+                            inventoryId: item.inventoryId,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            serialNumbers: null
+                        });
+                        totalServiceRevenue += item.unitPrice * item.quantity;
+                        continue;
+                    }
+
                     if (!invItem || invItem.quantity < item.quantity) {
                         throw new Error(`Insufficient stock for item ID: ${item.inventoryId}`);
                     }
@@ -207,6 +224,7 @@ export class TransactionService {
                 const entries = [];
 
                 if (totalRegularSales > 0) entries.push(createJournalEntry(storeId, newTx.id, "Penjualan Laptop", 0, totalRegularSales));
+                if (totalServiceRevenue > 0) entries.push(createJournalEntry(storeId, newTx.id, "Pendapatan Servis", 0, totalServiceRevenue));
                 if (totalKomisiKonsinyasi > 0) entries.push(createJournalEntry(storeId, newTx.id, "Pendapatan Komisi", 0, totalKomisiKonsinyasi));
                 if (totalUtangKonsinyasi > 0) entries.push(createJournalEntry(storeId, newTx.id, "Utang Konsinyasi", 0, totalUtangKonsinyasi));
                 if (totalCogs > 0) {

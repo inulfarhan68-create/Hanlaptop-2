@@ -192,13 +192,14 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
   const processBarcodeScan = (barcode: string) => {
     const matchedItem = inventoryItems.find(i => i.barcode === barcode);
     if (matchedItem) {
-      if (matchedItem.stock <= 0) {
+      const isJasa = matchedItem.category === "Jasa Servis";
+      if (!isJasa && matchedItem.stock <= 0) {
         toast.error(`Stok habis untuk: ${matchedItem.name}`);
       } else {
         setCart(prev => {
           const existing = prev.find(item => item.id === matchedItem.id);
           if (existing) {
-            if (existing.qty >= matchedItem.stock) {
+            if (!isJasa && existing.qty >= matchedItem.stock) {
               toast.error(`Stok tidak mencukupi untuk: ${matchedItem.name}`);
               return prev;
             }
@@ -208,7 +209,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                   ...item, 
                   qty: item.qty + 1, 
                   serialNumbers: matchedItem.tracksSerialNumber 
-                    ? (item.serialNumbers ? [...item.serialNumbers, ""] : [""]) 
+                    ? (item.serialNumbers ? [...item.serialNumbers, ""] : [""])
                     : [] 
                 } 
               : item
@@ -306,11 +307,13 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
   const totalItemDiscount = cart.reduce((sum, item) => sum + getItemDiscountPerUnit(item) * item.qty, 0)
   const total = grossSubtotal - totalItemDiscount
 
+  const cartAllJasa = cart.length > 0 && cart.every(c => c.category === "Jasa Servis")
+
   const handleSaleSubmit = async (shouldPrint = false) => {
     if (cart.length === 0 || submitting) return
     setSubmitting(true)
     try {
-      const transactionType = "Penjualan"
+      const transactionType = cartAllJasa ? "Jasa Servis" : "Penjualan"
       const url = editingTrx ? `/api/transactions/${editingTrx.id}` : '/api/transactions';
       const method = editingTrx ? 'PUT' : 'POST';
       const res = await apiFetch(url, {
@@ -358,13 +361,13 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
         
         if (shouldPrint && !editingTrx) {
           onPrint({ 
-            type: "Penjualan", invoiceNum: data.newTx?.invoiceNumber || data.invoiceNumber || `INV-${Date.now()}`, customer: savedCustomer || 'Pelanggan Umum', 
+            type: transactionType, invoiceNum: data.newTx?.invoiceNumber || data.invoiceNumber || `INV-${Date.now()}`, customer: savedCustomer || 'Pelanggan Umum', 
             customerPhone: savedPhone, customerAddress: savedAddress,
             items: savedCart, total: savedTotal, method: savedMethod, status: savedStatus,
             dpAmount: savedDpAmount, discountAmount: savedDiscount, dueDate: savedDueDate
           });
         } else {
-          toast.success(editingTrx ? "Transaksi berhasil diubah!" : "Transaksi Penjualan Berhasil!");
+          toast.success(editingTrx ? "Transaksi berhasil diubah!" : (cartAllJasa ? "Transaksi Jasa Servis Berhasil!" : "Transaksi Penjualan Berhasil!"));
           if (editingTrx) onCancelEdit();
         }
       } else {
@@ -383,7 +386,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
     const invoiceNum = `INV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/DRAFT-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
     const dpVal = paymentStatus === "Belum Lunas" ? parseCurrencyString(dpAmount) : 0;
     onPrint({ 
-      type: "Penjualan", invoiceNum, customer: customerName || 'Pelanggan Umum', 
+      type: cartAllJasa ? "Jasa Servis" : "Penjualan", invoiceNum, customer: customerName || 'Pelanggan Umum', 
       customerPhone, customerAddress,
       items: cart, total: total - parseCurrencyString(discountAmount || "0"), method: paymentMethod, status: paymentStatus,
       dpAmount: dpVal, discountAmount: totalItemDiscount + parseCurrencyString(discountAmount || "0"), dueDate
@@ -421,7 +424,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
             </div>
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-3">
               {inventoryItems
-                .filter(p => p.stock > 0 && p.category !== "Jasa Servis" && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .filter(p => (p.category === "Jasa Servis" || p.stock > 0) && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .slice(0, 12)
                 .map((product) => (
                 <div key={product.id} className="flex items-center p-1.5 sm:p-2 rounded-lg border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => addToCart(product)}>
@@ -465,8 +468,9 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                     cart.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
-                          {item.name}
-                          {item.tracksSerialNumber && (
+                          <span>{item.name}</span>
+                          {item.category === "Jasa Servis" && <span className="ml-1.5 text-[9px] font-bold text-teal-600 bg-teal-500/10 px-1.5 py-0.5 rounded-full align-middle">Jasa</span>}
+                          {item.tracksSerialNumber && item.category !== "Jasa Servis" && (
                             <div className="mt-2 space-y-1">
                               {Array.from({ length: item.qty }).map((_, i) => (
                                 <Input 
@@ -550,8 +554,11 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                 cart.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-xs truncate mb-1">{item.name}</p>
-                      {item.tracksSerialNumber && (
+                      <p className="font-medium text-xs truncate mb-1">
+                        {item.name}
+                        {item.category === "Jasa Servis" && <span className="ml-1 text-[8px] font-bold text-teal-600 bg-teal-500/10 px-1 py-0.5 rounded-full">Jasa</span>}
+                      </p>
+                      {item.tracksSerialNumber && item.category !== "Jasa Servis" && (
                         <div className="mb-1 space-y-1">
                           {Array.from({ length: item.qty }).map((_, i) => (
                             <Input 
@@ -633,7 +640,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
       <div>
         <Card>
           <CardHeader className="pb-3 border-b border-border/50">
-            <CardTitle className="text-base">Ringkasan Penjualan</CardTitle>
+            <CardTitle className="text-base">{cartAllJasa ? "Ringkasan Jasa Servis" : "Ringkasan Penjualan"}</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             <div className="space-y-1.5">
