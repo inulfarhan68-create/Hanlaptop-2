@@ -46,6 +46,12 @@ export const transactionItems = pgTable("transaction_items", {
     quantity: integer("quantity").notNull(),
     unitPrice: doublePrecision("unit_price").notNull(),
     serialNumbers: text("serial_numbers"),
+    // What this line is, when no inventory row can say so. Ad-hoc service charges
+    // typed at the register ("Ganti pasta prosesor") have no item to join to, and
+    // the nota already renders `inventoryItem?.itemName || description` — the
+    // fallback existed before the column did. Null for stocked items, whose name
+    // stays owned by the inventory row so a later rename follows through.
+    description: text("description"),
 }, (table) => ({
     transactionIdIdx: index("transaction_items_tx_id_idx").on(table.transactionId),
     inventoryIdIdx: index("transaction_items_inv_id_idx").on(table.inventoryId),

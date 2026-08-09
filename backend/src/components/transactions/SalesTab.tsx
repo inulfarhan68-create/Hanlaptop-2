@@ -4,12 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Trash2, Printer, FileText, ScanLine } from "lucide-react"
+import { Search, Trash2, Printer, FileText, ScanLine, Wrench } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { ModernSelect } from "@/components/ui/modern-select"
 import { CameraScanner } from "@/components/CameraScanner"
+import { toPayloadItems, isServiceOnlyCart } from "@/lib/sales-cart"
+
+const ALL_CATEGORIES = "__all__"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value)
@@ -73,9 +76,15 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
     category?: string;
     tracksSerialNumber?: boolean;
     serialNumbers?: string[];
+    /** Typed at the register, with no inventory row behind it. */
+    isAdhoc?: boolean;
   }[]>([])
 
   const [searchQuery, setSearchQuery] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES)
+  const [showServiceFee, setShowServiceFee] = useState(false)
+  const [serviceFeeLabel, setServiceFeeLabel] = useState("")
+  const [serviceFeeAmount, setServiceFeeAmount] = useState("")
   const [dpAmount, setDpAmount] = useState("")
   const [discountAmount, setDiscountAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -175,19 +184,53 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
               serialNumbers = []
             }
           }
+          // A line with no inventoryId is an ad-hoc fee: its name lives in
+          // `description`, and it must go back out as one rather than being
+          // re-sent as an inventory id that does not exist.
+          const isAdhoc = !it.inventoryId
           return {
             id: it.inventoryId || it.id,
-            name: it.inventoryItem ? it.inventoryItem.itemName : it.itemName || 'Item',
+            name: isAdhoc
+              ? (it.description || 'Biaya jasa')
+              : (it.inventoryItem ? it.inventoryItem.itemName : it.itemName || 'Item'),
             price: it.unitPrice,
             qty: it.quantity,
-            category: it.inventoryItem?.category,
+            category: isAdhoc ? "Jasa Servis" : it.inventoryItem?.category,
             tracksSerialNumber: it.inventoryItem?.tracksSerialNumber,
+            isAdhoc,
             serialNumbers
           }
         }))
       }
     }
   }, [editingTrx, active])
+
+  const addServiceFee = () => {
+    const label = serviceFeeLabel.trim()
+    const amount = parseCurrencyString(serviceFeeAmount)
+    if (!label) {
+      toast.error("Isi dulu deskripsi jasanya")
+      return
+    }
+    if (amount <= 0) {
+      toast.error("Nominal jasa harus lebih dari 0")
+      return
+    }
+    setCart(prev => [...prev, {
+      // Not an inventory id — prefixed so nothing downstream can mistake it for
+      // one, and unique so two fees with the same description stay separate rows.
+      id: `adhoc-${Date.now()}-${prev.length}`,
+      name: label,
+      price: amount,
+      qty: 1,
+      category: "Jasa Servis",
+      isAdhoc: true,
+      serialNumbers: [],
+    }])
+    setServiceFeeLabel("")
+    setServiceFeeAmount("")
+    toast.success(`Biaya jasa ditambahkan: ${label}`)
+  }
 
   const processBarcodeScan = (barcode: string) => {
     const matchedItem = inventoryItems.find(i => i.barcode === barcode);
@@ -307,7 +350,17 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
   const totalItemDiscount = cart.reduce((sum, item) => sum + getItemDiscountPerUnit(item) * item.qty, 0)
   const total = grossSubtotal - totalItemDiscount
 
-  const cartAllJasa = cart.length > 0 && cart.every(c => c.category === "Jasa Servis")
+  // Categories that actually have something sellable behind them right now.
+  // Derived rather than hard-coded: shops name their own categories, and a chip
+  // that filters to nothing is worse than no chip.
+  const availableCategories = [ALL_CATEGORIES, ...Array.from(new Set(
+    inventoryItems
+      .filter(p => p.category === "Jasa Servis" || p.stock > 0)
+      .map(p => p.category)
+      .filter((c): c is string => Boolean(c))
+  )).sort()]
+
+  const cartAllJasa = isServiceOnlyCart(cart)
 
   const handleSaleSubmit = async (shouldPrint = false) => {
     if (cart.length === 0 || submitting) return
@@ -330,12 +383,7 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
           paymentStatus,
           dpAmount: paymentStatus === "Belum Lunas" ? parseCurrencyString(dpAmount) : 0,
           dueDate: (paymentMethod === "Tempo" || paymentStatus === "Belum Lunas") && dueDate ? dueDate : undefined,
-          items: cart.map(c => ({ 
-            inventoryId: c.id, 
-            quantity: c.qty, 
-            unitPrice: c.price - getItemDiscountPerUnit(c),
-            serialNumbers: c.serialNumbers
-          }))
+          items: toPayloadItems(cart, getItemDiscountPerUnit)
         })
       })
       if (res.ok) {
@@ -422,9 +470,33 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                 <span className="text-[10px] font-bold hidden sm:inline-block">Scanner Ready</span>
               </div>
             </div>
+            {/* Category chips. The picker shows twelve items, so on a shop with a
+                full catalogue the service items sat below the fold behind laptops
+                and sparepart — a cashier had to search by name for something they
+                charge every day. Built from the categories actually in stock, so
+                a shop that sells no services never sees a Jasa chip. */}
+            {availableCategories.length > 1 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2 scrollbar-none">
+                {availableCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                      categoryFilter === cat
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {cat === ALL_CATEGORIES ? "Semua" : cat}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-3">
               {inventoryItems
                 .filter(p => (p.category === "Jasa Servis" || p.stock > 0) && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .filter(p => categoryFilter === ALL_CATEGORIES || p.category === categoryFilter)
                 .slice(0, 12)
                 .map((product) => (
                 <div key={product.id} className="flex items-center p-1.5 sm:p-2 rounded-lg border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => addToCart(product)}>
@@ -643,6 +715,46 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
             <CardTitle className="text-base">{cartAllJasa ? "Ringkasan Jasa Servis" : "Ringkasan Penjualan"}</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
+            {/* Ad-hoc service charge. Most repair work is one-off — "ganti pasta",
+                "bersih kipas" — and making a cashier create an inventory item for
+                each one before they can charge for it is the kind of friction that
+                sends the shop back to a paper receipt. Stocked "Jasa Servis" items
+                still exist for the jobs that repeat at a fixed price; this is the
+                other half. Collapsed by default so it never gets in the way of an
+                ordinary product sale. */}
+            <div className="rounded-lg border border-dashed border-border">
+              <button
+                type="button"
+                onClick={() => setShowServiceFee(v => !v)}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-bold text-teal-700 dark:text-teal-400 hover:bg-teal-500/5 rounded-lg"
+              >
+                <span className="flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" /> Tambah Biaya Jasa</span>
+                <span className="text-muted-foreground">{showServiceFee ? "−" : "+"}</span>
+              </button>
+              {showServiceFee && (
+                <div className="space-y-2 border-t border-border/60 p-3">
+                  <Input
+                    placeholder="Deskripsi, mis. Ganti pasta prosesor"
+                    value={serviceFeeLabel}
+                    onChange={(e) => setServiceFeeLabel(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nominal"
+                      value={serviceFeeAmount}
+                      onChange={(e) => handleCurrencyInput(e.target.value, setServiceFeeAmount)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addServiceFee(); } }}
+                      className="h-8 text-xs"
+                      inputMode="numeric"
+                    />
+                    <Button size="sm" className="h-8 shrink-0 text-xs" onClick={addServiceFee}>
+                      Tambah
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Nama Customer (Opsional)</label>
               <Autocomplete 

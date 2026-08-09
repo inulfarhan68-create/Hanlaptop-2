@@ -1,0 +1,1 @@
+ALTER TABLE "transaction_items" ADD COLUMN "description" text;

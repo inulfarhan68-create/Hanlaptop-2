@@ -110,7 +110,34 @@ export class TransactionService {
                 let totalServiceRevenue = 0;
                 
                 for (const item of items) {
-                    if (!item.inventoryId) throw new Error("Inventory ID is required for sales items");
+                    // ── Ad-hoc service charge ──
+                    // A line typed straight into the register with nothing behind
+                    // it in stock: "Ganti pasta prosesor, Rp50.000". Selling labour
+                    // is core POS and Starter includes it, while the work-order
+                    // module is Pro — so a shop must be able to charge for a repair
+                    // without first creating an inventory item for every possible
+                    // job. Same accounting as a stocked service item: revenue only,
+                    // no stock movement, no HPP, no serial numbers.
+                    if (!item.inventoryId) {
+                        const label = (item.itemName ?? "").trim();
+                        // A nameless or free charge is a data-entry slip, not a
+                        // sale — it would print as a blank line on the customer's
+                        // nota and be unexplainable later.
+                        if (!label) throw new Error("Biaya jasa wajib punya deskripsi");
+                        if (item.unitPrice <= 0) throw new Error("Biaya jasa harus lebih dari 0");
+
+                        await tx.insert(transactionItems).values({
+                            transactionId: newTx.id,
+                            inventoryId: null,
+                            description: label,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            serialNumbers: null
+                        });
+                        totalServiceRevenue += item.unitPrice * item.quantity;
+                        continue;
+                    }
+
                     const invItem = await tx.query.inventory.findFirst({
                         where: eq(inventory.id, item.inventoryId as string)
                     });
@@ -240,6 +267,31 @@ export class TransactionService {
                 if (entries.length > 0) await tx.insert(journalEntries).values(entries);
 
             } else if (transactionType === "Jasa Servis") {
+                // Record what was actually charged for. This branch used to write
+                // journals and nothing else, so a sale of only service lines — one
+                // "Jasa Servis" item, or an ad-hoc fee — produced a transaction with
+                // no line items: the customer's nota listed nothing and the shop had
+                // no record of what the money was for. Pure revenue lines, so no
+                // stock, no HPP, no serial numbers.
+                //
+                // `items` is optional here: other callers create a Jasa Servis
+                // transaction from a completed work order without a cart.
+                for (const item of items ?? []) {
+                    const label = (item.itemName ?? "").trim();
+                    if (!item.inventoryId) {
+                        if (!label) throw new Error("Biaya jasa wajib punya deskripsi");
+                        if (item.unitPrice <= 0) throw new Error("Biaya jasa harus lebih dari 0");
+                    }
+                    await tx.insert(transactionItems).values({
+                        transactionId: newTx.id,
+                        inventoryId: item.inventoryId ?? null,
+                        description: item.inventoryId ? null : label,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        serialNumbers: null
+                    });
+                }
+
                 const dp = paymentStatus === "Belum Lunas" ? (dpAmount || 0) : amount;
                 const piutang = amount - dp;
 
