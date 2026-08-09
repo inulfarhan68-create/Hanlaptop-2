@@ -69,6 +69,14 @@ describe("PLAN_SEED matrix (v2)", () => {
         expect(byKey.starter.maxStores).toBe(1);
     });
 
+    it("Starter includes the spec picker — it is part of adding a laptop", () => {
+        // It sat in Pro while the pricing table showed ✗ for Starter, but
+        // LaptopSpecForm lives in the add-item and restock forms that Starter
+        // has, so the row advertised a difference the app never enforced. The
+        // matrix follows the product here, not the other way round.
+        expect(buildFeatures(byKey.starter.features).specSummary).toBe(true);
+    });
+
     it("Pro adds servis, katalog, buyback, akuntansi & tim — still single-cabang, no Business ops", () => {
         const f = buildFeatures(byKey.pro.features);
         expect(f.service && f.devicePassport && f.buyback && f.catalog && f.consignment && f.accounting && f.roles).toBe(true);
