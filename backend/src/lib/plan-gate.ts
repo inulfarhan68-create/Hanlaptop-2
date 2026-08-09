@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { db } from "@/db";
-import { organizations } from "@/db/schema";
+import { organizations, stores } from "@/db/schema";
 import { subscriptions, plans } from "@/db/schema/saas";
-import { parseFeatures, type FeatureKey } from "@/lib/features";
+import { parseFeatures, FEATURE_KEYS, type FeatureKey } from "@/lib/features";
 import type { PlanFeatureMap } from "@/lib/route-features";
 import { eq, and, asc } from "drizzle-orm";
 
@@ -74,6 +74,30 @@ export async function planAllows(
 }
 
 /**
+ * Whether the shop that owns a STORE has a feature.
+ *
+ * For surfaces with no session to read an organization from — the public catalog
+ * is the one that matters: it is served to a shop's customers with no auth at
+ * all, so `catalog` (a Pro feature) was free on every plan, and the page a
+ * Starter shop hands out is the most visible thing they never paid for.
+ *
+ * Falls open on an unresolvable plan, like every other gate here.
+ */
+export const storeHasFeature = cache(
+    async (storeId: string, feature: FeatureKey): Promise<boolean> => {
+        const [row] = await db
+            .select({ features: plans.features })
+            .from(stores)
+            .leftJoin(subscriptions, eq(subscriptions.organizationId, stores.organizationId))
+            .leftJoin(plans, eq(plans.key, subscriptions.planKey))
+            .where(eq(stores.id, storeId))
+            .limit(1);
+        if (!row?.features) return true;
+        return parseFeatures(row.features)[feature] === true;
+    },
+);
+
+/**
  * The cheapest public plan that actually sells a feature — read from the `plans`
  * rows, not from PLAN_SEED, because the rows are what `requireFeature` enforces
  * and the two drift whenever the matrix changes without `db:sync-plans`. Telling
@@ -81,11 +105,37 @@ export async function planAllows(
  * saying nothing, so this returns null when no plan matches.
  */
 export const cheapestPlanWith = cache(async (feature: FeatureKey): Promise<string | null> => {
-    const rows = await db
-        .select({ name: plans.name, features: plans.features })
-        .from(plans)
-        .where(and(eq(plans.isPublic, true), eq(plans.isActive, true)))
-        .orderBy(asc(plans.sortOrder));
+    const rows = await sellablePlans();
     const match = rows.find((p) => parseFeatures(p.features)[feature] === true);
     return match?.name ?? null;
 });
+
+const sellablePlans = cache(async () =>
+    db
+        .select({ name: plans.name, features: plans.features })
+        .from(plans)
+        .where(and(eq(plans.isPublic, true), eq(plans.isActive, true)))
+        .orderBy(asc(plans.sortOrder)),
+);
+
+/**
+ * For every feature the shop does NOT have, the cheapest plan that sells it.
+ *
+ * Client components need this and cannot query for it — locked tabs live inside
+ * pages the shop legitimately has (Laporan holds tabs from three tiers), so the
+ * offer has to render in the browser. Only the missing features are included, so
+ * a shop on Business ships an empty object rather than the whole matrix.
+ */
+export async function getUpgradeTargets(
+    features: PlanFeatureMap | null,
+): Promise<Partial<Record<FeatureKey, string>>> {
+    if (!features) return {};
+    const rows = await sellablePlans();
+    const out: Partial<Record<FeatureKey, string>> = {};
+    for (const key of FEATURE_KEYS) {
+        if (features[key] === true) continue;
+        const match = rows.find((p) => parseFeatures(p.features)[key] === true);
+        if (match) out[key] = match.name;
+    }
+    return out;
+}

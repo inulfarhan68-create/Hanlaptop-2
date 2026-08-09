@@ -24,7 +24,9 @@ import { FixedAssetsTable } from "@/components/accounting/FixedAssetsTable"
 import useSWR, { mutate } from "swr"
 import * as XLSX from "xlsx"
 import { syncChannel, type SyncEventPayload } from "@/lib/broadcast"
-import { TrendingUp, Scale, Package, UserCheck, Wrench, BookOpen } from "lucide-react"
+import { TrendingUp, Scale, Package, UserCheck, Wrench, BookOpen, Lock } from "lucide-react"
+import { useHasFeature } from "@/components/PlanFeaturesProvider"
+import { FeatureLocked } from "@/components/FeatureLocked"
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(v)
@@ -36,6 +38,23 @@ export default function ReportsClient() {
   const [activeTab, setActiveTab] = useState<"labarugi" | "neraca" | "produk" | "shift" | "komisi" | "akuntansi">("labarugi")
   // Sub-tab for Akuntansi section
   const [activeSubTab, setActiveSubTab] = useState<"jurnal" | "neracasaldo" | "coa" | "asettetap">("jurnal")
+  // Laporan spans three tiers in one page: Produk & Kasir are Starter, the
+  // accounting tabs are Pro, and Jurnal/Aset Tetap/Komisi are Business. Gating
+  // the whole page would take Laporan away from a shop that pays for it, so the
+  // tabs carry the gate individually — visible, locked, and priced.
+  const hasAccounting = useHasFeature("accounting")
+  const hasGeneralJournal = useHasFeature("generalJournal")
+  const hasFixedAssets = useHasFeature("fixedAssets")
+  const hasAging = useHasFeature("agingInventory")
+  const hasCommission = useHasFeature("technicianCommission")
+
+  // Landing on a locked tab would greet a Starter shop with a padlock; open on
+  // the first tab they actually have instead.
+  useEffect(() => {
+    if (!hasAccounting && (activeTab === "labarugi" || activeTab === "neraca" || activeTab === "akuntansi")) {
+      setActiveTab("produk")
+    }
+  }, [hasAccounting, activeTab])
   const [period, setPeriod] = useState(getInitialPeriod)
   const [printType, setPrintType] = useState<"all" | "pnl" | "balance">("all")
   const [isPrinting, setIsPrinting] = useState(false)
@@ -60,12 +79,12 @@ export default function ReportsClient() {
 
   // New accounting API data - fetch all needed data upfront (lazy loading based on active tab content)
   const { data: trialBalance } = useSWR(
-    (activeTab === "akuntansi" && activeSubTab === "neracasaldo") ? apiUrl + `/api/accounting/trial-balance?${periodQuery}` : null,
+    (hasAccounting && activeTab === "akuntansi" && activeSubTab === "neracasaldo") ? apiUrl + `/api/accounting/trial-balance?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: incomeStatement } = useSWR(
-    activeTab === "labarugi" ? apiUrl + `/api/accounting/income-statement?${periodQuery}` : null,
+    (hasAccounting && activeTab === "labarugi") ? apiUrl + `/api/accounting/income-statement?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
@@ -73,22 +92,22 @@ export default function ReportsClient() {
   const prevDate = new Date(selectedYear, selectedMonth - 2, 1)
   const prevPeriodQuery = `year=${prevDate.getFullYear()}&month=${prevDate.getMonth() + 1}`
   const { data: incomeStatementPrev } = useSWR(
-    activeTab === "labarugi" ? apiUrl + `/api/accounting/income-statement?${prevPeriodQuery}` : null,
+    (hasAccounting && activeTab === "labarugi") ? apiUrl + `/api/accounting/income-statement?${prevPeriodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: balanceSheet } = useSWR(
-    activeTab === "neraca" ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
+    (hasAccounting && activeTab === "neraca") ? apiUrl + `/api/accounting/balance-sheet?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: cashFlow } = useSWR(
-    activeTab === "neraca" ? apiUrl + `/api/accounting/cash-flow?${periodQuery}` : null,
+    (hasAccounting && activeTab === "neraca") ? apiUrl + `/api/accounting/cash-flow?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
   const { data: equityChanges } = useSWR(
-    apiUrl + `/api/accounting/equity-changes?${periodQuery}`,
+    hasAccounting ? apiUrl + `/api/accounting/equity-changes?${periodQuery}` : null,
     { keepPreviousData: true }
   )
 
@@ -229,10 +248,10 @@ export default function ReportsClient() {
       {/* Tabs Navigation - Clean Lucide icons instead of emojis */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-2 px-1 print:hidden scrollbar-none">
         <Button size="sm" variant={activeTab === "labarugi" ? "default" : "outline"} onClick={() => setActiveTab("labarugi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
-          <TrendingUp className="h-3.5 w-3.5" /> Laba Rugi
+          <TrendingUp className="h-3.5 w-3.5" /> Laba Rugi {!hasAccounting && <Lock className="h-3 w-3 opacity-70" />}
         </Button>
         <Button size="sm" variant={activeTab === "neraca" ? "default" : "outline"} onClick={() => setActiveTab("neraca")} className="rounded-full h-8 text-xs px-3 gap-1.5">
-          <Scale className="h-3.5 w-3.5" /> Neraca & Kas
+          <Scale className="h-3.5 w-3.5" /> Neraca & Kas {!hasAccounting && <Lock className="h-3 w-3 opacity-70" />}
         </Button>
         <Button size="sm" variant={activeTab === "produk" ? "default" : "outline"} onClick={() => setActiveTab("produk")} className="rounded-full h-8 text-xs px-3 gap-1.5">
           <Package className="h-3.5 w-3.5" /> Produk
@@ -241,37 +260,47 @@ export default function ReportsClient() {
           <UserCheck className="h-3.5 w-3.5" /> Kasir
         </Button>
         <Button size="sm" variant={activeTab === "komisi" ? "default" : "outline"} onClick={() => setActiveTab("komisi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
-          <Wrench className="h-3.5 w-3.5" /> Teknisi
+          <Wrench className="h-3.5 w-3.5" /> Teknisi {!hasCommission && <Lock className="h-3 w-3 opacity-70" />}
         </Button>
         <Button size="sm" variant={activeTab === "akuntansi" ? "default" : "outline"} onClick={() => setActiveTab("akuntansi")} className="rounded-full h-8 text-xs px-3 gap-1.5">
-          <BookOpen className="h-3.5 w-3.5" /> Akuntansi
+          <BookOpen className="h-3.5 w-3.5" /> Akuntansi {!hasAccounting && <Lock className="h-3 w-3 opacity-70" />}
         </Button>
       </div>
 
       {/* Scrollable Body Content - Simplified tabs */}
       <div className="flex-1 overflow-x-hidden space-y-2 print:p-0 print:m-0 print:space-y-2">
         {activeTab === "labarugi" && (
-          <IncomeStatementReport data={incomeStatement} comparison={incomeStatementPrev} fmt={fmt} isLoading={!incomeStatement} />
+          hasAccounting
+            ? <IncomeStatementReport data={incomeStatement} comparison={incomeStatementPrev} fmt={fmt} isLoading={!incomeStatement} />
+            : <FeatureLocked feature="accounting" />
         )}
         {activeTab === "neraca" && (
-          <>
-            <BalanceSheetReport data={balanceSheet} fmt={fmt} isLoading={!balanceSheet} />
-            <CashFlowReport data={cashFlow} fmt={fmt} isLoading={!cashFlow} />
-          </>
+          hasAccounting ? (
+            <>
+              <BalanceSheetReport data={balanceSheet} fmt={fmt} isLoading={!balanceSheet} />
+              <CashFlowReport data={cashFlow} fmt={fmt} isLoading={!cashFlow} />
+            </>
+          ) : <FeatureLocked feature="accounting" />
         )}
         {activeTab === "produk" && (
           <>
+            {/* Laba per produk is Starter; umur stok is Pro. */}
             <ProductProfitTab period={period} fmt={fmt} />
-            <AgingInventoryTab fmt={fmt} />
+            {hasAging
+              ? <AgingInventoryTab fmt={fmt} />
+              : <Card><CardContent><FeatureLocked feature="agingInventory" compact /></CardContent></Card>}
           </>
         )}
         {activeTab === "shift" && (
           <CashierShiftsTab fmt={fmt} />
         )}
         {activeTab === "komisi" && (
-          <TechnicianCommissionTab period={period} fmt={fmt} />
+          hasCommission
+            ? <TechnicianCommissionTab period={period} fmt={fmt} />
+            : <FeatureLocked feature="technicianCommission" />
         )}
-        {activeTab === "akuntansi" && (
+        {activeTab === "akuntansi" && !hasAccounting && <FeatureLocked feature="accounting" />}
+        {activeTab === "akuntansi" && hasAccounting && (
           <div className="space-y-4">
             {/* Sub-tabs for accounting features */}
             <Card>
@@ -283,7 +312,7 @@ export default function ReportsClient() {
                     onClick={() => setActiveSubTab("jurnal")}
                     className={activeSubTab === "jurnal" ? "bg-primary text-primary-foreground" : ""}
                   >
-                    Jurnal Umum
+                    Jurnal Umum {!hasGeneralJournal && <Lock className="h-3 w-3 ml-1 opacity-70" />}
                   </Button>
                   <Button
                     size="sm"
@@ -307,15 +336,15 @@ export default function ReportsClient() {
                     onClick={() => setActiveSubTab("asettetap")}
                     className={activeSubTab === "asettetap" ? "bg-primary text-primary-foreground" : ""}
                   >
-                    Aset Tetap
+                    Aset Tetap {!hasFixedAssets && <Lock className="h-3 w-3 ml-1 opacity-70" />}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {activeSubTab === "jurnal" && <GeneralJournalTab period={period} fmt={fmt} />}
+                {activeSubTab === "jurnal" && (hasGeneralJournal ? <GeneralJournalTab period={period} fmt={fmt} /> : <FeatureLocked feature="generalJournal" compact />)}
                 {activeSubTab === "neracasaldo" && <TrialBalanceTable data={trialBalance} fmt={fmt} isLoading={!trialBalance} />}
                 {activeSubTab === "coa" && <COATable />}
-                {activeSubTab === "asettetap" && <FixedAssetsTable apiUrl={apiUrl} fmt={fmt} />}
+                {activeSubTab === "asettetap" && (hasFixedAssets ? <FixedAssetsTable apiUrl={apiUrl} fmt={fmt} /> : <FeatureLocked feature="fixedAssets" compact />)}
               </CardContent>
             </Card>
           </div>
