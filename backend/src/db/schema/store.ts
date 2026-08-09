@@ -40,9 +40,16 @@ export const userStoreAccess = pgTable("user_store_access", {
 
 export const storeSettings = pgTable("store_settings", {
     storeId: text("store_id").primaryKey().default("default").references(() => stores.id, { onDelete: 'cascade' }),
-    storeName: text("store_name").notNull().default("HanLaptop"),
-    storeAddress: text("store_address").notNull().default("Jl. Komputer Raya No.123"),
-    storePhone: text("store_phone").notNull().default("0812-3456-7890"),
+    // Empty, never invented. These three print on notas, flyers and printed
+    // reports, so a default here is a fake address on a real shop's customer
+    // receipt — and "HanLaptop" is another tenant's brand sitting on their
+    // storefront. Blank is already handled everywhere: the UI omits the line
+    // rather than showing a placeholder (CLAUDE.md rule 16). Existing rows are
+    // untouched; this only stops the next insert that omits a column from
+    // stamping one in.
+    storeName: text("store_name").notNull().default(""),
+    storeAddress: text("store_address").notNull().default(""),
+    storePhone: text("store_phone").notNull().default(""),
     storeLogo: text("store_logo"),
     storeSignature: text("store_signature"),
     storeFooter: text("store_footer").default("Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan."),

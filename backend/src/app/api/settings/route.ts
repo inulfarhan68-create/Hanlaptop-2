@@ -235,7 +235,11 @@ export async function POST(request: Request) {
 
                 await tx.insert(storeSettings).values({
                     storeId: id,
-                    storeName: branchName || "HanLaptop",
+                    // Never "HanLaptop": that is the flagship tenant's brand, and a
+                    // branch created without a name would print it on another
+                    // shop's notas. Blank is rendered as nothing, which is the
+                    // correct answer to "we do not know".
+                    storeName: branchName || "",
                     storeAddress: branchAddress || "",
                     storePhone: branchPhone || "",
                     storeLogo: storeLogo || null,
