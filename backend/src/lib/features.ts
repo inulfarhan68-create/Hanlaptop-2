@@ -105,10 +105,17 @@ export function buildFeatures(enabled: readonly FeatureKey[]): Record<FeatureKey
 const CORE: FeatureKey[] = [
     "dashboard", "pos", "shift", "inventory", "barangJasa",
     "customersSuppliers", "invoice", "printBarcode", "exportReports", "basicReports",
+    // Sat in PRO_ADDS while the pricing table showed ✗ for Starter — but the
+    // spec picker that produces it (LaptopSpecForm) is part of the add-item and
+    // restock forms, which Starter has. So Starter already got it, gate or no
+    // gate, and the row advertised a difference that did not exist. Gating it
+    // instead would have crippled the core flow for the one trade this is sold
+    // to: a laptop shop typing specs into a free-text box.
+    "specSummary",
 ];
 const PRO_ADDS: FeatureKey[] = [
     "service", "buyback", "bulkImport", "catalog", "flyer", "markdown",
-    "devicePassport", "specSummary", "agingInventory", "consignment", "accounting", "roles",
+    "devicePassport", "agingInventory", "consignment", "accounting", "roles",
     // AI starts at Pro. It is the differentiator that demos in ten seconds
     // ("photograph the laptop, the specs fill themselves in"), and it is also
     // the only feature that costs real money per use — so the tenants using it
