@@ -22,7 +22,7 @@ import { Redis } from "@upstash/redis";
 /**
  * Rate limit tiers for different endpoint types
  */
-export type RateLimitTier = "login" | "token" | "export" | "ai" | "api" | "strict" | "default";
+export type RateLimitTier = "login" | "signup" | "token" | "export" | "ai" | "api" | "strict" | "default";
 
 export interface RateLimitTierConfig {
   limit: number;
@@ -36,6 +36,13 @@ export interface RateLimitTierConfig {
 export const rateLimitTiers: Record<RateLimitTier, RateLimitTierConfig> = {
   // Very strict - 5 attempts per minute for login
   login: { limit: 5, windowMs: 60_000, description: "Login attempts" },
+
+  // Signing up is a once-per-lifetime action, and each one writes an
+  // organization, a store, a subscription, a user and a whole chart of accounts.
+  // Per hour rather than per minute, because the thing worth stopping is a
+  // script working through a list, not a person who mistyped their password.
+  // Still generous enough for a shared office or a phone on CGNAT.
+  signup: { limit: 5, windowMs: 3_600_000, description: "Tenant registration" },
 
   // Moderate - 20 per minute for token refresh
   token: { limit: 20, windowMs: 60_000, description: "Token refresh" },
@@ -179,12 +186,22 @@ export async function checkRateLimit(
     }
     
     // 2. Local In-Memory Limiting (Fallback / Local Dev)
+    //
+    // Keyed by tier as well as IP. It used to key on the IP alone, so every tier
+    // shared one counter and one reset time: whichever endpoint an address hit
+    // first set the window, and the next check compared that shared count
+    // against ITS own limit. Six ordinary API calls in a minute (limit 300) left
+    // the counter at 6, and the next login attempt (limit 5) was refused. The
+    // Upstash path never had this — it builds a separate limiter per
+    // limit/window — so it only bites where the fallback runs, which today is
+    // production. Adding an hour-long signup tier would have made it routine.
     cleanupExpiredEntries();
     const now = Date.now();
-    const entry = rateLimitMap.get(ip);
-    
+    const bucket = `${ip}:${limit}:${windowMs}`;
+    const entry = rateLimitMap.get(bucket);
+
     if (!entry || now > entry.resetTime) {
-        rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+        rateLimitMap.set(bucket, { count: 1, resetTime: now + windowMs });
         return null;
     }
     
