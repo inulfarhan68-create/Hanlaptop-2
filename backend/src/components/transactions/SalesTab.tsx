@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Trash2, Printer, FileText, ScanLine } from "lucide-react"
+import { Search, Trash2, Printer, FileText, ScanLine, Wrench } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import { Autocomplete } from "@/components/ui/autocomplete"
@@ -76,8 +76,13 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
   }[]>([])
 
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeCategory, setActiveCategory] = useState("Semua")
   const [dpAmount, setDpAmount] = useState("")
   const [discountAmount, setDiscountAmount] = useState("")
+  
+  // Ad-hoc service state
+  const [adHocName, setAdHocName] = useState("")
+  const [adHocPrice, setAdHocPrice] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
@@ -292,6 +297,30 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
     }
   }
 
+  const addAdHocServiceToCart = () => {
+    if (!adHocName.trim()) {
+      toast.error("Nama jasa wajib diisi");
+      return;
+    }
+    const priceNum = parseCurrencyString(adHocPrice);
+    if (priceNum <= 0) {
+      toast.error("Biaya jasa harus lebih dari 0");
+      return;
+    }
+    setCart([...cart, {
+      id: `adhoc-${Date.now()}`,
+      name: adHocName.trim(),
+      price: priceNum,
+      qty: 1,
+      category: "Jasa Servis",
+      tracksSerialNumber: false,
+      serialNumbers: []
+    }]);
+    setAdHocName("");
+    setAdHocPrice("");
+    toast.success(`Ditambahkan ke keranjang: ${adHocName}`);
+  }
+
   const removeFromCart = (id: string) => setCart(cart.filter((item) => item.id !== id))
 
   const getItemDiscountPerUnit = (item: any) => {
@@ -330,12 +359,16 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
           paymentStatus,
           dpAmount: paymentStatus === "Belum Lunas" ? parseCurrencyString(dpAmount) : 0,
           dueDate: (paymentMethod === "Tempo" || paymentStatus === "Belum Lunas") && dueDate ? dueDate : undefined,
-          items: cart.map(c => ({ 
-            inventoryId: c.id, 
-            quantity: c.qty, 
-            unitPrice: c.price - getItemDiscountPerUnit(c),
-            serialNumbers: c.serialNumbers
-          }))
+          items: cart.map(c => {
+            const isAdhoc = c.id.startsWith("adhoc-");
+            return { 
+              inventoryId: isAdhoc ? undefined : c.id, 
+              itemName: isAdhoc ? c.name : undefined,
+              quantity: c.qty, 
+              unitPrice: c.price - getItemDiscountPerUnit(c),
+              serialNumbers: c.serialNumbers
+            }
+          })
         })
       })
       if (res.ok) {
@@ -422,9 +455,33 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
                 <span className="text-[10px] font-bold hidden sm:inline-block">Scanner Ready</span>
               </div>
             </div>
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              {["Semua", "Laptop Bekas", "Sparepart", "Aksesoris", "Jasa Servis"].map(cat => (
+                <Button
+                  key={cat}
+                  variant={activeCategory === cat ? "default" : "outline"}
+                  size="sm"
+                  className={`h-7 px-3 text-[11px] rounded-full transition-colors ${
+                    activeCategory === cat 
+                      ? 'bg-primary text-primary-foreground shadow-sm' 
+                      : 'bg-transparent hover:bg-muted text-muted-foreground border-border/60'
+                  }`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat === "Jasa Servis" ? "Jasa" : cat === "Laptop Bekas" ? "Laptop" : cat}
+                </Button>
+              ))}
+            </div>
+            
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-3">
               {inventoryItems
-                .filter(p => (p.category === "Jasa Servis" || p.stock > 0) && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .filter(p => (p.category === "Jasa Servis" || p.stock > 0))
+                .filter(p => {
+                  if (activeCategory === "Semua") return true;
+                  if (activeCategory === "Sparepart") return !["Laptop Bekas", "Aksesoris", "Jasa Servis"].includes(p.category);
+                  return p.category === activeCategory;
+                })
+                .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.barcode && p.barcode.toLowerCase().includes(searchQuery.toLowerCase())))
                 .slice(0, 12)
                 .map((product) => (
                 <div key={product.id} className="flex items-center p-1.5 sm:p-2 rounded-lg border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => addToCart(product)}>
@@ -733,10 +790,56 @@ export function SalesTab({ active, onPrint, editingTrx, onCancelEdit, onSuccess 
             </div>
           </CardContent>
           <CardFooter className="flex-col gap-2 pt-2 pb-4">
-            <Button className="w-full h-9" size="sm" disabled={cart.length === 0 || submitting} onClick={() => handleSaleSubmit(false)}>
-              {submitting ? "Memproses..." : "Selesaikan Transaksi"}
-            </Button>
-            <div className="flex gap-2 w-full">
+            <div className="pt-2 border-t border-border/50 w-full">
+              <Button 
+                className="w-full h-11 font-bold text-sm" 
+                size="lg" 
+                disabled={cart.length === 0 || submitting}
+                onClick={() => handleSaleSubmit(false)}
+              >
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                    Memproses...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-between w-full px-2">
+                    <span>{editingTrx ? "Simpan Perubahan" : (cartAllJasa ? "Simpan Jasa" : "Simpan Penjualan")}</span>
+                    <span>{formatCurrency(total - parseCurrencyString(discountAmount || "0"))}</span>
+                  </span>
+                )}
+              </Button>
+            </div>
+            
+            {/* Ad-Hoc Service Field */}
+            <div className="mt-4 pt-3 border-t border-dashed border-border/50 w-full">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Wrench className="h-3 w-3" /> Tambah Jasa Manual
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Nama jasa (e.g. Ganti Pasta)" 
+                  value={adHocName}
+                  onChange={(e) => setAdHocName(e.target.value)}
+                  className="h-8 text-xs flex-1"
+                />
+                <Input 
+                  placeholder="Harga" 
+                  value={adHocPrice}
+                  onChange={(e) => setAdHocPrice(e.target.value.replace(/\D/g, ""))}
+                  className="h-8 text-xs w-24"
+                />
+                <Button 
+                  onClick={addAdHocServiceToCart}
+                  size="sm" 
+                  variant="secondary"
+                  className="h-8 px-3 text-xs"
+                >
+                  Tambah
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-2 w-full mt-2">
               <Button className="flex-1 h-9 gap-1 border-primary/50 text-primary hover:bg-primary/5" variant="outline" size="sm" disabled={cart.length === 0 || submitting} onClick={() => handleSaleSubmit(true)}>
                 <Printer className="h-4 w-4" />
                 Invoice (A4)
