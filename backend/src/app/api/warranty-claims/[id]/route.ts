@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { warrantyClaims, warrantyClaimParts, inventory, journalEntries, activityLogs, serviceOrders, customers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { warrantyResolutionSchema } from "@/lib/validators";
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("service", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;

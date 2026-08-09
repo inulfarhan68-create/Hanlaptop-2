@@ -11,8 +11,12 @@ export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("hr");
-    if (featureCheck instanceof NextResponse) return featureCheck;
+    // Deliberately NOT gated. Reading the technician list is a lookup, like
+    // customers or suppliers — the paid part is managing their pay, not naming
+    // one. It used to require `hr` (Business), which broke the tier we sell
+    // hardest: Servis is Pro, its form fetches this list, and a Pro shop got a
+    // 402 and an empty "Teknisi" dropdown, unable to staff a work order it had
+    // paid for. The mutations below still require `hr`.
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
@@ -64,7 +68,9 @@ export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("hr");
+    // preAuth: without it the whole auth chain (session + store grants + plan)
+    // runs a second time — CLAUDE.md rule 13.
+    const featureCheck = await requireFeature("hr", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     const writeAccessError = requireWriteAccess(authResult);

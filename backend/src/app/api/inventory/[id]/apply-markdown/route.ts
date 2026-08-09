@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("markdown");
+    const featureCheck = await requireFeature("markdown", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
     
     const writeAccess = await requireWriteAccess(authResult);

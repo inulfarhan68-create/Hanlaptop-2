@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockOpnames, stockOpnameItems, inventory } from "@/db/schema";
-import { requireAuth, requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { updateOpnameSchema } from "@/lib/validators";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { and, eq } from "drizzle-orm";
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("stockOpname", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     try {
         const { id } = await params;
@@ -41,6 +44,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("stockOpname", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;

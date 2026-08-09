@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { bankMutations, transactions, journalEntries } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireOwnerOrManager, requireWritable } from "@/lib/auth-guard";
+import { requireOwnerOrManager, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { requireSpecificStore } from "@/lib/require-store";
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("bankReconciliation", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;

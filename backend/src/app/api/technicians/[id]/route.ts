@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, activityLogs } from '@/db/schema';
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { technicianSchema } from '@/lib/validators';
 import { eq, and } from 'drizzle-orm';
 
@@ -32,6 +32,9 @@ async function verifyTechnicianAccess(authResult: any, technicianId: string) {
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;
@@ -82,6 +85,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     // Only owner or manager can delete technicians
     if (authResult.storeRole !== 'owner' && authResult.storeRole !== 'manager' && authResult.user.role !== 'owner' && authResult.user.role !== 'platform_admin') {

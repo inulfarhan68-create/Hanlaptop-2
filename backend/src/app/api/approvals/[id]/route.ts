@@ -2,13 +2,16 @@ import { db } from "@/db";
 import { approvalRequests, transactions, journalEntries, cashierShifts, userStoreAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable, requireFeature } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("approvals", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;

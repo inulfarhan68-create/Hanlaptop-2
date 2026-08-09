@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicianCommissions } from '@/db/schema';
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireFeature } from "@/lib/auth-guard";
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("technicianCommission", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const { searchParams } = new URL(request.url);
     const technicianId = searchParams.get('technicianId');

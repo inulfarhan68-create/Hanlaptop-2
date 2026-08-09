@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("hr");
+    const featureCheck = await requireFeature("hr", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     const { searchParams } = new URL(request.url);
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
 
-    const featureCheck = await requireFeature("hr");
+    const featureCheck = await requireFeature("hr", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { attendances, employees, activityLogs } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import crypto from "crypto";
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;
@@ -118,6 +121,9 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;

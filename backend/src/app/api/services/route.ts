@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
     
-    const featureCheck = await requireFeature("service");
+    const featureCheck = await requireFeature("service", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const authResult = await requirePermission(Permissions.SERVICE_CREATE);
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("service");
+    const featureCheck = await requireFeature("service", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     if (authResult.storeId === "all") {

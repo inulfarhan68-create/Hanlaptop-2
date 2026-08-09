@@ -82,7 +82,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("qc");
+    const featureCheck = await requireFeature("qc", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
     
     const writeAccess = await requireWriteAccess(authResult);

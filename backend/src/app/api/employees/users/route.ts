@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { user, userStoreAccess } from '@/db/schema';
-import { requireOwnerOrManager, storeScope } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireFeature } from "@/lib/auth-guard";
 import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     try {
         let results: { id: string; name: string; email: string }[] = [];

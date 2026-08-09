@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { devicePassports, deviceLifecycleLogs } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, storeScope } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireFeature } from "@/lib/auth-guard";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, context: { params: Promise<{ sn: string }> }) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("devicePassport", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     try {
         const { sn } = await context.params;

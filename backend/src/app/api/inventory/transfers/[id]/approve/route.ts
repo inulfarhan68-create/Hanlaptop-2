@@ -11,7 +11,7 @@ import {
     stores 
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, storeScope, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, storeScope, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
@@ -27,6 +27,9 @@ export async function POST(
     const { id: transferId } = await params;
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("stockTransfer", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
