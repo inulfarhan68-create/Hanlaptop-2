@@ -1,7 +1,20 @@
-import { seedPlans } from "../src/db/seed-plans";
-import { PLAN_SEED, buildFeatures } from "../src/lib/features";
-import { db } from "../src/db";
-import { plans } from "../src/db/schema/saas";
+import * as path from "path";
+import * as dotenv from "dotenv";
+
+// Loaded here, before anything touches the database — and the `db` import below
+// is dynamic for exactly that reason. ESM hoists every static import and
+// evaluates it before a single line of this file runs, and `src/db` reads
+// DATABASE_URL at module scope, so a static import would resolve the connection
+// string before dotenv ever ran. The script then died on a missing
+// DATABASE_URL and had to be wrapped in `dotenv-cli` by hand — for a script
+// CLAUDE.md rule 18 says to run after every feature-matrix change. Same shape as
+// set-platform-admin.ts.
+//
+// `.env.local` FIRST: dotenv never overrides an already-set variable, so the
+// file loaded first wins. Loading `.env` first would let a stale DATABASE_URL
+// there shadow the real one and point this at the wrong database.
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 /**
  * Push the feature matrix in lib/features.ts into the `plans` table.
@@ -17,9 +30,14 @@ import { plans } from "../src/db/schema/saas";
  *
  * Idempotent — seedPlans() upserts by key, so running it twice is harmless.
  *
- *   cd backend && npx tsx scripts/sync-plans.ts
+ *   cd backend && npm run db:sync-plans
  */
 async function syncPlans() {
+    const { seedPlans } = await import("../src/db/seed-plans");
+    const { PLAN_SEED, buildFeatures } = await import("../src/lib/features");
+    const { db } = await import("../src/db");
+    const { plans } = await import("../src/db/schema/saas");
+
     const before = await db.select({ key: plans.key, features: plans.features }).from(plans);
     const beforeByKey = new Map(before.map((p) => [p.key, p.features]));
 
