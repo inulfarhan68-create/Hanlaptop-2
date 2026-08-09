@@ -71,6 +71,13 @@
       "when": 1786273364718,
       "tag": "0009_fine_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786287568598,
+      "tag": "0010_equal_cerise",
+      "breakpoints": true
     }
   ]
 }
