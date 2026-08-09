@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Server, Users, UserX, CalendarClock, CheckCircle2, AlertTriangle, Wallet, Activity, Receipt, Package, Wrench, Send } from "lucide-react";
+import { Server, Users, UserX, CalendarClock, CheckCircle2, AlertTriangle, Wallet, Activity, Receipt, Package, Wrench, Send, MessageCircle, Mail } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { waLink, mailLink } from "@/lib/tenant-outreach";
 
 type Tenant = {
     id: string;
@@ -22,6 +23,9 @@ type Tenant = {
     pendingRequest: boolean;
     /** Plan name an open upgrade ask named — null when the ask is a plain renewal. */
     pendingUpgradePlan: string | null;
+    ownerEmail: string | null;
+    ownerName: string | null;
+    phone: string | null;
 };
 
 type Summary = {
@@ -282,6 +286,35 @@ export default function PlatformClient({
                                         <span className="flex items-center gap-1" title="Order servis"><Wrench className="h-3.5 w-3.5" />{org.usage.serviceOrders}</span>
                                         {org.usage.transactions + org.usage.inventory + org.usage.serviceOrders === 0 && (
                                             <span className="text-amber-700 dark:text-amber-400">belum dipakai</span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* How to reach them. The console could say who was
+                                    waiting but not put you in touch, so answering a
+                                    request meant leaving the page to look the address
+                                    up. The links open WhatsApp or a mail client with
+                                    the message already drafted — no integration, no
+                                    credentials, and nothing is sent until you send it. */}
+                                {!org.isDemo && (org.phone || org.ownerEmail) && (
+                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                        {org.phone && (
+                                            <a
+                                                href={waLink(org)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/40 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100 dark:hover:bg-emerald-900/50"
+                                            >
+                                                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                                            </a>
+                                        )}
+                                        {org.ownerEmail && (
+                                            <a
+                                                href={mailLink(org)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+                                            >
+                                                <Mail className="h-3.5 w-3.5" /> {org.ownerEmail}
+                                            </a>
                                         )}
                                     </div>
                                 )}

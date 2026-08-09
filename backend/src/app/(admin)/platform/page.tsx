@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/auth-guard";
 import PlatformClient from "./client";
 import { db } from "@/db";
-import { organizations, stores, transactions, inventory, serviceOrders } from "@/db/schema";
+import { organizations, stores, transactions, inventory, serviceOrders, user } from "@/db/schema";
 import { subscriptions, plans, subscriptionEvents } from "@/db/schema/saas";
 import { subscriptionLapsed, daysUntilLapse } from "@/lib/subscription-status";
 import { pendingRequest } from "@/lib/subscription-requests";
@@ -23,7 +23,7 @@ export default async function PlatformPage() {
     // Everything the console needs, in one parallel batch. The usage counts are
     // grouped in SQL rather than fetched per tenant: a card list that costs one
     // query per shop stops being viable the moment there are more than a few.
-    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents, eventMarks, upgradeAsks] = await Promise.all([
+    const [orgs, subRows, assignablePlans, txRows, invRows, svcRows, recentEvents, eventMarks, upgradeAsks, contactRows] = await Promise.all([
         db.query.organizations.findMany({ with: { stores: true } }),
         db.select().from(subscriptions),
         db.select({ key: plans.key, name: plans.name, priceMonthly: plans.priceMonthly })
@@ -66,6 +66,13 @@ export default async function PlatformPage() {
             .where(eq(subscriptionEvents.type, "upgrade_requested"))
             .orderBy(desc(subscriptionEvents.createdAt))
             .limit(50),
+        // How to actually reach a tenant. The console could say who was waiting
+        // but not put you in touch with them, so acting on a renewal request
+        // meant leaving the page and digging the address out of the database.
+        // Owners only — a manager or cashier is not who you discuss billing with.
+        db.select({ organizationId: user.organizationId, email: user.email, name: user.name })
+            .from(user)
+            .where(eq(user.role, "owner")),
     ]);
 
     // A request counts as outstanding only if nothing was granted after it —
@@ -103,6 +110,12 @@ export default async function PlatformPage() {
     const svcByStore = sumByStore(svcRows);
     const planPrice = new Map(assignablePlans.map((p) => [p.key, p.priceMonthly]));
     const planName = new Map(assignablePlans.map((p) => [p.key, p.name]));
+    // First owner per org; a shop normally has exactly one.
+    const ownerByOrg = new Map<string, { email: string; name: string }>();
+    for (const c of contactRows) {
+        if (!c.organizationId || ownerByOrg.has(c.organizationId)) continue;
+        ownerByOrg.set(c.organizationId, { email: c.email, name: c.name });
+    }
 
     const subByOrg = new Map(subRows.map((s) => [s.organizationId, s]));
     const tenants = orgs.map((org) => {
@@ -141,6 +154,11 @@ export default async function PlatformPage() {
             pendingRequest: pendingRequest(marksFor(org.id)).pending,
             // The plan an open upgrade ask named, so the operator sees what to grant.
             pendingUpgradePlan: pendingUpgradeTo(org.id),
+            // Contact details, so a request can be answered from the card itself.
+            ownerEmail: ownerByOrg.get(org.id)?.email ?? null,
+            ownerName: ownerByOrg.get(org.id)?.name ?? null,
+            // The first branch that has one — the shop's public number.
+            phone: (org.stores ?? []).map((s) => s.phone).find((p) => p) ?? null,
         };
     });
 
