@@ -32,7 +32,11 @@ export function StoreSettingsTab() {
   const [address, setAddress] = useState("")
   const [phone, setPhone] = useState("")
   const [storeFooter, setStoreFooter] = useState("")
-  const [storeInstagram, setStoreInstagram] = useState("hanlaptop")
+  // Empty, not the flagship's handle. This field is SAVED: a shop that opened
+  // Settings to change its address and pressed Simpan would persist "hanlaptop"
+  // as its own Instagram, and it then appears on their flyer and public catalog
+  // footer as if it were theirs (CLAUDE.md rule 16).
+  const [storeInstagram, setStoreInstagram] = useState("")
   const [waTemplatePiutang, setWaTemplatePiutang] = useState("Halo Kak {nama}, sekadar mengingatkan bahwa ada tagihan dari *{toko}* untuk nota *{nota}* senilai *{sisa}* yang jatuh tempo pada *{tempo}*. Terima kasih.")
   const [waTemplateUmum, setWaTemplateUmum] = useState("Halo Kak {nama}, ini dengan *{toko}*. ")
   const [waTemplateNota, setWaTemplateNota] = useState("Halo Kak {nama}, berikut adalah detail transaksi Kakak di *{toko}* untuk nota *{nota}* senilai *{total}*.\n\nLihat Nota Online: {link}\n\nTerima kasih telah berbelanja di tempat kami!")
@@ -75,11 +79,11 @@ export function StoreSettingsTab() {
           
           // Parse footer and Instagram
           let rawFooter = data.storeFooter || ""
-          let parsedInstagram = "hanlaptop"
+          let parsedInstagram = ""
           if (rawFooter.includes("|||IG:")) {
             const parts = rawFooter.split("|||IG:")
             rawFooter = parts[0]
-            parsedInstagram = parts[1] || "hanlaptop"
+            parsedInstagram = parts[1] || ""
           }
           setStoreFooter(rawFooter)
           setStoreInstagram(parsedInstagram)
@@ -187,7 +191,11 @@ export function StoreSettingsTab() {
 
   const handleSaveInfo = async () => {
     try {
-      const combinedFooter = storeFooter + "|||IG:" + storeInstagram;
+      // Only append the IG segment when there is one — otherwise every save
+      // leaves a dangling "|||IG:" marker on the footer.
+      const combinedFooter = storeInstagram.trim()
+        ? storeFooter + "|||IG:" + storeInstagram.trim()
+        : storeFooter;
       const res = await apiFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
