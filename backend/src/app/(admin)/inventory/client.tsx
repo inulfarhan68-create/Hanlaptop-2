@@ -267,6 +267,7 @@ export function InventoryClient({ user }: { user: any }) {
   const markdownGate = useFeatureGate("markdown")
   const flyerGate = useFeatureGate("flyer")
   const importGate = useFeatureGate("bulkImport")
+  const selectedStoreId = typeof window !== "undefined" ? localStorage.getItem("selectedStoreId") || "all" : "all"
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
 
   // Image & Watermark state
@@ -1363,7 +1364,10 @@ export function InventoryClient({ user }: { user: any }) {
               <ImageIcon className="h-3.5 w-3.5 text-indigo-500" /> <span className="hidden sm:inline">Buat Flyer</span>
               {!flyerGate.allowed && <Lock className="h-3 w-3 opacity-70" />}
             </Button>
-            {canWrite && localStorage.getItem('selectedStoreId') !== 'all' && (
+            {/* `typeof window` guard: localStorage does not exist on the server, and
+                reading it bare threw during SSR — the whole Inventori page fell back
+                to a client-only render on every load. Same idiom as Sidebar. */}
+            {canWrite && selectedStoreId !== 'all' && (
               <>
                 <Button size="sm" variant="outline" className={`flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 ${importGate.allowed ? "" : "opacity-60"}`} onClick={() => importGate.allowed ? setIsImportOpen(true) : importGate.notifyLocked()} title="Impor data barang dari Excel atau Nota PDF AI">
                   <Upload className="h-3.5 w-3.5 text-primary" /> <span className="hidden sm:inline">Impor Massal</span>

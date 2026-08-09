@@ -30,7 +30,7 @@ export function FeatureLocked({ feature, compact }: { feature: FeatureKey; compa
                 {planName ? <>, tersedia mulai paket <strong className="text-foreground">{planName}</strong></> : null}.
             </p>
             <Link
-                href="/settings/billing"
+                href={`/settings/billing?feature=${feature}#paket`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground text-xs font-bold px-4 py-2 hover:opacity-90 transition-opacity"
             >
                 Lihat paket &amp; upgrade

@@ -30,7 +30,9 @@ export async function PlanUpsell({ feature }: { feature: FeatureKey }) {
                     {planName ? <>, dan tersedia mulai paket <strong className="text-foreground">{planName}</strong></> : null}.
                 </p>
                 <Link
-                    href="/settings/billing"
+                    // Carries what they were blocked on, so Billing can open on the
+                    // plan that answers it rather than four cards of quotas.
+                    href={`/settings/billing?feature=${feature}#paket`}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground text-sm font-bold px-5 py-2.5 hover:opacity-90 transition-opacity"
                 >
                     Lihat paket &amp; upgrade
