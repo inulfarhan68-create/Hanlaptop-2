@@ -11,7 +11,7 @@ export async function GET() {
     const authResult = await requireReportAccess();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("hr");
+    const featureCheck = await requireFeature("hr", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
 
-    const featureCheck = await requireFeature("hr");
+    const featureCheck = await requireFeature("hr", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {

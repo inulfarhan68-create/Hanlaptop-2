@@ -43,7 +43,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     const authResult = await requirePermission(Permissions.SERVICE_READ);
     if (authResult instanceof NextResponse) return authResult;
     
-    const featureCheck = await requireFeature("service");
+    const featureCheck = await requireFeature("service", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store
@@ -69,7 +69,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const authResult = await requirePermission(Permissions.SERVICE_UPDATE_STATUS);
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("service");
+    const featureCheck = await requireFeature("service", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     // 🔒 SaaS Tenant Isolation: Verify service order belongs to user's store

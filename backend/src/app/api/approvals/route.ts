@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("approvals");
+    const featureCheck = await requireFeature("approvals", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     // Only managers or owners can view approvals

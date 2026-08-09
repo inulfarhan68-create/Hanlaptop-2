@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("consignment");
+    const featureCheck = await requireFeature("consignment", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     try {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
 
-    const featureCheck = await requireFeature("consignment");
+    const featureCheck = await requireFeature("consignment", authResult);
     if (featureCheck instanceof NextResponse) return featureCheck;
 
     // "all" is a sentinel, not a store id; this row has a foreign key to

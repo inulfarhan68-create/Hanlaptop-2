@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { warrantyClaims, activityLogs, transactions, customers } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { warrantyClaimSchema } from "@/lib/validators";
 import { requireSpecificStore } from "@/lib/require-store";
 
@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("service", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     try {
         const data = await db.query.warrantyClaims.findMany({
@@ -33,6 +36,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("service", authResult);
+    if (planGate instanceof NextResponse) return planGate;
     
     const writeAccess = await requireWriteAccess(authResult);
     if (writeAccess instanceof NextResponse) return writeAccess;

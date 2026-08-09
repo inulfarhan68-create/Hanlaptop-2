@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { deviceRefurbishments, devicePassports, deviceLifecycleLogs, inventory, journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
+import { requireAuth, requireOwnerOrManager, storeScope, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { ACCOUNT_CODES } from "@/constants/accounting";
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +29,9 @@ export async function POST(
     // Require owner or manager role for refurbishment records
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("devicePassport", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;
@@ -209,6 +212,9 @@ export async function GET(
 ) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("devicePassport", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     try {
         const { id } = await context.params;

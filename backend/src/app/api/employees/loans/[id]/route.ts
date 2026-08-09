@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { employeeLoans, activityLogs } from '@/db/schema';
-import { requireOwnerOrManager, storeScope, requireWritable } from "@/lib/auth-guard";
+import { requireOwnerOrManager, storeScope, requireWritable, requireFeature } from "@/lib/auth-guard";
 import { eq, and } from 'drizzle-orm';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const { id } = await context.params;
 
@@ -35,6 +38,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
     const authResult = await requireOwnerOrManager();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("hr", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const demoBlock = requireWritable(authResult);
     if (demoBlock) return demoBlock;

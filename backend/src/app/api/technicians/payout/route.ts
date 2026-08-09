@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { technicians, technicianCommissions, transactions, journalEntries, cashierShifts, storeSettings } from '@/db/schema';
-import { requireAuth, requireWriteAccess, storeScope } from "@/lib/auth-guard";
+import { requireAuth, requireWriteAccess, storeScope, requireFeature } from "@/lib/auth-guard";
 import { eq, and, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    // Plan gate: the collection route enforces this, the item route did not.
+    const planGate = await requireFeature("technicianCommission", authResult);
+    if (planGate instanceof NextResponse) return planGate;
 
     const writeAccessError = requireWriteAccess(authResult);
     if (writeAccessError) return writeAccessError;
