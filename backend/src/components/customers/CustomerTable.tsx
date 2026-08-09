@@ -1,4 +1,6 @@
 import { Phone, MapPin, Star, MessageCircle, Edit2, Trash2, UserPlus, Users } from "lucide-react"
+import { cachedIdentity, fillTemplate } from "@/lib/shop-identity"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,12 +38,17 @@ export function CustomerTable({
     let template = localStorage.getItem("waTemplateUmum");
     if (!template) template = defaultTemplate;
 
-    const storeName = localStorage.getItem("storeName") || "HanLaptop";
+    // The shop wrote this sentence around {toko}; an empty substitution reads
+    // "ini dengan **" and a literal would name someone else's shop. Refuse.
+    const { text, missing } = fillTemplate(template, {
+      nama: customer.name || 'Pelanggan',
+      toko: cachedIdentity("storeName"),
+    });
+    if (missing.length > 0) {
+      toast.error("Nama toko belum termuat. Coba lagi sebentar lagi.");
+      return;
+    }
 
-    let text = template
-      .replace(/{nama}/g, customer.name || 'Pelanggan')
-      .replace(/{toko}/g, storeName);
-      
     const encodedText = encodeURIComponent(text)
     const phoneNum = customer.phone || ''
     let waNumber = phoneNum.replace(/\D/g, '')

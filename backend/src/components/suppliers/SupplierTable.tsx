@@ -1,6 +1,7 @@
 "use client";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cachedIdentity, clause } from "@/lib/shop-identity"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Truck, MessageCircle, MapPin, Phone, Mail, Edit2, Trash2, PlusCircle } from "lucide-react"
@@ -34,9 +35,10 @@ export function SupplierTable({
   }
 
   const handleWA = (supplier: any) => {
-    // In nextjs app, we can use localStorage for storeName safely since it's client-side user click event
-    const storeName = typeof window !== 'undefined' ? localStorage.getItem("storeName") || "HanLaptop" : "HanLaptop";
-    const text = `Halo Kak ${supplier.name}, kami dari *${storeName}*. Ingin berkoordinasi mengenai pasokan barang. Terima kasih.`;
+    // localStorage is safe here: this only runs from a click, on the client.
+    // Unknown name drops the clause rather than introducing us as another shop.
+    const storeName = cachedIdentity("storeName");
+    const text = `Halo Kak ${supplier.name}${clause(", kami dari *", storeName, "*")}. Ingin berkoordinasi mengenai pasokan barang. Terima kasih.`;
     const encodedText = encodeURIComponent(text)
     const phoneNum = supplier.phone || ''
     let waNumber = phoneNum.replace(/\D/g, '')

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { pickIdentity, clause } from "@/lib/shop-identity";
 import { getPublicService } from "@/lib/public/services";
 import NotaServisClient from "./client";
 import type { Metadata } from "next";
@@ -22,12 +23,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { serviceOrder, storeSettings } = result.data;
-  const storeName = storeSettings.storeName || "HanLaptop";
+  // See nota/[id]: unknown means omit, never substitute a brand.
+  const storeName = pickIdentity(storeSettings.storeName);
   const serviceNo = serviceOrder.id.substring(0, 8).toUpperCase();
   const deviceName = serviceOrder.deviceName || "Laptop";
   const status = serviceOrder.status || "Diterima";
-  const title = `Nota Servis #${serviceNo} | ${storeName}`;
-  const description = `Tanda terima servis ${deviceName} — Status: ${status} — ${storeName}`;
+  const title = `Nota Servis #${serviceNo}${clause(" | ", storeName)}`;
+  const description = `Tanda terima servis ${deviceName} — Status: ${status}${clause(" — ", storeName)}`;
 
   return {
     title,
@@ -36,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "website",
-      siteName: storeName,
+      siteName: storeName ?? undefined,
     },
     twitter: {
       card: "summary",

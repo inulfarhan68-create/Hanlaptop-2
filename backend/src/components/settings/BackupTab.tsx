@@ -10,7 +10,9 @@ import { AlertCircle, Database, Download, Shield, Upload, FileText } from "lucid
 import { toast } from "sonner"
 
 export function BackupTab() {
-  const [storeName, setStoreName] = useState("HanLaptop")
+  // Empty until settings answer. It is shown in a sentence naming which branch
+  // is about to be wiped, so the flagship's name here was actively misleading.
+  const [storeName, setStoreName] = useState("")
   const [uploadedBackupFile, setUploadedBackupFile] = useState<any | null>(null)
   const [restoreLoading, setRestoreLoading] = useState(false)
   const storeId = localStorage.getItem('selectedStoreId') || 'all'
@@ -20,7 +22,7 @@ export function BackupTab() {
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setStoreName(data.storeName || "HanLaptop")
+          setStoreName(data.storeName || "")
         }
       })
       .catch(() => {})
@@ -46,7 +48,9 @@ export function BackupTab() {
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", jsonString);
-      downloadAnchor.setAttribute("download", `cadangan_hanlaptop_${storeName.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`);
+      // Filename only, but "hanlaptop_" was baked in regardless of whose backup
+      // it was; a shop's own name (or a neutral word) is the honest label.
+      downloadAnchor.setAttribute("download", `cadangan_${(storeName || 'toko').toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();

@@ -2994,11 +2994,15 @@ export default function LandingPage() {
             </ul>
           </div>
 
+          {/* The whole block goes when this shop has no handle — it used to fall
+              back to the flagship's, pointing another shop's visitors at a
+              competitor's profile (rule 16). */}
+          {storeInfo?.store?.slug && (
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Ikuti Sosial Media</h4>
             <div className="flex gap-3">
-              <a 
-                href={`https://instagram.com/${storeInfo?.store?.slug || "hanlaptop"}`} 
+              <a
+                href={`https://instagram.com/${storeInfo.store.slug}`}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="h-9 w-9 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-350 transition-all cursor-pointer shadow-xs"
@@ -3007,6 +3011,7 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
+          )}
 
         </div>
         

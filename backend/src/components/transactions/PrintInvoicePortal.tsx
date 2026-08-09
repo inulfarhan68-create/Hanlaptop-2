@@ -4,6 +4,7 @@ import { assetUrl } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import QRCode from "qrcode"
+import { pickIdentity, cachedIdentity } from "@/lib/shop-identity"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value)
@@ -17,6 +18,13 @@ interface PrintInvoicePortalProps {
 
 export function PrintInvoicePortal({ printData, storeSettings, onClose }: PrintInvoicePortalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("")
+
+  // Resolved once, in order of authority: the transaction's own store row, then
+  // settings, then the browser cache — and null when none of them knows. Never
+  // a literal, because this is a document the customer keeps.
+  const shopName = pickIdentity(printData?.store?.name, storeSettings?.storeName, cachedIdentity("storeName"))
+  const shopAddress = pickIdentity(printData?.store?.address, storeSettings?.storeAddress, cachedIdentity("storeAddress"))
+  const shopPhone = pickIdentity(printData?.store?.phone, storeSettings?.storePhone, cachedIdentity("storePhone"))
 
   useEffect(() => {
     if (printData?.id) {
@@ -73,9 +81,14 @@ export function PrintInvoicePortal({ printData, storeSettings, onClose }: PrintI
                 <img src={assetUrl(printData.store?.logo || storeSettings?.storeLogo || localStorage.getItem("storeLogo") || "/logo-print.png")} alt="Logo" className="w-full h-auto object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
               </div>
               <div className="flex flex-col pt-1 sm:pt-2">
-                <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase">{printData.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop"}</h1>
-                <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">{printData.store?.address || storeSettings?.storeAddress || localStorage.getItem("storeAddress") || "Jl. Komputer Raya No.123"}</p>
-                <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {printData.store?.phone || storeSettings?.storePhone || localStorage.getItem("storePhone") || "0812-3456-7890"}</p>
+                {/* Each line appears only if the shop has actually set it. These
+                    used to fall back to the flagship's name, address and phone, so
+                    an invoice printed before settings loaded handed the customer
+                    another shop's contact details (rule 16). A missing line is the
+                    honest rendering of "not set". */}
+                {shopName && <h1 className="text-[18px] sm:text-[22px] font-black tracking-tight text-slate-900 uppercase">{shopName}</h1>}
+                {shopAddress && <p className="text-[12px] text-slate-600 mt-1 max-w-[280px] leading-relaxed">{shopAddress}</p>}
+                {shopPhone && <p className="text-[12px] text-slate-600 font-medium mt-0.5">Telp: {shopPhone}</p>}
               </div>
             </div>
             <div className="text-right">
@@ -277,7 +290,7 @@ export function PrintInvoicePortal({ printData, storeSettings, onClose }: PrintI
                 <img src={assetUrl(printData.store?.signature || storeSettings?.storeSignature || localStorage.getItem('storeSignature') || "/ttd.png")} alt="" className="max-w-full max-h-full object-contain opacity-80 mix-blend-multiply" onError={(e) => e.currentTarget.style.display = 'none'} />
               </div>
               <div className="border-b border-slate-400 w-full mb-1.5 mt-auto relative z-10"></div>
-              <p className="text-[12px] font-bold text-slate-900 relative z-10">{printData.store?.name || storeSettings?.storeName || localStorage.getItem("storeName") || "HanLaptop"}</p>
+              <p className="text-[12px] font-bold text-slate-900 relative z-10">{shopName ?? ""}</p>
             </div>
           </div>
 

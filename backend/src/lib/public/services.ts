@@ -85,9 +85,14 @@ export const getPublicService = cache(async (id: string): Promise<
             storeBanks: parsedBanks,
           }
         : {
-            storeName: storeInfo?.name || "HanLaptop",
-            storeAddress: storeInfo?.address || "Jl. Komputer Raya No.123",
-            storePhone: storeInfo?.phone || "0812-3456-7890",
+            // Blank, never the flagship's details. This object is rendered on the
+            // public service receipt a shop sends its own customer — inventing an
+            // address here hands that customer another shop's contact details as
+            // if they were the one they left their laptop with (rule 16). The
+            // client omits any line that is empty.
+            storeName: storeInfo?.name || "",
+            storeAddress: storeInfo?.address || "",
+            storePhone: storeInfo?.phone || "",
             storeLogo: null,
             storeFooter:
               "Terima kasih atas kunjungan Anda.\nBarang yang sudah dibeli\ntidak dapat ditukar/dikembalikan.",
