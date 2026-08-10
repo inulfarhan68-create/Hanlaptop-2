@@ -28,7 +28,9 @@ describe("getAccountCodeFromName", () => {
         expect(getAccountCodeFromName("QRIS")).toBe(ACCOUNT_CODES.QRIS);
         expect(getAccountCodeFromName("Pendapatan Servis")).toBe(ACCOUNT_CODES.PENDAPATAN_SERVIS);
         expect(getAccountCodeFromName("Utang Konsinyasi")).toBe(ACCOUNT_CODES.HUTANG_KONSINYASI);
-        expect(getAccountCodeFromName("Pendapatan Komisi")).toBe(ACCOUNT_CODES.PENDAPATAN_LAIN_LAIN);
+        // Was asserted as PENDAPATAN_LAIN_LAIN (4210 — a code with no account).
+        // Komisi has its own account in the chart, 4300.
+        expect(getAccountCodeFromName("Pendapatan Komisi")).toBe("4300");
     });
 
     it("is case-insensitive via the lowercase alias entries", () => {
