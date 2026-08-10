@@ -3,6 +3,7 @@ import { chartOfAccounts, journalEntries } from "@/db/schema";
 import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 import { storeScope, type AuthContext } from "@/lib/auth-guard";
 import { ACCOUNT_CODES } from "../constants/accounting";
+import { resolveAccountCode } from "./account-code-lookup";
 
 /**
  * The tenant bound every function here needs. Taking the auth context rather
@@ -199,27 +200,10 @@ const ACCOUNT_NAME_MAPPINGS: Record<string, string> = {
  * Get account code from account name
  */
 export function getAccountCodeFromName(accountName: string | null): string | null {
-    if (!accountName) return null;
-
-    // Direct match
-    if (ACCOUNT_NAME_MAPPINGS[accountName]) {
-        return ACCOUNT_NAME_MAPPINGS[accountName];
-    }
-
-    // Partial match (contains)
-    const lowerName = accountName.toLowerCase();
-    for (const [key, code] of Object.entries(ACCOUNT_NAME_MAPPINGS)) {
-        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
-            return code;
-        }
-    }
-
-    // Fallback for custom opex categories: if it contains "beban" or "biaya", map to "5600" (Beban Lainnya)
-    if (lowerName.startsWith("beban") || lowerName.startsWith("biaya") || lowerName.includes("beban ") || lowerName.includes("biaya ")) {
-        return "5600";
-    }
-
-    return null;
+    // Delegates to the lookup derived from the chart of accounts itself. The
+    // table that used to live here was maintained by hand alongside the chart
+    // and had drifted in 35 places — see account-code-lookup for what that cost.
+    return resolveAccountCode(accountName);
 }
 
 /**
